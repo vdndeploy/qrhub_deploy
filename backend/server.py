@@ -399,7 +399,7 @@ async def login(req: LoginRequest, request: Request, response: Response):
     user = await db.users.find_one({'email': req.email.lower()})
     if not user or not verify_password(req.password, user['password_hash']):
         await _record_login_attempt('admin', req.email, request, success=False)
-        raise HTTPException(status_code=401, detail='Invalid credentials')
+        raise HTTPException(status_code=401, detail='Credenziali non valide')
     await _record_login_attempt('admin', req.email, request, success=True)
 
     token = create_access_token(str(user['_id']), user['email'])
@@ -1543,7 +1543,7 @@ async def vendor_login(req: LoginRequest, request: Request, response: Response):
     vendor = await db.vendors.find_one({'email': req.email.lower()}, {'_id': 0})
     if not vendor or 'password_hash' not in vendor or not verify_password(req.password, vendor['password_hash']):
         await _record_login_attempt('vendor', req.email, request, success=False)
-        raise HTTPException(status_code=401, detail='Invalid credentials')
+        raise HTTPException(status_code=401, detail='Credenziali non valide')
     await _record_login_attempt('vendor', req.email, request, success=True)
 
     token = create_vendor_token(vendor['id'], vendor['email'])

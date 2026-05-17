@@ -1,73 +1,106 @@
-# PRD — QRHub Multi-tenant Platform
+# QRHub – PRD (Product Requirements Document)
 
-## Original Problem Statement
-Clonare https://github.com/vdndeploy/qr1.1, configurare MongoDB Atlas, Cloudinary,
-Vercel e Fly.io, e verificare il funzionamento di Cloudinary che era bloccato
-sul fallback locale (CLOUDINARY_URL non letto correttamente per ordine import).
+> Repo: https://github.com/vdndeploy/qrhub_deploy  
+> Produzione: https://qrhub-app.vercel.app (frontend) + https://qrhub.fly.dev (backend)  
+> Cluster: MongoDB Atlas `clustervdn.dp4u4fo.mongodb.net` / DB `qrhub_vendor_db`
 
-## Architecture
-- **Frontend** (React 19 + CRACO + Tailwind + shadcn/ui) → **Vercel**: https://qrhub-deploy.vercel.app
-- **Backend** (FastAPI + Motor) → **Fly.io app `qrhub`** (region `fra`): https://qrhub.fly.dev
-- **DB** → **MongoDB Atlas** `clustervdn.dp4u4fo.mongodb.net` (DB `windtre_vendor_db`)
-- **Storage media** → **Cloudinary** (cloud `doqp3gr5e`)
+## Problema originale dell'utente
 
-## What's been implemented (2026-05-17)
-- ✅ Codice clonato da `vdndeploy/qr1.1` in /app
-- ✅ Backend `.env` configurato con MongoDB Atlas + Cloudinary + JWT + admin seed
-- ✅ Cloudinary OK — `CLOUDINARY_URL` parsato manualmente dopo `load_dotenv` (fix definitivo)
-- ✅ Upload via `/api/upload` ritorna URL Cloudinary reale
-- ✅ Servizi locali avviati via supervisor (backend:8001 + frontend:3000)
-- ✅ Fix ESLint `react-hooks/exhaustive-deps` in `VendorLanding.js` per build Vercel
-- ✅ Aggiunti `Dockerfile`, `fly.toml`, `.dockerignore` alla ROOT del repo
-- ✅ Rimosso `emergentintegrations==0.1.0` (interno Emergent, non su PyPI)
-- ✅ Deploy Fly.io completo via API token: app `qrhub` creata, volume `app_uploads` 1GB, secrets impostati, immagine buildata e deployata via remote-only build
-- ✅ Deploy Vercel: env `CI=false` + `REACT_APP_BACKEND_URL=https://qrhub.fly.dev`
-- ✅ Cookie cross-site: aggiunto `COOKIE_SAMESITE=none` + `COOKIE_SECURE=true` (env-driven, default lax/false per locale)
-- ✅ Login superadmin verificato via browser su https://qrhub-deploy.vercel.app
-- ✅ Dashboard organizzazioni renderizzata correttamente (seed iniziale OK)
+> "continuiamo a fissare questo progetto è già in produzione su vercel, fly.io, cloudinary e mongodb con utenti registrati"
 
-## Features in-place (heredità dal repo)
-- Pannello superadmin multi-tenant (orgs, users, branding)
-- Pannello org_admin: stores, vendors, QR generator, posts carousel
-- Vendor portal `/v/:vendorId` (landing pubblica + analytics)
-- Analytics dettagliate (geo-IP, device, hourly, export PDF)
-- Pannello Deploy integrato (apply secrets, redeploy, uptime monitor)
-- Rotazione credenziali da UI
-- Gestione domini custom Aruba (via Vercel API)
+Il progetto **QRHub** è una piattaforma multi-tenant open source (MIT) che permette ai venditori di generare landing page con QR code, gestire post a carosello, analytics, branding per cliente e deploy integrato.
 
-## Backlog (P0/P1)
-- P1: Implementare TUTTI gli endpoint deploy nel pannello superadmin (apply-secrets dovrebbe ora funzionare con il token salvato in DB)
-- P1: Aggiornare CORS_ORIGINS e FRONTEND_URL via "Apply Secrets" del pannello superadmin (attualmente già pushati via flyctl CLI)
-- P2: Test automatici end-to-end (testing agent) sui flussi multi-tenant
-- P2: Configurare DNS Aruba per sottodomini per cliente (UI già pronta)
+## Architettura
 
-## Note
-- **Fix Cloudinary**: il SDK fa auto-detect di `CLOUDINARY_URL` al momento di `import cloudinary` (riga 29), che avviene PRIMA di `load_dotenv` (riga 34). Soluzione: parsare manualmente `CLOUDINARY_URL` con `urlparse` dopo `load_dotenv` e chiamare `cloudinary.config()` esplicitamente.
-- **Secrets Fly.io produzione**: tutti pushati via `flyctl secrets set` (MONGO_URL, DB_NAME, JWT_SECRET, ADMIN_EMAIL/PASSWORD, SUPERADMIN_EMAIL/PASSWORD, FRONTEND_URL, CORS_ORIGINS, CLOUDINARY_*, COOKIE_SAMESITE, COOKIE_SECURE).
+- **Backend**: FastAPI + Motor (Mongo async) — singolo file `backend/server.py`
+- **Frontend**: React 19 + CRACO + Tailwind + shadcn/ui — `frontend/`
+- **DB**: MongoDB Atlas (cluster `clustervdn`)
+- **Storage media**: Cloudinary `doqp3gr5e`
+- **Hosting**: Fly.io (app `qrhub`, region `fra`) + Vercel (project `prj_wu9KqzoRLxTYRy6Lij9msfOg3ko1`)
+- **Dominio prod frontend**: https://qrhub-app.vercel.app
 
-## 2026-05-17 (later) — Bug fix + nuova feature
-- ✅ **Fix 502 redeploy Fly.io**: `/api/deploy/fly/redeploy` ora rileva la piattaforma `machines` (nuova) vs `nomad` (legacy) e usa Machines REST API per restart (applica secrets staged senza rebuilder)
-- ✅ **Nuovo endpoint** `/api/deploy/fly/update-image`: aggiorna ogni machine all'ultima image pushata su `registry.fly.io` (utile dopo `fly deploy` da CI/CD o per propagare secrets+immagine)
-- ✅ **Nuovo bottone UI** "Force update image" nel tab Fly.io del pannello SuperAdmin
-- ✅ Deploy Fly.io aggiornato (nuova machine deployment `01KRTN2M1YWCXAXJKAJWQN55KN`)
+## User personas
 
-## 2026-05-17 (cont.) — Reset password utenti organizzazioni
-- ✅ **Nuovo endpoint** `PUT /api/organizations/users/{user_email}/password` (super admin only)
-  - Valida lunghezza ≥ 6 caratteri
-  - Blocca reset di super_admin (HTTP 403, suggerisce "Ruota credenziali")
-  - Salva metadati `password_reset_at` + `password_reset_by` nel documento user
-- ✅ **UI**: bottone icona "Cambia password" (KeyRound indigo) accanto a "Elimina" per ogni utente esistente nel dialog "Utenti di {org}"
-- ✅ Dialog di conferma con input password (min 6), suggerimento di comunicare la password via canale sicuro
-- ✅ Deploy Fly.io aggiornato — endpoint attivo su `https://qrhub.fly.dev`
+1. **Super Admin** (creatore piattaforma) — gestisce organizzazioni tenant, deploy, secrets
+2. **Org Admin** (cliente azienda) — gestisce i suoi negozi, venditori, post, branding, dati privacy
+3. **Vendor** (venditore) — ha un proprio QR + dashboard read-only delle metriche del proprio QR
+4. **Utente finale** (visitatore landing) — scansiona QR e arriva sulla landing del venditore
 
-## 2026-05-17 (cont.) — Foto profilo venditore + fix cookie cross-site
-- ✅ **Fix cookie cross-site venditore**: `set_cookie('vendor_token')` ora env-driven (`COOKIE_SAMESITE=none, COOKIE_SECURE=true` in prod) → vendor login funziona da `qrhub-deploy.vercel.app` → `qrhub.fly.dev`
-- ✅ **Foto profilo venditore (stile Instagram)**:
-  - Backend: `VendorProfileUpdate` model con `profile_image_url` + `profile_image_enabled`
-  - `PUT /vendor/profile` accetta i nuovi campi
-  - `GET /vendors/{id}` pubblico espone `profile_image_url` SOLO se toggle ON (sicurezza/privacy)
-- ✅ **UI VendorDashboard**: card "Foto profilo" con avatar circolare preview, upload Cloudinary, Switch "Pubblica/Nascosta", bottone X per rimuovere
-- ✅ **UI VendorLanding**: avatar circolare con `conic-gradient` (anello arancione stile IG) sopra l'hero title, responsive (116px mobile → 140px desktop)
-- ✅ **Fix bug `update_config`**: `model_dump(exclude_unset=True)` per evitare di azzerare campi non passati
-- ✅ **Recupero credenziali da oplog Atlas**: implementato script che recupera token Vercel/Fly.io dall'oplog MongoDB se persi
-- ✅ **Fix `/api/vendors`**: ora include `email` + `has_credentials: bool` → la UI mostra correttamente lo stato credenziali
+## Core requirements (statici)
+
+- Multi-tenant con `organization_id` su ogni record
+- Landing page pubbliche `/v/:vendorId` con branding per-org
+- Cookie tecnici only (no profiling)
+- GDPR-first (no PII utenti finali, analytics aggregati)
+- Hosting free-tier sostenibile (≤256MB RAM, 512MB DB, 25 credits Cloudinary/mese)
+- Open source MIT, no-profit
+
+## What's been implemented (cronologia in questo workspace)
+
+### 2026-05-17 — sessione di hardening
+
+| Data | Modifica | Stato |
+|---|---|---|
+| 2026-05-17 | Clone repo `vdndeploy/qrhub_deploy` in `/app` + install deps + supervisor up | ✅ |
+| 2026-05-17 | Connessione locale al DB di produzione (`qrhub_vendor_db`) | ✅ |
+| 2026-05-17 | **Rinomina DB**: `windtre_vendor_db` → `qrhub_vendor_db` (copy + Fly secret update + verify + drop old) | ✅ deployato |
+| 2026-05-17 | **Bug fix `/api/deploy/fly/redeploy`**: era `/restart` → `POST /machines/{id}` per applicare secret staged | ✅ deployato v12 |
+| 2026-05-17 | **GDPR Sprint 1 (CRITICAL)** | ✅ deployato v13 |
+| 2026-05-17 | - C1: IP raw in `geo_cache` → `subnet` anonimizzata (`/24` IPv4, `/48` IPv6); pulizia 3 IP legacy; testo Legal.js allineato | ✅ |
+| 2026-05-17 | - C2: tenant scoping su `/api/analytics/export/pdf` (era bypass-abile cross-tenant) | ✅ |
+| 2026-05-17 | **GDPR Sprint 2 (HIGH)** | ✅ deployato v14 |
+| 2026-05-17 | - H1: rate-limit login (5 tentativi / 15 min) su `/auth/login` e `/vendor-auth/login` | ✅ |
+| 2026-05-17 | - H4+H7: nuovo endpoint `/api/vendors/{id}/privacy-info` + pagina pubblica `/v/:vendorId/privacy` con titolare, sub-processor, basi giuridiche, diritti GDPR | ✅ |
+| 2026-05-17 | - H5: cookie banner sempre visibile sulla landing + link "Informativa privacy" obbligatorio (default verso pagina auto-generata se org non ha URL custom) + link footer permanente | ✅ |
+| 2026-05-17 | - Campi privacy nel form `OrgSettings`: denominazione legale, P.IVA, indirizzo, email privacy, URL policy custom | ✅ |
+| 2026-05-17 | - I18n: messaggi login da "Invalid credentials" → "Credenziali non valide" | ✅ |
+
+## Prioritized backlog
+
+### P0 — DA FARE PRIMA DI DICHIARARE PRODUCTION GDPR-READY
+
+| ID | Task | Effort |
+|---|---|---|
+| H2 | Endpoint GDPR per utenti: `GET /api/me/data-export`, `DELETE /api/me`, `POST /api/me/revoke-all-sessions` | ~3h |
+| H3 | Session revoke server-side (token_version su user) | ~1h |
+| H6 | DPA template + accept flow per org_admin al primo login | ~2h |
+
+### P1 — MEDIUM (entro 1 mese)
+
+| ID | Task | Effort |
+|---|---|---|
+| M1 | Cloudinary folder tenant-prefixed (`org_{id}/uploads`, `org_{id}/posts`) | ~1h |
+| M2 | Security headers middleware: HSTS, X-Frame-Options=DENY, X-Content-Type-Options=nosniff, Referrer-Policy, CSP base | ~1h |
+| M3 | Retention policy analytics: TTL index su `timestamp` (365 giorni) o cron mensile | ~1h |
+| M4 | Enforcement `JWT_SECRET` ≥32 byte all'avvio | ~15min |
+| M5 | Sezione "Trasferimenti extra-UE e SCC" su Legal.js + region Atlas/Cloudinary reali | ~30min |
+| M6 | `max_length` su tutti i Pydantic model + escape HTML/DOMPurify sui campi user-content | ~2h |
+| M7 | CSRF token su mutating endpoints (o switch a `samesite=strict`) | ~2h |
+| M8 | Redaction email nei log (helper `_log_user`) | ~30min |
+
+### P2 — LOW / nice-to-have
+
+| ID | Task | Effort |
+|---|---|---|
+| PWA | Service worker + manifest per landing (richiesta utente, in coda) | ~2-3h |
+| L1 | Fix link GitHub in Legal.js → repo reale | ~5min |
+| L2 | Versioning consent cookie (date + version) | ~30min |
+| L3 | Tabella `consent_records` server-side | ~1h |
+| L4 | Granularità UA ridotta a family-only | ~15min |
+| L5 | Privacy scrub schedulato giornaliero | ~30min |
+| Code | Split `server.py` (2800+ righe) in router modulari (auth, vendors, organizations, analytics, gdpr, deploy) | ~4h |
+| RL | Rate limit: split (email+ip) vs (ip-only) per evitare lockout su NAT | ~30min |
+| RL | TTL index su `login_attempts.ts` invece di cleanup opportunistico | ~15min |
+
+## Next action items (proposti per la prossima sessione)
+
+1. **Sprint 3 GDPR**: H2 (endpoint GDPR utente) + H3 (session revoke) + H6 (DPA flow) — completa la copertura "diritti dell'interessato"
+2. **Sprint 4 GDPR**: tutti i medium M1-M8 in un batch (refactor sicurezza)
+3. **PWA**: service worker per landing offline-first (richiesta originale dell'utente, in coda)
+
+## Note tecniche operative
+
+- Locale Emergent connesso al DB di produzione. Ogni modifica dati impatta produzione → cautela
+- `ADMIN_EMAIL` in `/app/backend/.env` è impostato a `local-dev@qrhub.local` per evitare che il seed sovrascriva la password reale di `admin@example.com`
+- Fly secrets in sync: deploy via `flyctl deploy --remote-only` dal pod (token già in `db.config.flyio_api_key`)
+- Vercel deploy: gestito direttamente dall'utente via "Save to GitHub" → push automatico

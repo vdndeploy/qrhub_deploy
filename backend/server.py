@@ -19,6 +19,7 @@ from io import BytesIO
 import aiofiles
 import uuid
 import httpx
+import ipaddress
 from user_agents import parse as parse_ua
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
@@ -1471,23 +1472,48 @@ async def track_event(event: AnalyticsEvent, request: Request):
     return {'message': 'Event tracked'}
 
 
+def _ip_to_subnet(ip: str) -> str:
+    """Anonymize an IP address to a subnet network string so it can be used as a
+    cache key without being personal data. IPv4 → /24, IPv6 → /48.
+    Returns '' if the input is not a valid IP."""
+    try:
+        addr = ipaddress.ip_address(ip)
+    except ValueError:
+        return ''
+    if isinstance(addr, ipaddress.IPv4Address):
+        return str(ipaddress.ip_network(f'{ip}/24', strict=False))
+    return str(ipaddress.ip_network(f'{ip}/48', strict=False))
+
+
 async def _geo_lookup(ip: str) -> dict:
-    """Lookup IP geolocation with caching. Free tier ipapi.co (1000/day, no key)."""
+    """Lookup IP geolocation with caching, GDPR-compliant.
+
+    The full IP is used only transiently to call the geocoding provider (ipapi.co),
+    then immediately discarded. The cache key is the IP truncated to a subnet
+    (IPv4 /24, IPv6 /48) so no individual IP is ever persisted. Multiple users in
+    the same subnet share the same cache row, which keeps geolocation precision
+    at the city level (the only level we need) while making the stored value
+    NOT personal data per art. 4(1) GDPR.
+    """
     if not ip or ip in ('127.0.0.1', 'localhost', '::1') or ip.startswith('192.168.') or ip.startswith('10.'):
         return {'city': '', 'region': '', 'country': '', 'lat': None, 'lon': None}
-    
-    cached = await db.geo_cache.find_one({'ip': ip}, {'_id': 0})
+
+    subnet = _ip_to_subnet(ip)
+    if not subnet:
+        return {'city': '', 'region': '', 'country': '', 'lat': None, 'lon': None}
+
+    cached = await db.geo_cache.find_one({'subnet': subnet}, {'_id': 0})
     if cached:
         return {'city': cached.get('city', ''), 'region': cached.get('region', ''),
                 'country': cached.get('country', ''), 'lat': cached.get('lat'), 'lon': cached.get('lon')}
-    
+
     try:
         async with httpx.AsyncClient(timeout=3.0) as c:
             r = await c.get(f'https://ipapi.co/{ip}/json/')
             if r.status_code == 200:
                 d = r.json()
                 geo = {
-                    'ip': ip,
+                    'subnet': subnet,
                     'city': d.get('city', '') or '',
                     'region': d.get('region', '') or '',
                     'country': d.get('country_name', '') or '',
@@ -1495,7 +1521,7 @@ async def _geo_lookup(ip: str) -> dict:
                     'lon': d.get('longitude'),
                     'cached_at': datetime.now(timezone.utc).isoformat()
                 }
-                await db.geo_cache.update_one({'ip': ip}, {'$set': geo}, upsert=True)
+                await db.geo_cache.update_one({'subnet': subnet}, {'$set': geo}, upsert=True)
                 return {k: geo[k] for k in ('city', 'region', 'country', 'lat', 'lon')}
     except Exception as e:
         logger.warning(f'Geo lookup failed for {ip}: {e}')
@@ -1738,7 +1764,22 @@ def _generate_pdf_report(data: dict, title: str, subtitle: str = '') -> bytes:
 
 @api_router.get('/analytics/export/pdf')
 async def export_analytics_pdf(period: str = '30d', vendor_id: Optional[str] = None, user: dict = Depends(get_current_user)):
-    qf = {'vendor_id': vendor_id} if vendor_id else {}
+    # Tenant scoping (defense-in-depth): a non-super-admin must NOT be able to
+    # request analytics of a vendor outside their own organization, nor an
+    # unscoped "all vendors" report. Mirrors the logic of /analytics/detailed.
+    if not _is_super_admin(user):
+        org_vendor_ids = [v['id'] for v in await db.vendors.find(
+            {'organization_id': user.get('organization_id')}, {'_id': 0, 'id': 1}
+        ).to_list(10000)]
+        if vendor_id and vendor_id not in org_vendor_ids:
+            raise HTTPException(status_code=404, detail='Vendor non trovato')
+        if vendor_id:
+            qf = {'vendor_id': vendor_id}
+        else:
+            qf = {'vendor_id': {'$in': org_vendor_ids}}
+    else:
+        qf = {'vendor_id': vendor_id} if vendor_id else {}
+
     data = await _build_detailed_analytics(qf, period)
     
     title = 'Report Analytics'
@@ -2601,8 +2642,12 @@ async def seed_admin():
         )
         if scrub.modified_count:
             logger.info(f'Privacy: scrubbed IP/UA from {scrub.modified_count} legacy analytics events')
-        # Drop geo_cache (no longer used for per-event lookup, only kept transiently)
-        # Keep collection but periodically rotate old entries
+        # geo_cache GDPR migration: drop all legacy rows that still hold the raw IP as key.
+        # New rows are keyed by anonymized subnet (/24 IPv4, /48 IPv6) and rebuilt lazily.
+        legacy_geo = await db.geo_cache.delete_many({'ip': {'$exists': True}})
+        if legacy_geo.deleted_count:
+            logger.info(f'Privacy: dropped {legacy_geo.deleted_count} legacy geo_cache rows with raw IP')
+        # Time-based rotation for new (anonymized) cache rows: keep max 7 days
         cutoff = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
         await db.geo_cache.delete_many({'cached_at': {'$lt': cutoff}})
     except Exception as e:

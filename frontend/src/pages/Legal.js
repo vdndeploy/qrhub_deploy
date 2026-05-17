@@ -88,7 +88,7 @@ const Legal = () => {
         </p>
         <p className="font-semibold pt-1">Cosa NON viene memorizzato:</p>
         <ul className="list-disc pl-5 space-y-1">
-          <li>Indirizzi IP degli utenti finali (usati solo a runtime per geo-lookup città, poi scartati)</li>
+          <li>Indirizzi IP individuali degli utenti finali (vengono usati solo a runtime per il geo-lookup città e poi <strong>scartati immediatamente</strong>; in cache rimane soltanto la subnet anonimizzata a livello /24 IPv4 o /48 IPv6, non riconducibile al singolo dispositivo)</li>
           <li>User agent grezzi del browser</li>
           <li>Cookie di profilazione o di marketing</li>
           <li>Dati personali identificativi degli utenti finali delle landing</li>

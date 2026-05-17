@@ -1995,31 +1995,33 @@ async def fly_redeploy(req: FlyRedeployRequest, user: dict = Depends(require_sup
                 machine_ids = [m.get('id') for m in machines if m.get('id')]
                 current_image = (machines[0].get('config') or {}).get('image') if machines else None
 
-                # Schedule restart in BACKGROUND so we can return 200 before our own machine dies
+                # Schedule redeploy in BACKGROUND so we can return 200 before our own machine dies.
+                # Note: /machines/{id}/restart does NOT pick up staged secrets — it only restarts the
+                # current instance. To force a fresh release that includes staged secrets we use
+                # POST /machines/{id} with the existing config (or new image_ref): this creates a new
+                # release and applies all staged secrets.
                 async def _do_restart():
                     await asyncio.sleep(2)  # give time for client to receive response
                     async with httpx.AsyncClient(timeout=120.0) as cc:
                         for mid in machine_ids:
                             try:
+                                m_orig = next((m for m in machines if m.get('id') == mid), {})
+                                cfg_m = dict(m_orig.get('config') or {})
                                 if req.image_ref:
-                                    m_orig = next((m for m in machines if m.get('id') == mid), {})
-                                    cfg_m = dict(m_orig.get('config') or {})
                                     cfg_m['image'] = req.image_ref
-                                    await cc.post(f'{FLY_MACHINES_API}/apps/{app_name}/machines/{mid}',
-                                                    headers={'Authorization': f'Bearer {token}'},
-                                                    json={'config': cfg_m})
-                                else:
-                                    await cc.post(f'{FLY_MACHINES_API}/apps/{app_name}/machines/{mid}/restart',
-                                                    headers={'Authorization': f'Bearer {token}'})
+                                await cc.post(f'{FLY_MACHINES_API}/apps/{app_name}/machines/{mid}',
+                                                headers={'Authorization': f'Bearer {token}'},
+                                                json={'config': cfg_m})
                             except Exception as e:
-                                logger.error(f'Background restart machine {mid} failed: {e}')
+                                logger.error(f'Background redeploy machine {mid} failed: {e}')
 
                 asyncio.create_task(_do_restart())
 
                 return {
-                    'message': f'Restart di {len(machine_ids)} machine(s) avviato in background '
-                                '(attendi ~15-20s). Se sei superadmin su questa stessa app, '
-                                'la prossima richiesta potrebbe fallire mentre il backend riparte.',
+                    'message': f'Redeploy di {len(machine_ids)} machine(s) avviato in background '
+                                '(attendi ~15-30s, i secret staged verranno applicati). Se sei superadmin '
+                                'su questa stessa app, la prossima richiesta potrebbe fallire mentre il '
+                                'backend riparte.',
                     'platform': 'machines',
                     'machines': machine_ids,
                     'image': req.image_ref or current_image,

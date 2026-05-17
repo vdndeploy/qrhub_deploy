@@ -79,6 +79,30 @@ const Legal = () => {
           interrotto o richiedere un upgrade a pagamento.
           Eventuali piani a pagamento o SLA dedicati devono essere concordati per iscritto.
         </p>
+
+        <p className="font-semibold pt-3">Trasferimenti extra-UE e clausole contrattuali tipo (SCC)</p>
+        <p>
+          Alcuni dei sub-responsabili sopra elencati trattano dati al di fuori dello SEE.
+          Quando ciò accade, il trattamento è coperto dalle <strong>Standard Contractual Clauses</strong> approvate
+          dalla Commissione Europea (Decisione 2021/914) e/o, se applicabile, dal <strong>EU-US Data Privacy Framework</strong>.
+        </p>
+        <ul className="list-disc pl-5 space-y-1 text-sm">
+          <li><strong>Fly.io</strong> — region <code>fra</code> (Francoforte, Germania): <strong>nessun trasferimento extra-UE</strong>.</li>
+          <li><strong>MongoDB Atlas</strong> — cluster nel piano M0; la region effettiva è visibile nella console Atlas
+            di chi gestisce il database. Atlas è certificato sotto SCC e fornisce DPA su richiesta.</li>
+          <li><strong>Cloudinary</strong> — server di default negli Stati Uniti. Cloudinary aderisce al <em>EU-US Data Privacy Framework</em>{' '}
+            e applica SCC. Trasferimento minimo: solo immagini/video pubblicati nelle landing pubbliche
+            (nessun dato personale identificativo).</li>
+          <li><strong>Vercel</strong> — edge network globale (CDN). Le richieste utente sono servite dalla edge più
+            vicina geograficamente. Vercel applica SCC e fornisce un DPA accessibile dalla loro dashboard.</li>
+          <li><strong>ipapi.co</strong> — server in UE. La piattaforma invia l'IP del visitatore solo come parametro di
+            chiamata (mai memorizzato lato QRHub), per ottenere città/regione/paese.</li>
+        </ul>
+        <p className="text-xs text-gray-500 pt-1">
+          I link ai DPA/SCC dei singoli fornitori sono pubblicati sui rispettivi siti web ufficiali.
+          Le organizzazioni clienti (titolari del trattamento) sono invitate a verificare e accettare tali documenti
+          direttamente con i fornitori, qualora richiesto dalla propria due-diligence interna.
+        </p>
       </Section>
 
       <Section icon={Lock} title="Privacy e GDPR" accent="#10B981">

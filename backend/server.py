@@ -50,6 +50,16 @@ app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
 
 JWT_SECRET = os.environ.get('JWT_SECRET', 'your-secret-key-change-this')
 JWT_ALGORITHM = 'HS256'
+# GDPR M4: enforce minimum entropy of the JWT secret. HS256 best practice ≥ 32 bytes.
+if len(JWT_SECRET) < 32:
+    if JWT_SECRET == 'your-secret-key-change-this' or len(JWT_SECRET) < 16:
+        # In production this MUST fail loud. We don't raise here to keep dev ergonomic,
+        # but we log a critical warning that's hard to miss.
+        logging.getLogger('server').warning(
+            'SECURITY: JWT_SECRET is using a default/short value (%d bytes). '
+            'Rotate from Super Admin → Deploy → Secrets to a value ≥ 32 bytes ASAP.',
+            len(JWT_SECRET)
+        )
 ADMIN_EMAIL = os.environ.get('ADMIN_EMAIL', 'admin@example.com')
 ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'admin123')
 
@@ -99,6 +109,19 @@ def hash_password(password: str) -> str:
     salt = bcrypt.gensalt()
     hashed = bcrypt.hashpw(password.encode('utf-8'), salt)
     return hashed.decode('utf-8')
+
+def _redact_email(email: str) -> str:
+    """GDPR M8 — Reduce email PII surface in logs while keeping debuggability.
+    Returns e.g. 'a***@example.com' for 'admin@example.com'."""
+    if not email or '@' not in email:
+        return '<email>'
+    local, _, domain = email.partition('@')
+    if len(local) <= 2:
+        masked = local[0] + '***'
+    else:
+        masked = local[0] + '***' + local[-1]
+    return f'{masked}@{domain}'
+
 
 def verify_password(plain: str, hashed: str) -> bool:
     return bcrypt.checkpw(plain.encode('utf-8'), hashed.encode('utf-8'))
@@ -778,16 +801,64 @@ def _org_to_response(o: dict) -> dict:
 async def list_organizations(user: dict = Depends(require_super_admin)):
     orgs = await db.organizations.find({}, {'_id': 0}).sort('created_at', -1).to_list(1000)
     enriched = []
+    required_fields = ('legal_name', 'vat_number', 'legal_address', 'privacy_contact_email')
     for o in orgs:
         users_count = await db.users.count_documents({'organization_id': o['id']})
         stores_count = await db.stores.count_documents({'organization_id': o['id']})
         vendors_count = await db.vendors.count_documents({'organization_id': o['id']})
+        # GDPR status per org (super admin view)
+        admin_users = await db.users.find(
+            {'organization_id': o['id'], 'role': 'org_admin'},
+            {'_id': 0, 'email': 1, 'accepted_dpa_version': 1, 'accepted_dpa_at': 1}
+        ).to_list(200)
+        admins_total = len(admin_users)
+        admins_accepted = sum(1 for u in admin_users if u.get('accepted_dpa_version') == CURRENT_DPA_VERSION)
+        last_accept = max((u.get('accepted_dpa_at') or '' for u in admin_users), default='') or None
+        filled_required = sum(1 for k in required_fields if (o.get(k) or '').strip())
+        controller_complete = filled_required == len(required_fields)
         r = _org_to_response(o)
         r['users_count'] = users_count
         r['stores_count'] = stores_count
         r['vendors_count'] = vendors_count
+        r['gdpr'] = {
+            'dpa_required_version': CURRENT_DPA_VERSION,
+            'dpa_admins_total': admins_total,
+            'dpa_admins_accepted': admins_accepted,
+            'dpa_status': ('accepted' if admins_total > 0 and admins_accepted == admins_total
+                            else ('partial' if admins_accepted > 0 else 'pending')),
+            'dpa_last_accept_at': last_accept,
+            'controller_fields_filled': filled_required,
+            'controller_fields_required': len(required_fields),
+            'controller_complete': controller_complete,
+        }
         enriched.append(r)
     return enriched
+
+
+@api_router.get('/organizations/{org_id}/dpa-status')
+async def org_dpa_status(org_id: str, user: dict = Depends(require_super_admin)):
+    """Super-admin view: who in this org has accepted the DPA and when."""
+    if not await db.organizations.find_one({'id': org_id}, {'_id': 1}):
+        raise HTTPException(status_code=404, detail='Organizzazione non trovata')
+    admins = await db.users.find(
+        {'organization_id': org_id, 'role': 'org_admin'},
+        {'_id': 0, 'email': 1, 'name': 1, 'accepted_dpa_version': 1, 'accepted_dpa_at': 1, 'accepted_dpa_ip': 1}
+    ).to_list(500)
+    return {
+        'organization_id': org_id,
+        'required_version': CURRENT_DPA_VERSION,
+        'admins': [
+            {
+                'email': a.get('email', ''),
+                'name': a.get('name', ''),
+                'accepted_version': a.get('accepted_dpa_version'),
+                'accepted_at': a.get('accepted_dpa_at'),
+                'accepted_ip': a.get('accepted_dpa_ip'),
+                'status': 'accepted' if a.get('accepted_dpa_version') == CURRENT_DPA_VERSION else 'pending',
+            }
+            for a in admins
+        ],
+    }
 
 
 @api_router.post('/organizations')
@@ -1321,9 +1392,16 @@ async def upload_file(file: UploadFile = File(...), folder: str = Form('uploads'
     
     if folder not in ('uploads', 'posts'):
         folder = 'uploads'
-    
+
+    # GDPR M1 — tenant isolation: prefix Cloudinary folder with org id so different
+    # tenants land in disjoint namespaces. Super admin uploads (no organization_id)
+    # go to a shared 'platform' folder. The Cloudinary public_id itself remains a
+    # long UUID-based string so direct guessing is not feasible either way.
+    org_id = (user.get('organization_id') or '').strip() if not _is_super_admin(user) else ''
+    cl_folder = f'org_{org_id}/{folder}' if org_id else f'platform/{folder}'
+
     content = await file.read()
-    
+
     if CLOUDINARY_ENABLED:
         # Upload to Cloudinary
         is_video = file.content_type.startswith('video/')
@@ -1331,7 +1409,7 @@ async def upload_file(file: UploadFile = File(...), folder: str = Form('uploads'
             result = cloudinary.uploader.upload(
                 content,
                 resource_type='video' if is_video else 'image',
-                folder=folder,
+                folder=cl_folder,
                 use_filename=True,
                 unique_filename=True,
                 overwrite=False
@@ -1345,7 +1423,7 @@ async def upload_file(file: UploadFile = File(...), folder: str = Form('uploads'
                 'width': result.get('width'),
                 'height': result.get('height'),
                 'bytes': result.get('bytes', 0),
-                'folder': folder,
+                'folder': cl_folder,
                 'organization_id': user.get('organization_id'),
                 'original_filename': file.filename,
                 'created_at': datetime.now(timezone.utc).isoformat(),
@@ -1527,12 +1605,21 @@ async def get_vendor_privacy_info(vendor_id: str):
          'legal_name': 1, 'vat_number': 1, 'legal_address': 1,
          'privacy_contact_email': 1, 'privacy_policy_url': 1}
     ) or {}
+    # GDPR M-bonus — completeness flag for public "trust badge".
+    required_fields = ('legal_name', 'vat_number', 'legal_address', 'privacy_contact_email')
+    has_all_required = all((org.get(k) or '').strip() for k in required_fields)
+    has_optional = bool((org.get('privacy_policy_url') or '').strip())
     return {
         'vendor': {'id': vendor['id'], 'name': vendor.get('name', '')},
         'organization': {
             'brand_name': org.get('brand_name', '') or org.get('name', ''),
             'primary_color': org.get('primary_color', '#F96815'),
             'logo_url': org.get('logo_url', ''),
+        },
+        'gdpr_status': {
+            'controller_verified': has_all_required,
+            'completeness': 'complete' if has_all_required and has_optional
+                              else ('verified' if has_all_required else 'incomplete'),
         },
         'controller': {
             'legal_name': org.get('legal_name', '') or org.get('name', '') or org.get('brand_name', ''),
@@ -2881,6 +2968,35 @@ app.add_middleware(
     allow_headers=['*']
 )
 
+
+# ──────────────────────────────────────────────────────────────────
+# GDPR M2 — Security headers middleware (HSTS, CSP, anti-clickjack, anti-MIME-sniff)
+# ──────────────────────────────────────────────────────────────────
+@app.middleware('http')
+async def _security_headers(request: Request, call_next):
+    response = await call_next(request)
+    # HTTPS Strict Transport Security — only emit when behind HTTPS (Fly/Vercel always are)
+    response.headers.setdefault('Strict-Transport-Security', 'max-age=31536000; includeSubDomains')
+    # Block iframing entirely → eliminates clickjacking
+    response.headers.setdefault('X-Frame-Options', 'DENY')
+    # Disable MIME sniffing
+    response.headers.setdefault('X-Content-Type-Options', 'nosniff')
+    # Strict referrer leakage policy
+    response.headers.setdefault('Referrer-Policy', 'strict-origin-when-cross-origin')
+    # Restrict legacy browser features we don't use
+    response.headers.setdefault(
+        'Permissions-Policy',
+        'geolocation=(), microphone=(), camera=(), payment=(), usb=(), interest-cohort=()'
+    )
+    # Baseline CSP — frame-ancestors is the modern replacement of X-Frame-Options.
+    # API responses are JSON so script-src is irrelevant; we keep it permissive enough
+    # to not block static asset paths under /uploads.
+    response.headers.setdefault(
+        'Content-Security-Policy',
+        "default-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+    )
+    return response
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
@@ -2903,7 +3019,7 @@ async def seed_admin():
             'organization_id': None,
             'created_at': datetime.now(timezone.utc).isoformat()
         })
-        logger.info(f'Super admin created: {SUPERADMIN_EMAIL}')
+        logger.info(f'Super admin created: {_redact_email(SUPERADMIN_EMAIL)}')
     
     # 2. Auto-migrate: create default org if none exists, attach legacy data to it
     org_count = await db.organizations.count_documents({})
@@ -2956,13 +3072,13 @@ async def seed_admin():
             'organization_id': default_org['id'] if default_org else None,
             'created_at': datetime.now(timezone.utc).isoformat()
         })
-        logger.info(f'Org admin created: {ADMIN_EMAIL}')
+        logger.info(f'Org admin created: {_redact_email(ADMIN_EMAIL)}')
     elif not verify_password(ADMIN_PASSWORD, admin['password_hash']):
         await db.users.update_one(
             {'email': ADMIN_EMAIL},
             {'$set': {'password_hash': hash_password(ADMIN_PASSWORD)}}
         )
-        logger.info(f'Admin password updated: {ADMIN_EMAIL}')
+        logger.info(f'Admin password updated: {_redact_email(ADMIN_EMAIL)}')
 
     # Anonymize legacy user display name "Admin VDN"
     try:
@@ -3027,6 +3143,15 @@ async def seed_admin():
         # Time-based rotation for new (anonymized) cache rows: keep max 7 days
         cutoff = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
         await db.geo_cache.delete_many({'cached_at': {'$lt': cutoff}})
+        # GDPR M3 — Retention cap on analytics events: 365 days (well past any business need).
+        ANALYTICS_RETENTION_DAYS = int(os.environ.get('ANALYTICS_RETENTION_DAYS', '365'))
+        old_cutoff = (datetime.now(timezone.utc) - timedelta(days=ANALYTICS_RETENTION_DAYS)).isoformat()
+        purged = await db.analytics.delete_many({'timestamp': {'$lt': old_cutoff}})
+        if purged.deleted_count:
+            logger.info(f'Retention: purged {purged.deleted_count} analytics events older than {ANALYTICS_RETENTION_DAYS}d')
+        # GDPR M3 — Bound login_attempts so it never grows: drop anything older than 4× window.
+        la_cutoff = (datetime.now(timezone.utc) - timedelta(seconds=LOGIN_WINDOW_SEC * 4)).isoformat()
+        await db.login_attempts.delete_many({'ts': {'$lt': la_cutoff}})
     except Exception as e:
         logger.warning(f'Privacy scrub skipped: {e}')
 

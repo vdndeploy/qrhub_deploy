@@ -2,6 +2,10 @@
 .privacy-page{min-height:100vh;background:#fafafa;color:#1f2937;padding:32px 16px}
 .privacy-container{max-width:780px;margin:0 auto}
 .privacy-header{padding-bottom:18px;margin-bottom:22px;border-bottom:3px solid #F96815}
+.privacy-trust-badge{display:inline-flex;align-items:center;gap:6px;margin:8px 0 4px;padding:6px 12px;border-radius:999px;font-size:12.5px;font-weight:700;letter-spacing:.2px;background:#ecfdf5;color:#065f46;border:1px solid #a7f3d0}
+.privacy-trust-verified{background:#ecfdf5;color:#065f46;border-color:#a7f3d0}
+.privacy-trust-complete{background:linear-gradient(135deg,#10b981,#0ea5e9);color:#fff;border-color:transparent;box-shadow:0 1px 3px rgba(16,185,129,.4)}
+.privacy-trust-plus{display:inline-block;background:rgba(255,255,255,.28);color:#fff;font-size:10px;font-weight:800;padding:1px 5px;border-radius:4px;margin-left:2px}
 .privacy-header h1{margin:6px 0 4px;font-size:28px;font-weight:700;color:#111827}
 .privacy-sub{margin:0;font-size:14px;color:#6b7280}
 .privacy-back-link{display:inline-block;margin-top:10px;font-size:13px;color:#374151;text-decoration:none;border:1px solid #d1d5db;padding:6px 10px;border-radius:6px;background:#fff}

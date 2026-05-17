@@ -6,9 +6,40 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { toast } from 'sonner';
-import { Plus, Trash2, Building2, UserPlus, Users, KeyRound } from 'lucide-react';
+import { Plus, Trash2, Building2, UserPlus, Users, KeyRound, ShieldCheck, ShieldAlert, ShieldX } from 'lucide-react';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+
+const GdprBadge = ({ gdpr }) => {
+  if (!gdpr) return <span className="text-xs text-gray-400">—</span>;
+  const { dpa_status, dpa_admins_accepted, dpa_admins_total, controller_fields_filled, controller_fields_required, controller_complete } = gdpr;
+
+  let icon = ShieldX;
+  let cls = 'bg-red-50 text-red-700 border-red-200';
+  let label = 'DPA pending';
+  if (dpa_status === 'accepted' && controller_complete) {
+    icon = ShieldCheck;
+    cls = 'bg-emerald-50 text-emerald-700 border-emerald-200';
+    label = 'DPA OK · Titolare OK';
+  } else if (dpa_status === 'accepted') {
+    icon = ShieldAlert;
+    cls = 'bg-amber-50 text-amber-700 border-amber-200';
+    label = 'DPA OK · Titolare incompleto';
+  } else if (dpa_status === 'partial') {
+    icon = ShieldAlert;
+    cls = 'bg-amber-50 text-amber-700 border-amber-200';
+    label = `DPA ${dpa_admins_accepted}/${dpa_admins_total}`;
+  }
+  const Icon = icon;
+  return (
+    <div className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-semibold border ${cls}`}
+          title={`DPA ${dpa_admins_accepted}/${dpa_admins_total} admin · Titolare ${controller_fields_filled}/${controller_fields_required}`}>
+      <Icon className="h-3.5 w-3.5" />
+      <span className="hidden sm:inline">{label}</span>
+      <span className="sm:hidden">{controller_fields_filled}/{controller_fields_required}</span>
+    </div>
+  );
+};
 
 const Organizations = () => {
   const [orgs, setOrgs] = useState([]);
@@ -145,15 +176,16 @@ const Organizations = () => {
               <TableHead>Utenti</TableHead>
               <TableHead>Negozi</TableHead>
               <TableHead>Venditori</TableHead>
+              <TableHead>GDPR</TableHead>
               <TableHead className="text-right">Azioni</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {orgs.length === 0 ? (
-              <TableRow><TableCell colSpan={7} className="text-center py-8">Nessuna organizzazione</TableCell></TableRow>
+              <TableRow><TableCell colSpan={8} className="text-center py-8">Nessuna organizzazione</TableCell></TableRow>
             ) : (
               orgs.map(o => (
-                <TableRow key={o.id}>
+                <TableRow key={o.id} data-testid={`org-row-${o.id}`}>
                   <TableCell className="font-semibold">
                     <div className="flex items-center gap-2">
                       <Building2 className="h-4 w-4" style={{color: o.primary_color}} />
@@ -165,6 +197,9 @@ const Organizations = () => {
                   <TableCell>{o.users_count}</TableCell>
                   <TableCell>{o.stores_count}</TableCell>
                   <TableCell>{o.vendors_count}</TableCell>
+                  <TableCell data-testid={`org-gdpr-${o.id}`}>
+                    <GdprBadge gdpr={o.gdpr} />
+                  </TableCell>
                   <TableCell className="text-right">
                     <Button variant="outline" size="sm" onClick={() => openUsers(o)}><Users className="h-4 w-4" /></Button>
                     <Button variant="outline" size="sm" onClick={() => handleDelete(o.id, o.name)} className="ml-1"><Trash2 className="h-4 w-4 text-red-500" /></Button>

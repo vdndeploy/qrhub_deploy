@@ -62,6 +62,19 @@ const VendorPrivacy = () => {
           <p className="privacy-sub">
             Pagina di <strong>{data.vendor.name}</strong> — {data.organization?.brand_name}
           </p>
+          {data.gdpr_status?.controller_verified && (
+            <span className={`privacy-trust-badge privacy-trust-${data.gdpr_status.completeness}`}
+                  data-testid="privacy-trust-badge"
+                  title="Il titolare del trattamento ha completato l'identificazione richiesta dall'art. 13 GDPR">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4"
+                    strokeLinecap="round" strokeLinejoin="round" width="14" height="14" aria-hidden="true">
+                <path d="M9 12l2 2 4-4"/>
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+              </svg>
+              Titolare verificato
+              {data.gdpr_status.completeness === 'complete' && <span className="privacy-trust-plus">+</span>}
+            </span>
+          )}
           <Link to={`/v/${vendorId}`} className="privacy-back-link" data-testid="privacy-back">← Torna alla pagina</Link>
         </header>
 

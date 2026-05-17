@@ -1,0 +1,392 @@
+import { useState, useEffect, useCallback } from 'react';
+import axios from 'axios';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { Textarea } from '@/components/ui/textarea';
+import { Switch } from '@/components/ui/switch';
+import { toast } from 'sonner';
+import {
+  Save, Upload, X, Plus, Trash2, Globe, Image as ImgIcon,
+  CheckCircle2, Clock3, RefreshCw, Copy, AlertCircle, Cookie,
+} from 'lucide-react';
+
+const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+
+const DomainCard = ({ d, onRefresh, onVerify, onRemove, busy }) => {
+  const verified = !!d.verified;
+  const dns = d.dns_instructions || {};
+
+  const copyDns = async () => {
+    const txt = `${dns.type}\t${dns.host}\t${dns.value}\t(TTL ${dns.ttl || 3600})`;
+    try {
+      await navigator.clipboard.writeText(txt);
+      toast.success('Record DNS copiato');
+    } catch { toast.error('Impossibile copiare'); }
+  };
+
+  return (
+    <div className="border rounded-lg p-3 sm:p-4 bg-white" data-testid={`domain-card-${d.domain}`}>
+      <div className="flex items-start justify-between gap-2 flex-wrap">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <a href={`https://${d.domain}`} target="_blank" rel="noreferrer"
+                className="font-mono text-sm font-semibold text-gray-900 hover:underline truncate">
+              {d.domain}
+            </a>
+            {verified ? (
+              <Badge className="bg-emerald-600 hover:bg-emerald-600 text-white">
+                <CheckCircle2 className="h-3 w-3 mr-1" />Verificato
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="border-amber-400 text-amber-700">
+                <Clock3 className="h-3 w-3 mr-1" />In attesa DNS
+              </Badge>
+            )}
+          </div>
+        </div>
+        <div className="flex items-center gap-1">
+          <Button variant="ghost" size="sm" onClick={() => onRefresh(d.domain)}
+                  disabled={busy} data-testid={`domain-refresh-${d.domain}`}>
+            <RefreshCw className={`h-4 w-4 ${busy === 'refresh' ? 'animate-spin' : ''}`} />
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => onRemove(d.domain)}
+                  disabled={busy} data-testid={`domain-remove-${d.domain}`}>
+            <Trash2 className="h-4 w-4 text-red-500" />
+          </Button>
+        </div>
+      </div>
+
+      {!verified && (
+        <div className="mt-3 space-y-2 bg-amber-50 border border-amber-200 rounded-lg p-3">
+          <div className="flex items-start gap-2">
+            <AlertCircle className="h-4 w-4 text-amber-600 flex-shrink-0 mt-0.5" />
+            <div className="text-xs text-amber-900 space-y-1.5 min-w-0 w-full">
+              <p className="font-semibold">Aggiungi questo record DNS sul pannello Aruba:</p>
+              <div className="bg-white border rounded p-2 font-mono text-[11px] sm:text-xs overflow-x-auto">
+                <div className="grid grid-cols-[60px_1fr] sm:grid-cols-[80px_1fr] gap-x-3 gap-y-0.5">
+                  <span className="text-gray-500">Tipo:</span><span className="font-semibold">{dns.type || 'CNAME'}</span>
+                  <span className="text-gray-500">Host:</span><span className="font-semibold">{dns.host || '@'}</span>
+                  <span className="text-gray-500">Valore:</span><span className="font-semibold break-all">{dns.value}</span>
+                  <span className="text-gray-500">TTL:</span><span>{dns.ttl || 3600}</span>
+                </div>
+              </div>
+              <div className="flex gap-2 flex-wrap pt-1">
+                <Button variant="outline" size="sm" onClick={copyDns} className="h-7 text-xs"
+                        data-testid={`domain-copy-dns-${d.domain}`}>
+                  <Copy className="h-3 w-3 mr-1" />Copia record
+                </Button>
+                <Button size="sm" onClick={() => onVerify(d.domain)} disabled={busy}
+                        className="h-7 text-xs bg-amber-600 hover:bg-amber-700 text-white"
+                        data-testid={`domain-verify-${d.domain}`}>
+                  {busy === 'verify' ? 'Verifico...' : 'Verifica ora'}
+                </Button>
+              </div>
+              <p className="text-[10px] text-amber-800/80 italic pt-1">
+                Dopo aver salvato il record su Aruba, attendi 2-5 minuti e clicca "Verifica ora".
+                Il certificato SSL viene emesso automaticamente.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+const OrgSettings = () => {
+  const [org, setOrg] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [newDomain, setNewDomain] = useState('');
+  const [domains, setDomains] = useState([]);
+  const [domainsLoading, setDomainsLoading] = useState(false);
+  const [adding, setAdding] = useState(false);
+  const [busyDomain, setBusyDomain] = useState({}); // {[domain]: 'refresh'|'verify'|'remove'}
+
+  useEffect(() => {
+    axios.get(`${API}/my-organization`, { withCredentials: true })
+      .then(({ data }) => setOrg(data))
+      .catch(() => toast.error('Errore caricamento'))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const loadDomains = useCallback(async (orgId) => {
+    setDomainsLoading(true);
+    try {
+      const { data } = await axios.get(`${API}/organizations/${orgId}/domains`,
+        { withCredentials: true });
+      setDomains(data);
+    } catch {
+      // silent
+    } finally { setDomainsLoading(false); }
+  }, []);
+
+  useEffect(() => { if (org?.id && !org.is_super_admin) loadDomains(org.id); }, [org, loadDomains]);
+
+  const updateField = (k, v) => setOrg(prev => ({ ...prev, [k]: v }));
+
+  const handleLogoUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setUploading(true);
+    const fd = new FormData();
+    fd.append('file', file);
+    fd.append('folder', 'uploads');
+    try {
+      const { data } = await axios.post(`${API}/upload`, fd, { withCredentials: true });
+      setOrg(prev => ({ ...prev, logo_url: data.url, logo_public_id: data.public_id }));
+      toast.success('Logo caricato. Ricorda di salvare.');
+    } catch {
+      toast.error('Errore upload');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const removeLogo = () => setOrg(prev => ({ ...prev, logo_url: '', logo_public_id: '' }));
+
+  const addDomain = async () => {
+    const d = (newDomain || '').trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/$/, '');
+    if (!d) return;
+    if (domains.some(x => x.domain === d)) {
+      toast.error('Dominio già presente'); return;
+    }
+    setAdding(true);
+    try {
+      const { data } = await axios.post(`${API}/organizations/${org.id}/domains`,
+        { domain: d }, { withCredentials: true });
+      setDomains(prev => [...prev.filter(x => x.domain !== data.domain), data].sort((a, b) => a.domain.localeCompare(b.domain)));
+      setNewDomain('');
+      toast.success(`${d} aggiunto a Vercel. Configura il DNS su Aruba.`);
+    } catch (e) {
+      toast.error(e.response?.data?.detail || 'Errore aggiunta dominio');
+    } finally { setAdding(false); }
+  };
+
+  const refreshDomain = async (domain) => {
+    setBusyDomain(b => ({ ...b, [domain]: 'refresh' }));
+    try {
+      const { data } = await axios.get(`${API}/organizations/${org.id}/domains/${domain}/status`,
+        { withCredentials: true });
+      setDomains(prev => prev.map(x => x.domain === domain ? { ...x, ...data } : x));
+      toast.success(data.verified ? 'Dominio verificato' : 'In attesa di propagazione DNS');
+    } catch (e) {
+      if (e.response?.status === 404) {
+        setDomains(prev => prev.filter(x => x.domain !== domain));
+        toast.message('Dominio non più presente su Vercel — rimosso');
+      } else {
+        toast.error(e.response?.data?.detail || 'Errore verifica');
+      }
+    } finally { setBusyDomain(b => ({ ...b, [domain]: null })); }
+  };
+
+  const verifyDomain = async (domain) => {
+    setBusyDomain(b => ({ ...b, [domain]: 'verify' }));
+    try {
+      const { data } = await axios.post(`${API}/organizations/${org.id}/domains/${domain}/verify`,
+        {}, { withCredentials: true });
+      setDomains(prev => prev.map(x => x.domain === domain ? { ...x, ...data } : x));
+      if (data.verified) toast.success(`${domain} è online! Certificato SSL in emissione.`);
+      else toast.message('DNS non ancora propagato. Riprova tra 1-2 minuti.');
+    } catch (e) {
+      toast.error(e.response?.data?.detail || 'Errore verifica');
+    } finally { setBusyDomain(b => ({ ...b, [domain]: null })); }
+  };
+
+  const removeDomain = async (domain) => {
+    if (!window.confirm(`Rimuovere ${domain}?`)) return;
+    setBusyDomain(b => ({ ...b, [domain]: 'remove' }));
+    try {
+      await axios.delete(`${API}/organizations/${org.id}/domains/${domain}`,
+        { withCredentials: true });
+      setDomains(prev => prev.filter(x => x.domain !== domain));
+      toast.success('Dominio rimosso');
+    } catch (e) {
+      toast.error(e.response?.data?.detail || 'Errore rimozione');
+    } finally { setBusyDomain(b => ({ ...b, [domain]: null })); }
+  };
+
+  const handleSave = async () => {
+    if (!org?.id) return;
+    setSaving(true);
+    try {
+      await axios.put(`${API}/organizations/${org.id}`, {
+        name: org.name,
+        brand_name: org.brand_name,
+        primary_color: org.primary_color,
+        logo_url: org.logo_url,
+        logo_public_id: org.logo_public_id,
+        cookie_banner_enabled: !!org.cookie_banner_enabled,
+        cookie_banner_text: org.cookie_banner_text || '',
+        cookie_banner_link: org.cookie_banner_link || '',
+      }, { withCredentials: true });
+      toast.success('Impostazioni salvate');
+    } catch (e) {
+      toast.error(e.response?.data?.detail || 'Errore salvataggio');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) return <div className="text-center py-12">Caricamento...</div>;
+  if (!org) return <div className="text-center py-12 text-gray-500">Nessuna organizzazione</div>;
+  if (org.is_super_admin) return (
+    <div className="text-center py-12 text-gray-500">
+      Sei super admin. Vai a "Organizzazioni" per gestire i tenant.
+    </div>
+  );
+
+  return (
+    <div className="space-y-6 max-w-3xl" data-testid="org-settings-page">
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h2 className="text-2xl sm:text-3xl font-bold">Impostazioni Organizzazione</h2>
+          <p className="text-sm text-gray-600 mt-1">Personalizza il brand e i domini di "{org.name}"</p>
+        </div>
+        <Button onClick={handleSave} disabled={saving} className="bg-[#F96815] hover:bg-[#e05a0f]" data-testid="org-save-button">
+          <Save className="h-4 w-4 mr-2" />{saving ? 'Salvataggio...' : 'Salva'}
+        </Button>
+      </div>
+
+      <div className="bg-white border rounded-lg p-5 space-y-4">
+        <h3 className="font-semibold flex items-center gap-2"><ImgIcon className="h-4 w-4 text-[#F96815]" />Brand</h3>
+        <div>
+          <Label>Nome Organizzazione</Label>
+          <Input value={org.name || ''} onChange={(e) => updateField('name', e.target.value)} />
+        </div>
+        <div>
+          <Label>Nome Brand visualizzato</Label>
+          <Input value={org.brand_name || ''} onChange={(e) => updateField('brand_name', e.target.value)} placeholder="Es. Brand della tua azienda" />
+        </div>
+        <div>
+          <Label>Colore primario</Label>
+          <div className="flex gap-2 items-center">
+            <Input type="color" value={org.primary_color || '#F96815'} onChange={(e) => updateField('primary_color', e.target.value)} className="w-16 h-10 cursor-pointer" />
+            <Input value={org.primary_color || ''} onChange={(e) => updateField('primary_color', e.target.value)} placeholder="#F96815" className="font-mono" />
+          </div>
+        </div>
+        <div>
+          <Label>Logo</Label>
+          {org.logo_url ? (
+            <div className="flex items-center gap-3 mt-1">
+              <img src={org.logo_url} alt="logo" className="h-20 w-20 object-contain border rounded bg-gray-50 p-2" />
+              <Button variant="outline" size="sm" onClick={removeLogo}><X className="h-4 w-4 mr-1" />Rimuovi</Button>
+            </div>
+          ) : (
+            <div>
+              <Button type="button" variant="outline" onClick={() => document.getElementById('logo-upload').click()} disabled={uploading}>
+                <Upload className="h-4 w-4 mr-2" />{uploading ? 'Caricamento...' : 'Carica Logo'}
+              </Button>
+              <input id="logo-upload" type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="bg-white border rounded-lg p-5 space-y-3">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <h3 className="font-semibold flex items-center gap-2">
+            <Globe className="h-4 w-4 text-[#F96815]" />Domini personalizzati
+          </h3>
+          {domainsLoading && <RefreshCw className="h-4 w-4 text-gray-400 animate-spin" />}
+        </div>
+        <p className="text-xs text-gray-500">
+          Aggiungi il sottodominio (es. <span className="font-mono">qr.tuodominio.it</span>) che vuoi usare per le landing page.
+          <strong> Verrà collegato in automatico</strong> al sito — non devi entrare su nessuna piattaforma esterna.
+          Ti diremo solo quale record DNS aggiungere sul tuo pannello Aruba.
+        </p>
+
+        <div className="flex gap-2">
+          <Input value={newDomain} onChange={(e) => setNewDomain(e.target.value)}
+                  placeholder="qr.tuodominio.it"
+                  onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addDomain())}
+                  data-testid="domain-input" />
+          <Button onClick={addDomain} disabled={adding}
+                  className="bg-[#F96815] hover:bg-[#e05a0f]" data-testid="domain-add-button">
+            {adding ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+          </Button>
+        </div>
+
+        <div className="space-y-2">
+          {domains.length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-4">Nessun dominio configurato</p>
+          ) : (
+            domains.map(d => (
+              <DomainCard
+                key={d.domain}
+                d={d}
+                onRefresh={refreshDomain}
+                onVerify={verifyDomain}
+                onRemove={removeDomain}
+                busy={busyDomain[d.domain]}
+              />
+            ))
+          )}
+        </div>
+      </div>
+
+      <div className="bg-white border rounded-lg p-5 space-y-4">
+        <h3 className="font-semibold flex items-center gap-2">
+          <Cookie className="h-4 w-4 text-[#F96815]" />Banner cookie sulla landing pubblica
+        </h3>
+        <p className="text-xs text-gray-500">
+          Abilita un banner mostrato sui link pubblici dei tuoi venditori (es. <span className="font-mono">qr.tuodominio.it/v/...</span>).
+          <strong> Il testo lo decidi tu</strong>: QRHub fornisce solo lo strumento, la responsabilità del contenuto della landing
+          e dell'informativa è del titolare del dominio.
+        </p>
+
+        <div className="flex items-center justify-between border rounded-lg p-3">
+          <div>
+            <p className="text-sm font-medium">Mostra banner</p>
+            <p className="text-xs text-gray-500">Si nasconde dopo la prima accettazione (per utente/dispositivo).</p>
+          </div>
+          <Switch
+            checked={!!org.cookie_banner_enabled}
+            onCheckedChange={(v) => updateField('cookie_banner_enabled', v)}
+            data-testid="cookie-banner-switch"
+          />
+        </div>
+
+        <div>
+          <Label>Testo del banner</Label>
+          <Textarea
+            rows={4}
+            value={org.cookie_banner_text || ''}
+            onChange={(e) => updateField('cookie_banner_text', e.target.value)}
+            placeholder="Es. Questa pagina raccoglie dati aggregati per migliorare il servizio. Continuando accetti la nostra privacy policy."
+            data-testid="cookie-banner-text-input"
+            maxLength={1000}
+          />
+          <p className="text-[11px] text-gray-400 mt-1">
+            {(org.cookie_banner_text || '').length}/1000 · Se vuoto verrà mostrato un testo default
+          </p>
+        </div>
+
+        <div>
+          <Label>Link alla tua privacy policy (opzionale)</Label>
+          <Input
+            value={org.cookie_banner_link || ''}
+            onChange={(e) => updateField('cookie_banner_link', e.target.value)}
+            placeholder="https://tuodominio.it/privacy"
+            className="font-mono"
+            data-testid="cookie-banner-link-input"
+          />
+          <p className="text-[11px] text-gray-400 mt-1">
+            Se inserito, comparirà un link "Privacy policy" accanto al pulsante "Ho capito".
+          </p>
+        </div>
+
+        <div className="text-xs text-amber-800 bg-amber-50 border-l-2 border-amber-400 p-3 rounded-r">
+          <strong>Importante</strong> — La piattaforma QRHub non memorizza indirizzi IP né cookie di profilazione.
+          Salva solo dati aggregati (visite, click per canale, città/paese approssimativi, device family) ai fini
+          statistici. Per maggiori dettagli vedi la <a href="/dashboard/legal" className="underline font-semibold">pagina "Note Legali"</a>.
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default OrgSettings;

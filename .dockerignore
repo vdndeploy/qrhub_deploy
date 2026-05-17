@@ -1,0 +1,13 @@
+**/node_modules
+**/.venv
+**/__pycache__
+**/.git
+**/.emergent
+**/build
+**/.DS_Store
+frontend/
+*.md
+LICENSE
+test_reports/
+tests/
+memory/

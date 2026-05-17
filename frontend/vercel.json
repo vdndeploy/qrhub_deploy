@@ -1,0 +1,12 @@
+{
+  "buildCommand": "yarn build",
+  "installCommand": "yarn install --frozen-lockfile",
+  "framework": "create-react-app",
+  "outputDirectory": "build",
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "https://qrhub.fly.dev/api/:path*"
+    }
+  ]
+}

@@ -10,36 +10,41 @@ const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const DEFAULT_COOKIE_TEXT =
   'Questa pagina raccoglie dati statistici aggregati (visite, click, città di provenienza approssimativa) per migliorare il servizio. Non vengono memorizzati indirizzi IP né utilizzati cookie di profilazione. Continuando a navigare accetti questa policy.';
 
-const CookieBanner = ({ orgId, banner, primaryColor }) => {
+const CookieBanner = ({ vendorId, orgId, banner, primaryColor }) => {
   const storageKey = `qrhub_cookie_ack_${orgId || 'default'}`;
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    if (!banner?.enabled) return;
     try {
       const ack = localStorage.getItem(storageKey);
       if (!ack) setVisible(true);
     } catch { setVisible(true); }
-  }, [banner?.enabled, storageKey]);
+  }, [storageKey]);
 
-  if (!banner?.enabled || !visible) return null;
+  if (!visible) return null;
 
   const dismiss = () => {
     try { localStorage.setItem(storageKey, new Date().toISOString()); } catch { /* ignore */ }
     setVisible(false);
   };
 
+  // GDPR (art. 13): the link to the privacy notice is MANDATORY. If the tenant
+  // didn't configure a custom URL, fall back to the per-tenant auto-generated
+  // page that the platform builds from db.organizations + sub-processor list.
+  const privacyLink = banner?.link || `/v/${vendorId}/privacy`;
+  const useCustomText = banner?.use_custom_text && banner?.text;
+
   return (
     <div className="cookie-banner" data-testid="cookie-banner" role="dialog" aria-live="polite">
       <div className="cookie-banner-inner">
-        <p className="cookie-banner-text">{banner.text || DEFAULT_COOKIE_TEXT}</p>
+        <p className="cookie-banner-text">{useCustomText ? banner.text : DEFAULT_COOKIE_TEXT}</p>
         <div className="cookie-banner-actions">
-          {banner.link && (
-            <a href={banner.link} target="_blank" rel="noopener noreferrer"
-                className="cookie-banner-link" data-testid="cookie-banner-link">
-              Privacy policy
-            </a>
-          )}
+          <a href={privacyLink}
+              target={banner?.link ? '_blank' : '_self'}
+              rel="noopener noreferrer"
+              className="cookie-banner-link" data-testid="cookie-banner-link">
+            Informativa privacy
+          </a>
           <button onClick={dismiss}
                   className="cookie-banner-button"
                   style={{ backgroundColor: primaryColor || '#F96815' }}
@@ -217,9 +222,20 @@ const VendorLanding = () => {
         />
       )}
 
-      <footer className="vendor-footer"><p>Powered by QRHub</p></footer>
+      <footer className="vendor-footer">
+        <p>
+          <a href={`/v/${vendorId}/privacy`}
+              className="vendor-footer-link"
+              data-testid="vendor-footer-privacy-link">
+            Informativa privacy
+          </a>
+          <span aria-hidden="true"> · </span>
+          Powered by QRHub
+        </p>
+      </footer>
 
       <CookieBanner
+        vendorId={vendorId}
         orgId={vendor.organization?.brand_name || vendorId}
         banner={vendor.organization?.cookie_banner}
         primaryColor={vendor.organization?.primary_color}

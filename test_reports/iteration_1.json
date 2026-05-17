@@ -1,0 +1,42 @@
+{
+  "summary": "GDPR hardening sprint validation: rate limit on admin & vendor login endpoints, public privacy-info endpoint, OrganizationUpdate GDPR fields, always-on cookie banner in vendor public response, PDF export smoke, plus full frontend flow (landing cookie banner, /v/:vendorId/privacy page, superadmin login, rate-limit toast). All 8 backend pytest tests passed and all 4 frontend UI scenarios passed. login_attempts collection cleaned at end.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "/login - error toast on first 5 failed attempts",
+        "issues": [
+          "Toast message displays 'Invalid credentials' (English) for the first 5 wrong-password attempts while the rest of the UI is in Italian. Only the 6th (429) attempt is localised in Italian ('Troppi tentativi falliti. Riprova tra 15 minuti.'). Suggest returning a localised string e.g. 'Credenziali non valide' from /api/auth/login when password is wrong (server.py login endpoint) for UX consistency. Not a GDPR blocker."
+        ]
+      }
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_gdpr_hardening.py",
+    "/app/test_reports/pytest/gdpr_results.xml"
+  ],
+  "action_items": [
+    "(Optional, low priority) Localise the 401 'Invalid credentials' message returned by /api/auth/login and /api/vendor-auth/login to Italian, e.g. 'Credenziali non valide', to match the toast displayed on the rest of the login flow."
+  ],
+  "critical_code_review_comments": [
+    "server.py is 2839 lines — well above the 700-line guideline. Recommend splitting into modular routers (auth, vendors, organizations, analytics, gdpr) for maintainability. Not a sprint blocker.",
+    "_enforce_login_rate_limit aggregates failures by either email OR ip (OR clause). Good UX defense, but note that under a shared NAT/IP, one attacker can lock out other legitimate users on the same IP. Consider tightening to per-(email AND ip) for the email branch and a higher threshold on the ip-only branch.",
+    "login_attempts cleanup only happens opportunistically inside _record_login_attempt; a long quiet period leaves rows around. A TTL index on 'ts' would be cleaner and is referenced in the public privacy info ('login_attempts_log: 60 minuti rolling').",
+    "Backend /api/auth/login error message 'Invalid credentials' is English while rate-limit message is Italian — minor i18n inconsistency (also surfaced as a frontend issue above)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_gdpr_hardening.py (NEW — 8 pytest tests covering BACKEND-1..6)"
+  ],
+  "success_rate": {"backend": "100% (8/8)", "frontend": "100% (4/4)"},
+  "test_credentials": "Used superadmin@qrhub.it / changeme123 (read from /app/memory/test_credentials.md). Used fake emails 'ratelimit-test@example.com', 'vendor-ratelimit-test@example.com', 'ratelimit-ui-test@example.com' for rate-limit tests.",
+  "seed_data_creation": "Temporary writes were limited to login_attempts inserts (rate-limit tests) and a brief PUT on the demo organization's GDPR fields (legal_name etc). Originals were restored at end of the test_put_org_with_gdpr_fields_persists test. login_attempts collection was cleaned at end (deleted 5+2 rows) so the real superadmin remains unlocked.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "All GDPR hardening backend changes are working as specified: rate limit fires at exactly the 6th attempt with 429 + 'Troppi tentativi falliti' detail + Retry-After header; privacy-info endpoint returns the full schema with 5 sub-processors and 7 GDPR rights; OrganizationUpdate accepts and persists legal_name/vat_number/legal_address/privacy_contact_email/privacy_policy_url; vendor public response forces cookie_banner.enabled=True under GDPR; has_privacy_info bool is computed correctly. Frontend: vendor landing shows banner with 'Ho capito' + 'Informativa privacy' link, footer link visible post-dismiss; /v/:vendorId/privacy page renders all required sections with 5-row sub-processors table and back link to /v/{vendorId}. Toast localisation is the only minor issue.",
+  "rca of the issue": "N/A — no functional bugs found. The single observation (English 'Invalid credentials' string) is a pre-existing i18n inconsistency in /api/auth/login and /api/vendor-auth/login, surfaced only because the rate-limit toast is now Italian. Fix would be a one-line change to the HTTPException(detail=...) in the login handlers."
+}

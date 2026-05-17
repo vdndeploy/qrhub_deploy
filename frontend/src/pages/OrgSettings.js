@@ -222,6 +222,11 @@ const OrgSettings = () => {
         cookie_banner_enabled: !!org.cookie_banner_enabled,
         cookie_banner_text: org.cookie_banner_text || '',
         cookie_banner_link: org.cookie_banner_link || '',
+        legal_name: org.legal_name || '',
+        vat_number: org.vat_number || '',
+        legal_address: org.legal_address || '',
+        privacy_contact_email: org.privacy_contact_email || '',
+        privacy_policy_url: org.privacy_policy_url || '',
       }, { withCredentials: true });
       toast.success('Impostazioni salvate');
     } catch (e) {
@@ -340,8 +345,11 @@ const OrgSettings = () => {
 
         <div className="flex items-center justify-between border rounded-lg p-3">
           <div>
-            <p className="text-sm font-medium">Mostra banner</p>
-            <p className="text-xs text-gray-500">Si nasconde dopo la prima accettazione (per utente/dispositivo).</p>
+            <p className="text-sm font-medium">Personalizza testo banner</p>
+            <p className="text-xs text-gray-500">
+              Il banner è sempre attivo per legge (informativa art. 13 GDPR).
+              Con questo switch decidi se mostrare un testo tuo o quello di default.
+            </p>
           </div>
           <Switch
             checked={!!org.cookie_banner_enabled}
@@ -383,6 +391,80 @@ const OrgSettings = () => {
           <strong>Importante</strong> — La piattaforma QRHub non memorizza indirizzi IP né cookie di profilazione.
           Salva solo dati aggregati (visite, click per canale, città/paese approssimativi, device family) ai fini
           statistici. Per maggiori dettagli vedi la <a href="/dashboard/legal" className="underline font-semibold">pagina "Note Legali"</a>.
+        </div>
+      </div>
+
+      {/* GDPR — Titolare del trattamento (art. 13 GDPR) */}
+      <div className="bg-white border rounded-lg p-5 space-y-4" data-testid="org-gdpr-controller-section">
+        <h3 className="font-semibold flex items-center gap-2">
+          <span className="inline-block w-5 h-5 rounded bg-emerald-100 text-emerald-700 text-[11px] font-bold flex items-center justify-center">!</span>
+          Dati del titolare del trattamento (GDPR)
+        </h3>
+        <p className="text-xs text-gray-500">
+          Questi dati appaiono nella pagina pubblica <code className="bg-gray-100 px-1 rounded">/v/[id]/privacy</code> di ogni
+          tuo venditore, accessibile dal link <em>"Informativa privacy"</em> in fondo a ogni landing.
+          Sono <strong>obbligatori</strong> per identificarti come titolare ai sensi dell'art. 13 GDPR.
+        </p>
+
+        <div>
+          <Label>Denominazione legale</Label>
+          <Input
+            value={org.legal_name || ''}
+            onChange={(e) => updateField('legal_name', e.target.value)}
+            placeholder="Es. Mario Rossi S.r.l."
+            data-testid="org-legal-name-input"
+            maxLength={200}
+          />
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <Label>P.IVA / Codice Fiscale</Label>
+            <Input
+              value={org.vat_number || ''}
+              onChange={(e) => updateField('vat_number', e.target.value)}
+              placeholder="IT01234567890"
+              data-testid="org-vat-input"
+              maxLength={50}
+            />
+          </div>
+          <div>
+            <Label>Email contatto privacy</Label>
+            <Input
+              type="email"
+              value={org.privacy_contact_email || ''}
+              onChange={(e) => updateField('privacy_contact_email', e.target.value)}
+              placeholder="privacy@tuodominio.it"
+              data-testid="org-privacy-email-input"
+              maxLength={200}
+            />
+          </div>
+        </div>
+
+        <div>
+          <Label>Sede legale</Label>
+          <Input
+            value={org.legal_address || ''}
+            onChange={(e) => updateField('legal_address', e.target.value)}
+            placeholder="Es. Via Roma 1, 20100 Milano (MI)"
+            data-testid="org-legal-address-input"
+            maxLength={500}
+          />
+        </div>
+
+        <div>
+          <Label>Privacy policy estesa (URL opzionale)</Label>
+          <Input
+            value={org.privacy_policy_url || ''}
+            onChange={(e) => updateField('privacy_policy_url', e.target.value)}
+            placeholder="https://tuodominio.it/privacy"
+            className="font-mono"
+            data-testid="org-privacy-policy-url-input"
+            maxLength={500}
+          />
+          <p className="text-[11px] text-gray-400 mt-1">
+            Se compilato, la pagina informativa rimanderà ANCHE alla tua policy completa.
+          </p>
         </div>
       </div>
     </div>

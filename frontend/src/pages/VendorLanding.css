@@ -74,6 +74,8 @@
 .card-sublabel{font-size:13px;color:#666}
 .card-chevron{width:24px;height:24px;flex-shrink:0;opacity:.6}
 .vendor-footer{max-width:480px;margin:40px auto 0;padding:24px 20px;text-align:center;font-size:13px;color:#999;font-weight:600}
+.vendor-footer-link{color:#374151;text-decoration:underline;text-underline-offset:2px}
+.vendor-footer-link:hover{color:#111827}
 @media (min-width:768px){.hero-title{font-size:38px}}.cookie-banner{position:fixed;left:0;right:0;bottom:0;z-index:9999;background:rgba(17,17,17,.96);backdrop-filter:blur(8px);color:#f5f5f5;padding:16px 20px;box-shadow:0 -8px 24px rgba(0,0,0,.25);animation:cookieSlideUp .35s ease-out}
 .cookie-banner-inner{max-width:780px;margin:0 auto;display:flex;flex-wrap:wrap;align-items:center;gap:14px;justify-content:space-between}
 .cookie-banner-text{margin:0;font-size:13px;line-height:1.5;flex:1;min-width:240px}

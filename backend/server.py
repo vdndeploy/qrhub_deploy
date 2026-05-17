@@ -103,6 +103,57 @@ def hash_password(password: str) -> str:
 def verify_password(plain: str, hashed: str) -> bool:
     return bcrypt.checkpw(plain.encode('utf-8'), hashed.encode('utf-8'))
 
+
+# ──────────────────────────────────────────────────────────────────
+# Brute-force / rate limiting on login endpoints (GDPR art. 32)
+# ──────────────────────────────────────────────────────────────────
+LOGIN_MAX_ATTEMPTS = int(os.environ.get('LOGIN_MAX_ATTEMPTS', '5'))
+LOGIN_WINDOW_SEC = int(os.environ.get('LOGIN_WINDOW_SEC', '900'))  # 15 minutes
+
+
+def _client_ip(request: Request) -> str:
+    fwd = request.headers.get('x-forwarded-for', '')
+    if fwd:
+        return fwd.split(',')[0].strip()
+    return request.client.host if request.client else ''
+
+
+async def _enforce_login_rate_limit(scope: str, email: str, request: Request):
+    """Check that (scope, email|ip) has fewer than LOGIN_MAX_ATTEMPTS recent failures.
+    scope = 'admin' | 'vendor'. Raises 429 if exceeded."""
+    now = datetime.now(timezone.utc)
+    window_start = (now - timedelta(seconds=LOGIN_WINDOW_SEC)).isoformat()
+    ip = _client_ip(request)
+    key = f"{scope}:{email.lower()}"
+    failures = await db.login_attempts.count_documents({
+        '$or': [{'key': key}, {'ip': ip, 'scope': scope}],
+        'ts': {'$gte': window_start},
+        'success': False,
+    })
+    if failures >= LOGIN_MAX_ATTEMPTS:
+        retry_after = LOGIN_WINDOW_SEC
+        raise HTTPException(
+            status_code=429,
+            detail=f'Troppi tentativi falliti. Riprova tra {retry_after // 60} minuti.',
+            headers={'Retry-After': str(retry_after)},
+        )
+
+
+async def _record_login_attempt(scope: str, email: str, request: Request, success: bool):
+    ip = _client_ip(request)
+    now = datetime.now(timezone.utc)
+    await db.login_attempts.insert_one({
+        'scope': scope,
+        'key': f"{scope}:{email.lower()}",
+        'email': email.lower(),
+        'ip': ip,
+        'ts': now.isoformat(),
+        'success': success,
+    })
+    # Opportunistic cleanup: keep collection bounded (only old failed records).
+    cutoff = (now - timedelta(seconds=LOGIN_WINDOW_SEC * 4)).isoformat()
+    await db.login_attempts.delete_many({'ts': {'$lt': cutoff}})
+
 def create_access_token(user_id: str, email: str) -> str:
     payload = {
         'sub': user_id,
@@ -265,6 +316,12 @@ class OrganizationUpdate(BaseModel):
     cookie_banner_enabled: Optional[bool] = None
     cookie_banner_text: Optional[str] = None
     cookie_banner_link: Optional[str] = None
+    # GDPR — controller (titolare del trattamento) info shown on /v/:vendorId/privacy
+    legal_name: Optional[str] = None
+    vat_number: Optional[str] = None
+    legal_address: Optional[str] = None
+    privacy_contact_email: Optional[str] = None
+    privacy_policy_url: Optional[str] = None
 
 
 class OrgUserCreate(BaseModel):
@@ -337,11 +394,14 @@ class DeployConfig(BaseModel):
 CLICK_TYPES = ['whatsapp_click', 'instagram_click', 'facebook_click', 'review_click', 'tiktok_click', 'maps_click', 'post_cta_click']
 
 @api_router.post('/auth/login')
-async def login(req: LoginRequest, response: Response):
+async def login(req: LoginRequest, request: Request, response: Response):
+    await _enforce_login_rate_limit('admin', req.email, request)
     user = await db.users.find_one({'email': req.email.lower()})
     if not user or not verify_password(req.password, user['password_hash']):
+        await _record_login_attempt('admin', req.email, request, success=False)
         raise HTTPException(status_code=401, detail='Invalid credentials')
-    
+    await _record_login_attempt('admin', req.email, request, success=True)
+
     token = create_access_token(str(user['_id']), user['email'])
     response.set_cookie(
         key='access_token',
@@ -502,9 +562,15 @@ def _org_to_response(o: dict) -> dict:
         'logo_url': o.get('logo_url', ''),
         'logo_public_id': o.get('logo_public_id', ''),
         'allowed_domains': o.get('allowed_domains', []) or [],
-        'cookie_banner_enabled': bool(o.get('cookie_banner_enabled', False)),
+        'cookie_banner_enabled': bool(o.get('cookie_banner_enabled', True)),  # default ON post-GDPR audit
         'cookie_banner_text': o.get('cookie_banner_text', '') or '',
         'cookie_banner_link': o.get('cookie_banner_link', '') or '',
+        # GDPR controller info
+        'legal_name': o.get('legal_name', '') or '',
+        'vat_number': o.get('vat_number', '') or '',
+        'legal_address': o.get('legal_address', '') or '',
+        'privacy_contact_email': o.get('privacy_contact_email', '') or '',
+        'privacy_policy_url': o.get('privacy_policy_url', '') or '',
         'created_at': o.get('created_at', '')
     }
 
@@ -581,7 +647,21 @@ async def update_organization(org_id: str, payload: OrganizationUpdate, user: di
         if link and not link.startswith(('http://', 'https://', '/')):
             link = 'https://' + link
         update['cookie_banner_link'] = link[:500]
-    
+    # GDPR controller fields
+    if payload.legal_name is not None:
+        update['legal_name'] = (payload.legal_name or '').strip()[:200]
+    if payload.vat_number is not None:
+        update['vat_number'] = (payload.vat_number or '').strip()[:50]
+    if payload.legal_address is not None:
+        update['legal_address'] = (payload.legal_address or '').strip()[:500]
+    if payload.privacy_contact_email is not None:
+        update['privacy_contact_email'] = (payload.privacy_contact_email or '').strip().lower()[:200]
+    if payload.privacy_policy_url is not None:
+        purl = (payload.privacy_policy_url or '').strip()
+        if purl and not purl.startswith(('http://', 'https://', '/')):
+            purl = 'https://' + purl
+        update['privacy_policy_url'] = purl[:500]
+
     await db.organizations.update_one({'id': org_id}, {'$set': update})
     updated = await db.organizations.find_one({'id': org_id}, {'_id': 0})
     return _org_to_response(updated)
@@ -1233,6 +1313,92 @@ async def create_vendor(vendor: VendorCreate, user: dict = Depends(get_current_u
     vendor_doc.pop('organization_id', None)
     return VendorResponse(**vendor_doc)
 
+@api_router.get('/vendors/{vendor_id}/privacy-info')
+async def get_vendor_privacy_info(vendor_id: str):
+    """Public endpoint serving the data needed by the per-tenant privacy page
+    (/v/{vendor_id}/privacy). Exposes only the controller info already published
+    in the org's public profile + a fixed list of QRHub sub-processors. Does NOT
+    expose any personal data nor any internal tenant configuration."""
+    vendor = await db.vendors.find_one({'id': vendor_id}, {'_id': 0, 'id': 1, 'name': 1, 'organization_id': 1})
+    if not vendor:
+        raise HTTPException(status_code=404, detail='Vendor not found')
+    org = await db.organizations.find_one(
+        {'id': vendor.get('organization_id')},
+        {'_id': 0, 'name': 1, 'brand_name': 1, 'primary_color': 1, 'logo_url': 1,
+         'legal_name': 1, 'vat_number': 1, 'legal_address': 1,
+         'privacy_contact_email': 1, 'privacy_policy_url': 1}
+    ) or {}
+    return {
+        'vendor': {'id': vendor['id'], 'name': vendor.get('name', '')},
+        'organization': {
+            'brand_name': org.get('brand_name', '') or org.get('name', ''),
+            'primary_color': org.get('primary_color', '#F96815'),
+            'logo_url': org.get('logo_url', ''),
+        },
+        'controller': {
+            'legal_name': org.get('legal_name', '') or org.get('name', '') or org.get('brand_name', ''),
+            'vat_number': org.get('vat_number', ''),
+            'legal_address': org.get('legal_address', ''),
+            'privacy_contact_email': org.get('privacy_contact_email', ''),
+            'privacy_policy_url': org.get('privacy_policy_url', ''),
+        },
+        # QRHub acts as data processor on behalf of the controller above.
+        'processor': {
+            'name': 'QRHub',
+            'role': 'data_processor',
+            'github_url': 'https://github.com/vdndeploy/qrhub_deploy',
+            'license': 'MIT',
+        },
+        'sub_processors': [
+            {'name': 'Fly.io', 'role': 'Backend hosting', 'region': 'EU (Frankfurt)',
+             'website': 'https://fly.io', 'transfers': 'EU-only (region fra)'},
+            {'name': 'Vercel', 'role': 'Frontend hosting / CDN', 'region': 'Global edge',
+             'website': 'https://vercel.com', 'transfers': 'Trasferimento extra-UE coperto da SCC (Vercel DPA)'},
+            {'name': 'MongoDB Atlas', 'role': 'Database', 'region': 'See MongoDB Atlas console',
+             'website': 'https://www.mongodb.com/atlas', 'transfers': 'SCC + DPA disponibile'},
+            {'name': 'Cloudinary', 'role': 'CDN immagini/video', 'region': 'US (default)',
+             'website': 'https://cloudinary.com', 'transfers': 'EU-US Data Privacy Framework + SCC'},
+            {'name': 'ipapi.co', 'role': 'Geo-lookup (city level)', 'region': 'EU',
+             'website': 'https://ipapi.co', 'transfers': 'IP individuale mai memorizzato lato QRHub; solo subnet anonimizzata in cache 7gg'},
+        ],
+        'data_collected': {
+            'aggregate_metrics': ['page_view', 'click count per canale', 'città (livello macro)',
+                                    'regione', 'paese', 'device category (mobile/tablet/desktop)',
+                                    'OS family + version', 'browser family + version'],
+            'cookies_technical': [
+                {'name': 'access_token', 'purpose': 'Sessione admin', 'duration': '24h'},
+                {'name': 'vendor_token', 'purpose': 'Sessione venditore', 'duration': '24h'},
+                {'name': 'qrhub_cookie_ack_*', 'purpose': 'Memorizza chiusura cookie banner', 'duration': 'localStorage (persistente fino a clear browser)'},
+            ],
+            'never_stored': ['Indirizzi IP individuali', 'User agent grezzi',
+                              'Cookie di profilazione', 'Identificatori di marketing',
+                              'Dati identificativi degli utenti finali'],
+        },
+        'legal_basis': {
+            'page_view': 'Esecuzione di servizio richiesto (art. 6(1)(b) GDPR)',
+            'aggregate_analytics': 'Legittimo interesse del titolare al miglioramento del servizio, '
+                                      'con dati pseudonimizzati e non riconducibili al singolo utente (art. 6(1)(f) GDPR)',
+            'technical_cookies': 'Necessari per la fornitura del servizio (art. 122 Codice Privacy IT)',
+        },
+        'retention': {
+            'geo_cache_subnet': '7 giorni (poi cancellati automaticamente)',
+            'aggregate_analytics': 'Indefinita (dati non riconducibili a persona fisica)',
+            'admin_session_cookie': '24 ore',
+            'login_attempts_log': '60 minuti (rolling)',
+        },
+        'rights': [
+            {'art': 'Art. 15', 'name': 'Accesso ai propri dati'},
+            {'art': 'Art. 16', 'name': 'Rettifica'},
+            {'art': 'Art. 17', 'name': 'Cancellazione (oblio)'},
+            {'art': 'Art. 18', 'name': 'Limitazione del trattamento'},
+            {'art': 'Art. 20', 'name': 'Portabilità'},
+            {'art': 'Art. 21', 'name': 'Opposizione'},
+            {'art': 'Art. 77', 'name': 'Reclamo al Garante (https://www.garanteprivacy.it)'},
+        ],
+        'updated_at': datetime.now(timezone.utc).isoformat(),
+    }
+
+
 @api_router.get('/vendors/{vendor_id}')
 async def get_vendor_public(vendor_id: str):
     vendor = await db.vendors.find_one({'id': vendor_id}, {'_id': 0})
@@ -1263,7 +1429,9 @@ async def get_vendor_public(vendor_id: str):
         org = await db.organizations.find_one(
             {'id': org_id['organization_id']},
             {'_id': 0, 'brand_name': 1, 'primary_color': 1, 'logo_url': 1,
-              'cookie_banner_enabled': 1, 'cookie_banner_text': 1, 'cookie_banner_link': 1}
+              'cookie_banner_enabled': 1, 'cookie_banner_text': 1, 'cookie_banner_link': 1,
+              'legal_name': 1, 'vat_number': 1, 'legal_address': 1,
+              'privacy_contact_email': 1, 'privacy_policy_url': 1}
         )
         if org:
             vendor['organization'] = {
@@ -1271,10 +1439,17 @@ async def get_vendor_public(vendor_id: str):
                 'primary_color': org.get('primary_color', '#F96815'),
                 'logo_url': org.get('logo_url', ''),
                 'cookie_banner': {
-                    'enabled': bool(org.get('cookie_banner_enabled', False)),
+                    # Post-GDPR audit: banner is always-on for transparency (art. 13).
+                    # The flag is kept for backwards compat but no longer hides the banner;
+                    # it just toggles whether the org's custom text is used vs the default.
+                    'enabled': True,
+                    'use_custom_text': bool(org.get('cookie_banner_enabled', False)),
                     'text': org.get('cookie_banner_text', '') or '',
                     'link': org.get('cookie_banner_link', '') or ''
-                }
+                },
+                'has_privacy_info': bool(
+                    org.get('legal_name') or org.get('vat_number') or org.get('privacy_contact_email')
+                ),
             }
     return vendor
 
@@ -1363,11 +1538,14 @@ async def generate_qr(vendor_id: str, user: dict = Depends(get_current_user)):
     )
 
 @api_router.post('/vendor-auth/login')
-async def vendor_login(req: LoginRequest, response: Response):
+async def vendor_login(req: LoginRequest, request: Request, response: Response):
+    await _enforce_login_rate_limit('vendor', req.email, request)
     vendor = await db.vendors.find_one({'email': req.email.lower()}, {'_id': 0})
     if not vendor or 'password_hash' not in vendor or not verify_password(req.password, vendor['password_hash']):
+        await _record_login_attempt('vendor', req.email, request, success=False)
         raise HTTPException(status_code=401, detail='Invalid credentials')
-    
+    await _record_login_attempt('vendor', req.email, request, success=True)
+
     token = create_vendor_token(vendor['id'], vendor['email'])
     response.set_cookie(
         key='vendor_token',

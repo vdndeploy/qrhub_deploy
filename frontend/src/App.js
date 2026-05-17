@@ -7,6 +7,7 @@ import Dashboard from '@/pages/Dashboard';
 import VendorLanding from '@/pages/VendorLanding';
 import VendorLogin from '@/pages/VendorLogin';
 import VendorDashboard from '@/pages/VendorDashboard';
+import VendorPrivacy from '@/pages/VendorPrivacy';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import ProtectedVendorRoute from '@/components/ProtectedVendorRoute';
 import '@/App.css';
@@ -20,6 +21,7 @@ function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/vendor-login" element={<VendorLogin />} />
             <Route path="/v/:vendorId" element={<VendorLanding />} />
+            <Route path="/v/:vendorId/privacy" element={<VendorPrivacy />} />
             <Route
               path="/dashboard/*"
               element={

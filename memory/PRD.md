@@ -44,16 +44,22 @@ Il progetto **QRHub** è una piattaforma multi-tenant open source (MIT) che perm
 | 2026-05-17 | Clone repo `vdndeploy/qrhub_deploy` in `/app` + install deps + supervisor up | ✅ |
 | 2026-05-17 | Connessione locale al DB di produzione (`qrhub_vendor_db`) | ✅ |
 | 2026-05-17 | **Rinomina DB**: `windtre_vendor_db` → `qrhub_vendor_db` (copy + Fly secret update + verify + drop old) | ✅ deployato |
-| 2026-05-17 | **Bug fix `/api/deploy/fly/redeploy`**: era `/restart` → `POST /machines/{id}` per applicare secret staged | ✅ deployato v12 |
-| 2026-05-17 | **GDPR Sprint 1 (CRITICAL)** | ✅ deployato v13 |
+| 2026-05-17 | **Bug fix `/api/deploy/fly/redeploy`**: era `/restart` → `POST /machines/{id}` per applicare secret staged | ✅ v12 |
+| 2026-05-17 | **GDPR Sprint 1 (CRITICAL)** | ✅ v13 |
 | 2026-05-17 | - C1: IP raw in `geo_cache` → `subnet` anonimizzata (`/24` IPv4, `/48` IPv6); pulizia 3 IP legacy; testo Legal.js allineato | ✅ |
 | 2026-05-17 | - C2: tenant scoping su `/api/analytics/export/pdf` (era bypass-abile cross-tenant) | ✅ |
-| 2026-05-17 | **GDPR Sprint 2 (HIGH)** | ✅ deployato v14 |
-| 2026-05-17 | - H1: rate-limit login (5 tentativi / 15 min) su `/auth/login` e `/vendor-auth/login` | ✅ |
-| 2026-05-17 | - H4+H7: nuovo endpoint `/api/vendors/{id}/privacy-info` + pagina pubblica `/v/:vendorId/privacy` con titolare, sub-processor, basi giuridiche, diritti GDPR | ✅ |
-| 2026-05-17 | - H5: cookie banner sempre visibile sulla landing + link "Informativa privacy" obbligatorio (default verso pagina auto-generata se org non ha URL custom) + link footer permanente | ✅ |
-| 2026-05-17 | - Campi privacy nel form `OrgSettings`: denominazione legale, P.IVA, indirizzo, email privacy, URL policy custom | ✅ |
-| 2026-05-17 | - I18n: messaggi login da "Invalid credentials" → "Credenziali non valide" | ✅ |
+| 2026-05-17 | **GDPR Sprint 2 (HIGH H1/H4/H5/H7)** | ✅ v14 |
+| 2026-05-17 | - H1: rate-limit login (5 tentativi / 15 min) | ✅ |
+| 2026-05-17 | - H4+H7: endpoint `/api/vendors/{id}/privacy-info` + pagina pubblica `/v/:vendorId/privacy` | ✅ |
+| 2026-05-17 | - H5: cookie banner sempre visibile + link privacy obbligatorio | ✅ |
+| 2026-05-17 | - Campi privacy in OrgSettings (legal_name, vat, address, email, policy_url) | ✅ |
+| 2026-05-17 | **GDPR Sprint 3 (HIGH H2/H3/H6 — diritti dell'interessato)** | ✅ v15 |
+| 2026-05-17 | - H2: `GET /api/me/data-export`, `DELETE /api/me`, vendor counterparts | ✅ |
+| 2026-05-17 | - H3: `POST /api/me/revoke-all-sessions` (token_version JWT, retrocompatibile) | ✅ |
+| 2026-05-17 | - H6: DPA accept flow (`/dashboard/dpa` + banner pending al primo login) | ✅ |
+| 2026-05-17 | - UX: badge "GDPR completeness" in OrgSettings (0-100%, indica campi titolare mancanti) | ✅ |
+| 2026-05-17 | - Pagina /dashboard/account con export, revoke, delete account | ✅ |
+| 2026-05-17 | - Test agent: backend 23/23 + frontend 10/10 (sprint 1+2+3 cumulato) | ✅ |
 
 ## Prioritized backlog
 

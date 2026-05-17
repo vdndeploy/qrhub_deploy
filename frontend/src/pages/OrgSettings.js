@@ -43,9 +43,10 @@ const GdprCompleteness = ({ org }) => {
     emerald: { bar: 'bg-emerald-600', box: 'border-emerald-200 bg-emerald-50', text: 'text-emerald-800', pill: 'bg-emerald-100 text-emerald-800' },
   }[tone];
 
+  const remaining = required - filledRequired;
   const headline = filledRequired === required
     ? (filledOptional === optional ? 'Profilo GDPR completo' : 'Profilo GDPR conforme')
-    : `${required - filledRequired} campo${required - filledRequired === 1 ? '' : 'i'} ancora da compilare`;
+    : `${remaining} ${remaining === 1 ? 'campo' : 'campi'} ancora da compilare`;
 
   const cta = filledRequired === required
     ? 'Tutto in regola — i visitatori delle landing vedranno il tuo nominativo come titolare del trattamento.'

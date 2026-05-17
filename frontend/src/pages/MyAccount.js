@@ -115,6 +115,10 @@ const MyAccount = () => {
           Invalida ogni token JWT attivo su altri dispositivi/browser. Utile se sospetti che le tue credenziali
           siano state compromesse. La sessione corrente verrà rinnovata e non sarai disconnesso da questa pagina.
         </p>
+        <p className="text-xs text-gray-500">
+          Nota: se sei anche venditore (vendor login), le sessioni vendor restano separate e devono essere revocate
+          dal tuo profilo vendor.
+        </p>
         <Button onClick={handleRevoke} disabled={revoking} variant="outline"
                 data-testid="revoke-sessions-button"
                 className="border-amber-300 text-amber-700 hover:bg-amber-50">

@@ -509,7 +509,7 @@ async def export_my_data(user: dict = Depends(get_current_user)):
 
 
 @api_router.delete('/me')
-async def delete_my_account(user: dict = Depends(get_current_user)):
+async def delete_my_account(response: Response, user: dict = Depends(get_current_user)):
     """Right to erasure (art. 17 GDPR). Deletes the logged-in user account.
     - Super admin: forbidden (would lock everyone out of the platform).
     - Org admin: deletes only the user record; the organization and its data
@@ -520,6 +520,7 @@ async def delete_my_account(user: dict = Depends(get_current_user)):
         raise HTTPException(status_code=400, detail='Impossibile auto-eliminare il super admin')
     await db.users.delete_one({'_id': ObjectId(user['_id'])})
     await db.login_attempts.delete_many({'email': user.get('email', '').lower(), 'scope': 'admin'})
+    response.delete_cookie('access_token', path='/')
     return {'message': 'Account eliminato', 'email': user.get('email', '')}
 
 
@@ -566,11 +567,12 @@ async def vendor_export_my_data(vendor: dict = Depends(get_current_vendor)):
 
 
 @api_router.delete('/vendor/me')
-async def vendor_delete_my_account(vendor: dict = Depends(get_current_vendor)):
+async def vendor_delete_my_account(response: Response, vendor: dict = Depends(get_current_vendor)):
     vid = vendor['id']
     await db.vendors.delete_one({'id': vid})
     await db.analytics.delete_many({'vendor_id': vid})
     await db.login_attempts.delete_many({'email': vendor.get('email', '').lower(), 'scope': 'vendor'})
+    response.delete_cookie('vendor_token', path='/')
     return {'message': 'Profilo venditore eliminato'}
 
 

@@ -59,7 +59,15 @@ Il progetto **QRHub** è una piattaforma multi-tenant open source (MIT) che perm
 | 2026-05-17 | - H6: DPA accept flow (`/dashboard/dpa` + banner pending al primo login) | ✅ |
 | 2026-05-17 | - UX: badge "GDPR completeness" in OrgSettings (0-100%, indica campi titolare mancanti) | ✅ |
 | 2026-05-17 | - Pagina /dashboard/account con export, revoke, delete account | ✅ |
-| 2026-05-17 | - Test agent: backend 23/23 + frontend 10/10 (sprint 1+2+3 cumulato) | ✅ |
+| 2026-05-17 | **GDPR Sprint 4 (MEDIUM batch)** | ✅ v16 |
+| 2026-05-17 | - M1: Cloudinary folder tenant-prefisso (`org_{id}/uploads` o `platform/uploads` per super admin) | ✅ |
+| 2026-05-17 | - M2: Security headers middleware (HSTS, X-Frame-Options=DENY, X-Content-Type-Options=nosniff, Referrer-Policy=strict-origin-when-cross-origin, Permissions-Policy, CSP `frame-ancestors none`) | ✅ |
+| 2026-05-17 | - M3: Retention TTL analytics 365gg + cleanup `login_attempts` ad ogni startup | ✅ |
+| 2026-05-17 | - M4: Warning critico se `JWT_SECRET` < 32 byte all'avvio | ✅ |
+| 2026-05-17 | - M5: Sezione "Trasferimenti extra-UE e SCC" su Legal.js con dettagli per ogni sub-processor (Fly EU-only, Cloudinary US+SCC+DPF, Atlas SCC, Vercel SCC, ipapi EU) | ✅ |
+| 2026-05-17 | - M8: Redaction email nei log applicativi (`a***n@example.com` invece di email piena) | ✅ |
+| 2026-05-17 | - **Trust badge "Titolare verificato"** sulla landing pubblica + pagina privacy quando l'org ha tutti i 4 campi compilati (pill verde→emerald per completo) | ✅ |
+| 2026-05-17 | - **Super Admin → Organizations: colonna GDPR** con badge dpa_status (pending/partial/accepted) + controller_complete + endpoint `/api/organizations/:id/dpa-status` per dettaglio per-admin | ✅ |
 
 ## Prioritized backlog
 

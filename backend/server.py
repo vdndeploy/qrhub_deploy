@@ -1720,6 +1720,9 @@ async def get_vendor_public(vendor_id: str):
               'privacy_contact_email': 1, 'privacy_policy_url': 1}
         )
         if org:
+            required_fields = ('legal_name', 'vat_number', 'legal_address', 'privacy_contact_email')
+            has_all_required = all((org.get(k) or '').strip() for k in required_fields)
+            has_optional = bool((org.get('privacy_policy_url') or '').strip())
             vendor['organization'] = {
                 'brand_name': org.get('brand_name', ''),
                 'primary_color': org.get('primary_color', '#F96815'),
@@ -1736,6 +1739,11 @@ async def get_vendor_public(vendor_id: str):
                 'has_privacy_info': bool(
                     org.get('legal_name') or org.get('vat_number') or org.get('privacy_contact_email')
                 ),
+                'gdpr_status': {
+                    'controller_verified': has_all_required,
+                    'completeness': 'complete' if has_all_required and has_optional
+                                      else ('verified' if has_all_required else 'incomplete'),
+                },
             }
     return vendor
 

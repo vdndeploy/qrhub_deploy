@@ -1,4 +1,6 @@
-import { Routes, Route, Link, useLocation, Navigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Routes, Route, Link, useLocation, Navigate, useNavigate } from 'react-router-dom';
+import axios from 'axios';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import Overview from './Overview';
@@ -9,14 +11,27 @@ import Settings from './Settings';
 import Organizations from './Organizations';
 import OrgSettings from './OrgSettings';
 import Legal from './Legal';
-import { LogOut, BarChart3, Users, Settings as SettingsIcon, Store, FolderOpen, Building2, Sliders, FileText } from 'lucide-react';
+import MyAccount from './MyAccount';
+import Dpa from './Dpa';
+import { LogOut, BarChart3, Users, Settings as SettingsIcon, Store, FolderOpen, Building2, Sliders, FileText, UserCircle, AlertTriangle } from 'lucide-react';
+
+const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 const Dashboard = () => {
   const { logout, user } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   const isSuper = user?.role === 'super_admin';
+  const [dpaNeeded, setDpaNeeded] = useState(false);
 
   const isActive = (path) => location.pathname.startsWith(path);
+
+  useEffect(() => {
+    if (isSuper) return;
+    axios.get(`${API}/me/dpa-status`, { withCredentials: true })
+      .then(r => { if (r.data?.required && !r.data?.accepted) setDpaNeeded(true); })
+      .catch(() => {});
+  }, [isSuper]);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -57,6 +72,24 @@ const Dashboard = () => {
       </header>
 
       <div className="max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-8">
+        {dpaNeeded && !location.pathname.startsWith('/dashboard/dpa') && (
+          <div className="mb-4 bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3"
+                data-testid="dpa-pending-banner">
+            <AlertTriangle className="h-5 w-5 text-amber-700 mt-0.5 flex-shrink-0" />
+            <div className="flex-1 text-sm">
+              <p className="font-semibold text-amber-900">DPA non ancora accettato</p>
+              <p className="text-amber-800">
+                Prima di poter utilizzare la piattaforma in produzione devi accettare il
+                Data Processing Agreement (richiesto dall'Art. 28 GDPR).
+              </p>
+            </div>
+            <Button size="sm" onClick={() => navigate('/dashboard/dpa')}
+                    className="bg-amber-700 hover:bg-amber-800 text-white"
+                    data-testid="dpa-pending-cta">
+              Leggi e accetta
+            </Button>
+          </div>
+        )}
         <nav className="flex gap-1 sm:gap-2 mb-6 sm:mb-8 overflow-x-auto pb-2 -mx-3 px-3 sm:mx-0 sm:px-0 scrollbar-hide" data-testid="dashboard-nav">
           {!isSuper && (
             <>
@@ -159,6 +192,18 @@ const Dashboard = () => {
               <span className="sm:hidden ml-1 text-xs">Legale</span>
             </Button>
           </Link>
+          <Link to="/dashboard/account" className="flex-shrink-0">
+            <Button
+              variant={isActive('/dashboard/account') ? 'default' : 'ghost'}
+              size="sm"
+              className={isActive('/dashboard/account') ? 'bg-[#F96815] hover:bg-[#e05a0f]' : ''}
+              data-testid="nav-my-account"
+            >
+              <UserCircle className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Account</span>
+              <span className="sm:hidden ml-1 text-xs">Me</span>
+            </Button>
+          </Link>
         </nav>
 
         <Routes>
@@ -170,6 +215,8 @@ const Dashboard = () => {
           <Route path="organizations" element={<Organizations />} />
           <Route path="settings" element={<Settings />} />
           <Route path="legal" element={<Legal />} />
+          <Route path="account" element={<MyAccount />} />
+          <Route path="dpa" element={<Dpa />} />
         </Routes>
       </div>
     </div>

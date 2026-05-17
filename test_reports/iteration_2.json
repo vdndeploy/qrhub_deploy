@@ -1,0 +1,42 @@
+{
+  "summary": "GDPR Hardening Sprint 3 validation: full backend coverage (15/15 pytest) for the new endpoints (/api/me/dpa-status, /api/me/accept-dpa, /api/me/data-export, /api/me/revoke-all-sessions, DELETE /api/me, vendor counterparts smoke + token_version back-compat) and full frontend flow (super_admin Account page, export download, revoke-all-sessions toast, fresh org_admin DPA banner→accept flow, OrgSettings GDPR completeness badge moving from 0/4 to 4/4 (80% verde 'Profilo GDPR conforme'), and public /v/:vendorId/privacy page showing the controller info after compilation). One minor i18n typo found.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "OrgSettings — GdprCompleteness card (initial state)",
+        "issue": "Typo nel testo iniziale: 'campoi' invece di 'campi' (e.g. '4 campoi ancora da compilare'). Visibile quando 0/4 dei campi obbligatori GDPR sono compilati.",
+        "selector": "[data-testid='gdpr-completeness-card']",
+        "priority": "LOW"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_gdpr_sprint3.py",
+    "/app/test_reports/pytest/gdpr_sprint3_results.xml"
+  ],
+  "action_items": [
+    "(Optional, low priority) Correggere il typo 'campoi' → 'campi' nel componente GdprCompleteness di /app/frontend/src/pages/OrgSettings.js (testo headline quando completamento è 0%)."
+  ],
+  "critical_code_review_comments": [
+    "server.py ora è 3037 righe — ben oltre la guideline di 700 righe. Sprint 3 aggiunge ~150 righe di GDPR/DPA. Forte raccomandazione di splittare in router separati: routers/auth.py, routers/gdpr.py (DPA + data-export + revoke + delete), routers/organizations.py, routers/vendors.py. Non è bloccante, ma diventerà debito tecnico crescente.",
+    "/api/me/data-export NON ha un Content-Disposition: attachment header — il browser fa il download solo perché il frontend forza il salvataggio del JSON via blob/anchor in MyAccount.js. Se in futuro l'endpoint dovesse essere chiamato direttamente (es. cURL utente avanzato per art. 20 GDPR), il file non scaricherebbe da sé. Considerare aggiunta di FileResponse o header esplicito.",
+    "POST /api/me/revoke-all-sessions rigenera il cookie correttamente ma NON invalida i vendor_token paralleli dello stesso utente (per definizione separati). Comportamento corretto, ma vale la pena documentarlo nel testo della sezione 'Disconnetti tutte le sessioni' su /dashboard/account per evitare ambiguità.",
+    "DELETE /api/me cancella user + login_attempts ma NON revoca il cookie http-only nel response — il client perde la sessione solo perché il frontend chiama logout() subito dopo. Aggiungere response.delete_cookie('access_token', path='/') per pulizia anche se la sessione è comunque invalidata implicitamente."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_gdpr_sprint3.py (NEW — 15 pytest tests per BACKEND-1..7)"
+  ],
+  "success_rate": {"backend": "100% (15/15)", "frontend": "100% (6/6 scenari)"},
+  "test_credentials": "Superadmin: superadmin@qrhub.it / changeme123 (letto da /app/memory/test_credentials.md). Org admin temporaneo creato e cancellato in ogni test per BACKEND-1..5 + FRONTEND-4..6. Email temporanee usano @example.com (TLD valido per EmailStr).",
+  "seed_data_creation": "Per il flusso frontend ho creato un'organizzazione temporanea 'gdpr-fe-test-56c42392' con un org_admin fetest-80a23d4d@example.com, uno store e un vendor — tutto cancellato in cascata via DELETE /api/organizations/{org_id} a fine test. login_attempts collection è stata pulita all'inizio e alla fine.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Tutto Sprint 3 funziona come da spec: (1) DPA flow è corretto — super_admin esentato (required=false), org_admin freshly created vede required=true accepted=false, POST /me/accept-dpa persiste accepted_version='1.0' + accepted_at + accepted_dpa_ip; (2) /me/data-export ritorna esattamente lo schema spec (user, login_history_last_100, organization_summary null per super_admin / object per org_admin con stores_count/vendors_count/posts_count/files_count, files_uploaded_by_me, notes); (3) /me/revoke-all-sessions bumpa token_version, rigenera cookie, vecchio cookie risponde 401 con 'Sessione invalidata, accedi di nuovo'; (4) DELETE /me cancella user + login_attempts (verificato in DB), 400 per super_admin; (5) Endpoint vendor (/api/vendor/me/{data-export,revoke-all-sessions,...}) esistono e rispondono 401 senza auth; (6) Back-compat token_version: JWT firmato senza claim 'tv' per un utente con token_version=1 viene accettato — verificato forgiando il token con il JWT_SECRET di default 'your-secret-key-change-this'. Frontend: nav-my-account presente per super_admin, sezioni Export+Revoke visibili, sezione Delete nascosta correttamente per super_admin; org_admin nuovo vede dpa-pending-banner+CTA, /dashboard/dpa con dpa-accept-button funziona, banner sparisce dopo accept; gdpr-completeness-card va da '0%' rosso a '80% Profilo GDPR conforme' verde con 4/4 obbligatori compilati (privacy_policy_url è OPZIONALE bonus che porta a 100% emerald). Public /v/:vendorId/privacy mostra correttamente legal_name/vat/address/email del titolare DOPO la compilazione dei campi GDPR sull'org.",
+  "rca of the issue": "Nessun bug funzionale. Unica osservazione: typo italiano 'campoi' → 'campi' nel componente GdprCompleteness, livello UI cosmetico, fix in /app/frontend/src/pages/OrgSettings.js intorno alle linee del componente GdprCompleteness."
+}

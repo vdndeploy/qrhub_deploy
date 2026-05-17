@@ -9,10 +9,85 @@ import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
 import {
   Save, Upload, X, Plus, Trash2, Globe, Image as ImgIcon,
-  CheckCircle2, Clock3, RefreshCw, Copy, AlertCircle, Cookie,
+  CheckCircle2, Clock3, RefreshCw, Copy, AlertCircle, Cookie, ShieldCheck,
 } from 'lucide-react';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+
+const GDPR_REQUIRED = [
+  { key: 'legal_name', label: 'Denominazione legale' },
+  { key: 'vat_number', label: 'P.IVA / Codice Fiscale' },
+  { key: 'legal_address', label: 'Sede legale' },
+  { key: 'privacy_contact_email', label: 'Email contatto privacy' },
+];
+const GDPR_OPTIONAL = [
+  { key: 'privacy_policy_url', label: 'URL policy estesa (bonus)' },
+];
+
+const GdprCompleteness = ({ org }) => {
+  const filledRequired = GDPR_REQUIRED.filter(f => !!(org[f.key] || '').trim()).length;
+  const filledOptional = GDPR_OPTIONAL.filter(f => !!(org[f.key] || '').trim()).length;
+  const required = GDPR_REQUIRED.length;
+  const optional = GDPR_OPTIONAL.length;
+  // weight: 80% required, 20% optional
+  const pct = Math.round(((filledRequired / required) * 0.8 + (filledOptional / optional) * 0.2) * 100);
+
+  let tone = 'red';
+  if (filledRequired === required) tone = filledOptional === optional ? 'emerald' : 'green';
+  else if (filledRequired >= 2) tone = 'amber';
+
+  const colors = {
+    red:     { bar: 'bg-red-500',     box: 'border-red-200 bg-red-50',         text: 'text-red-700',     pill: 'bg-red-100 text-red-700' },
+    amber:   { bar: 'bg-amber-500',   box: 'border-amber-200 bg-amber-50',     text: 'text-amber-800',   pill: 'bg-amber-100 text-amber-800' },
+    green:   { bar: 'bg-green-500',   box: 'border-green-200 bg-green-50',     text: 'text-green-800',   pill: 'bg-green-100 text-green-800' },
+    emerald: { bar: 'bg-emerald-600', box: 'border-emerald-200 bg-emerald-50', text: 'text-emerald-800', pill: 'bg-emerald-100 text-emerald-800' },
+  }[tone];
+
+  const headline = filledRequired === required
+    ? (filledOptional === optional ? 'Profilo GDPR completo' : 'Profilo GDPR conforme')
+    : `${required - filledRequired} campo${required - filledRequired === 1 ? '' : 'i'} ancora da compilare`;
+
+  const cta = filledRequired === required
+    ? 'Tutto in regola — i visitatori delle landing vedranno il tuo nominativo come titolare del trattamento.'
+    : "Completa il profilo per essere conforme all'art. 13 GDPR. Senza questi dati i visitatori non sanno chi è il titolare del trattamento e tu rischi una contestazione.";
+
+  return (
+    <div className={`border rounded-xl p-4 ${colors.box}`} data-testid="gdpr-completeness-card">
+      <div className="flex items-start gap-3 flex-wrap">
+        <ShieldCheck className={`h-6 w-6 ${colors.text} flex-shrink-0 mt-0.5`} />
+        <div className="flex-1 min-w-[220px]">
+          <div className="flex items-center gap-2 flex-wrap mb-2">
+            <h3 className={`font-semibold ${colors.text}`}>GDPR completeness · {pct}%</h3>
+            <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${colors.pill}`}
+                  data-testid="gdpr-completeness-status">{headline}</span>
+          </div>
+          <div className="h-2 bg-white/80 border border-gray-200 rounded overflow-hidden mb-2">
+            <div className={`h-full ${colors.bar} transition-all`} style={{ width: `${pct}%` }} />
+          </div>
+          <p className={`text-sm ${colors.text}`}>{cta}</p>
+          <ul className="text-xs mt-2 space-y-0.5">
+            {GDPR_REQUIRED.map(f => {
+              const filled = !!(org[f.key] || '').trim();
+              return (
+                <li key={f.key} className={filled ? 'text-gray-500' : `${colors.text} font-semibold`}>
+                  {filled ? '✓' : '○'} {f.label}
+                </li>
+              );
+            })}
+            {GDPR_OPTIONAL.map(f => {
+              const filled = !!(org[f.key] || '').trim();
+              return (
+                <li key={f.key} className={filled ? 'text-gray-500' : 'text-gray-400'}>
+                  {filled ? '✓' : '○'} {f.label} <span className="text-[10px] uppercase tracking-wide opacity-70">opzionale</span>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const DomainCard = ({ d, onRefresh, onVerify, onRemove, busy }) => {
   const verified = !!d.verified;
@@ -255,6 +330,8 @@ const OrgSettings = () => {
           <Save className="h-4 w-4 mr-2" />{saving ? 'Salvataggio...' : 'Salva'}
         </Button>
       </div>
+
+      <GdprCompleteness org={org} />
 
       <div className="bg-white border rounded-lg p-5 space-y-4">
         <h3 className="font-semibold flex items-center gap-2"><ImgIcon className="h-4 w-4 text-[#F96815]" />Brand</h3>

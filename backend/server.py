@@ -154,21 +154,23 @@ async def _record_login_attempt(scope: str, email: str, request: Request, succes
     cutoff = (now - timedelta(seconds=LOGIN_WINDOW_SEC * 4)).isoformat()
     await db.login_attempts.delete_many({'ts': {'$lt': cutoff}})
 
-def create_access_token(user_id: str, email: str) -> str:
+def create_access_token(user_id: str, email: str, token_version: int = 1) -> str:
     payload = {
         'sub': user_id,
         'email': email,
         'exp': datetime.now(timezone.utc) + timedelta(hours=24),
-        'type': 'access'
+        'type': 'access',
+        'tv': token_version,
     }
     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
 
-def create_vendor_token(vendor_id: str, email: str) -> str:
+def create_vendor_token(vendor_id: str, email: str, token_version: int = 1) -> str:
     payload = {
         'vendor_id': vendor_id,
         'email': email,
         'exp': datetime.now(timezone.utc) + timedelta(hours=24),
-        'type': 'vendor_access'
+        'type': 'vendor_access',
+        'tv': token_version,
     }
     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
 
@@ -187,6 +189,12 @@ async def get_current_user(request: Request) -> dict:
         user = await db.users.find_one({'_id': ObjectId(payload['sub'])})
         if not user:
             raise HTTPException(status_code=401, detail='User not found')
+        # Session revoke: stored token_version must match the one in the JWT.
+        # Pre-revoke tokens have no 'tv' claim → treated as version 1 (back-compat).
+        token_tv = payload.get('tv', 1)
+        user_tv = user.get('token_version', 1)
+        if token_tv != user_tv:
+            raise HTTPException(status_code=401, detail='Sessione invalidata, accedi di nuovo')
         user['_id'] = str(user['_id'])
         user.pop('password_hash', None)
         user.setdefault('role', 'org_admin')
@@ -230,6 +238,11 @@ async def get_current_vendor(request: Request) -> dict:
         vendor = await db.vendors.find_one({'id': payload['vendor_id']}, {'_id': 0})
         if not vendor:
             raise HTTPException(status_code=401, detail='Vendor not found')
+        # Session revoke: token_version match (default 1 for legacy tokens)
+        token_tv = payload.get('tv', 1)
+        vendor_tv = vendor.get('token_version', 1)
+        if token_tv != vendor_tv:
+            raise HTTPException(status_code=401, detail='Sessione invalidata, accedi di nuovo')
         vendor.pop('password_hash', None)
         return vendor
     except jwt.ExpiredSignatureError:
@@ -393,6 +406,190 @@ class DeployConfig(BaseModel):
 
 CLICK_TYPES = ['whatsapp_click', 'instagram_click', 'facebook_click', 'review_click', 'tiktok_click', 'maps_click', 'post_cta_click']
 
+
+# ──────────────────────────────────────────────────────────────────
+# GDPR — DPA (Data Processing Agreement) acceptance flow
+# ──────────────────────────────────────────────────────────────────
+CURRENT_DPA_VERSION = '1.0'
+
+
+def _dpa_status(user: dict) -> dict:
+    """Return whether the user has accepted the latest DPA version.
+    Super admins are platform owners (not data subjects of a controller↔processor
+    relationship) and therefore do not need to accept a DPA."""
+    if _is_super_admin(user):
+        return {'required': False, 'accepted': True, 'current_version': CURRENT_DPA_VERSION,
+                'accepted_version': None, 'accepted_at': None}
+    accepted_version = user.get('accepted_dpa_version')
+    return {
+        'required': True,
+        'accepted': accepted_version == CURRENT_DPA_VERSION,
+        'current_version': CURRENT_DPA_VERSION,
+        'accepted_version': accepted_version,
+        'accepted_at': user.get('accepted_dpa_at'),
+    }
+
+
+@api_router.get('/me/dpa-status')
+async def get_dpa_status(user: dict = Depends(get_current_user)):
+    return _dpa_status(user)
+
+
+@api_router.post('/me/accept-dpa')
+async def accept_dpa(request: Request, user: dict = Depends(get_current_user)):
+    if _is_super_admin(user):
+        raise HTTPException(status_code=400, detail='Il super admin non firma un DPA con se stesso')
+    await db.users.update_one(
+        {'_id': ObjectId(user['_id'])},
+        {'$set': {
+            'accepted_dpa_version': CURRENT_DPA_VERSION,
+            'accepted_dpa_at': datetime.now(timezone.utc).isoformat(),
+            'accepted_dpa_ip': _client_ip(request),
+        }}
+    )
+    return {'message': 'DPA accettato', 'version': CURRENT_DPA_VERSION}
+
+
+# ──────────────────────────────────────────────────────────────────
+# GDPR — Right to access (art. 15), portability (art. 20), erasure (art. 17),
+# revoke all sessions
+# ──────────────────────────────────────────────────────────────────
+@api_router.get('/me/data-export')
+async def export_my_data(user: dict = Depends(get_current_user)):
+    """Right to data portability (art. 20 GDPR) for the logged-in admin/org_admin user.
+    Returns the user's own personal data + a summary of the org they belong to
+    (since an org_admin manages but does NOT 'own' the org's data subjects)."""
+    user_doc = {
+        'id': user['_id'],
+        'email': user.get('email', ''),
+        'name': user.get('name', ''),
+        'role': user.get('role', ''),
+        'organization_id': user.get('organization_id'),
+        'created_at': user.get('created_at', ''),
+        'accepted_dpa_version': user.get('accepted_dpa_version'),
+        'accepted_dpa_at': user.get('accepted_dpa_at'),
+        'token_version': user.get('token_version', 1),
+    }
+    login_history = await db.login_attempts.find(
+        {'email': user.get('email', '').lower(), 'scope': 'admin'},
+        {'_id': 0, 'ts': 1, 'ip': 1, 'success': 1}
+    ).sort('ts', -1).to_list(100)
+    org_summary = None
+    if not _is_super_admin(user) and user.get('organization_id'):
+        org = await db.organizations.find_one({'id': user['organization_id']}, {'_id': 0})
+        if org:
+            org_summary = {
+                'id': org['id'],
+                'name': org.get('name', ''),
+                'brand_name': org.get('brand_name', ''),
+                'stores_count': await db.stores.count_documents({'organization_id': org['id']}),
+                'vendors_count': await db.vendors.count_documents({'organization_id': org['id']}),
+                'posts_count': await db.posts.count_documents({'organization_id': org['id']}),
+                'files_count': await db.files.count_documents({'organization_id': org['id']}),
+            }
+    files_uploaded = await db.files.find(
+        {'uploaded_by': user.get('email', '')},
+        {'_id': 0, 'public_id': 1, 'url': 1, 'created_at': 1, 'original_filename': 1}
+    ).to_list(1000)
+    return {
+        'exported_at': datetime.now(timezone.utc).isoformat(),
+        'exported_for': user.get('email', ''),
+        'format_version': '1.0',
+        'user': user_doc,
+        'login_history_last_100': login_history,
+        'organization_summary': org_summary,
+        'files_uploaded_by_me': files_uploaded,
+        'notes': [
+            'Questo export contiene solo i TUOI dati personali (art. 15 GDPR).',
+            'I dati aggregati di analytics non sono inclusi perché non riconducibili a te individualmente.',
+            'Se sei un org_admin e vuoi esportare i dati della tua organizzazione (titolare), '
+            'usa il pannello Organizzazione → Esporta dati org.',
+        ],
+    }
+
+
+@api_router.delete('/me')
+async def delete_my_account(user: dict = Depends(get_current_user)):
+    """Right to erasure (art. 17 GDPR). Deletes the logged-in user account.
+    - Super admin: forbidden (would lock everyone out of the platform).
+    - Org admin: deletes only the user record; the organization and its data
+      are NOT cascaded — the controller (org) might still have other admins, or
+      the super_admin will need to reassign / delete it from his panel.
+    """
+    if _is_super_admin(user):
+        raise HTTPException(status_code=400, detail='Impossibile auto-eliminare il super admin')
+    await db.users.delete_one({'_id': ObjectId(user['_id'])})
+    await db.login_attempts.delete_many({'email': user.get('email', '').lower(), 'scope': 'admin'})
+    return {'message': 'Account eliminato', 'email': user.get('email', '')}
+
+
+@api_router.post('/me/revoke-all-sessions')
+async def revoke_all_sessions(response: Response, user: dict = Depends(get_current_user)):
+    """Invalidate every existing JWT for this user (incl. other devices/browsers)
+    by bumping token_version. The current cookie is refreshed in-place so the
+    user is not kicked out of the active tab."""
+    new_tv = int(user.get('token_version', 1)) + 1
+    await db.users.update_one(
+        {'_id': ObjectId(user['_id'])},
+        {'$set': {'token_version': new_tv}}
+    )
+    new_token = create_access_token(user['_id'], user.get('email', ''), new_tv)
+    response.set_cookie(
+        key='access_token', value=new_token,
+        httponly=True, secure=COOKIE_SECURE, samesite=COOKIE_SAMESITE,
+        max_age=86400, path='/'
+    )
+    return {'message': 'Tutte le altre sessioni sono state invalidate', 'token_version': new_tv}
+
+
+# Vendor-side counterparts -------------------------------------------------------
+@api_router.get('/vendor/me/data-export')
+async def vendor_export_my_data(vendor: dict = Depends(get_current_vendor)):
+    vid = vendor['id']
+    vendor_doc = {k: v for k, v in vendor.items() if k != 'password_hash'}
+    analytics = await db.analytics.find(
+        {'vendor_id': vid},
+        {'_id': 0, 'event_type': 1, 'timestamp': 1, 'device': 1, 'city': 1, 'country': 1}
+    ).sort('timestamp', -1).to_list(5000)
+    login_history = await db.login_attempts.find(
+        {'email': vendor.get('email', '').lower(), 'scope': 'vendor'},
+        {'_id': 0, 'ts': 1, 'ip': 1, 'success': 1}
+    ).sort('ts', -1).to_list(100)
+    return {
+        'exported_at': datetime.now(timezone.utc).isoformat(),
+        'exported_for': vendor.get('email', ''),
+        'format_version': '1.0',
+        'vendor': vendor_doc,
+        'analytics_events_aggregated': analytics,
+        'login_history_last_100': login_history,
+    }
+
+
+@api_router.delete('/vendor/me')
+async def vendor_delete_my_account(vendor: dict = Depends(get_current_vendor)):
+    vid = vendor['id']
+    await db.vendors.delete_one({'id': vid})
+    await db.analytics.delete_many({'vendor_id': vid})
+    await db.login_attempts.delete_many({'email': vendor.get('email', '').lower(), 'scope': 'vendor'})
+    return {'message': 'Profilo venditore eliminato'}
+
+
+@api_router.post('/vendor/me/revoke-all-sessions')
+async def vendor_revoke_all_sessions(response: Response, vendor: dict = Depends(get_current_vendor)):
+    new_tv = int(vendor.get('token_version', 1)) + 1
+    await db.vendors.update_one(
+        {'id': vendor['id']},
+        {'$set': {'token_version': new_tv}}
+    )
+    new_token = create_vendor_token(vendor['id'], vendor.get('email', ''), new_tv)
+    response.set_cookie(
+        key='vendor_token', value=new_token,
+        httponly=True, secure=COOKIE_SECURE, samesite=COOKIE_SAMESITE,
+        max_age=86400, path='/'
+    )
+    return {'message': 'Tutte le altre sessioni sono state invalidate', 'token_version': new_tv}
+
+
 @api_router.post('/auth/login')
 async def login(req: LoginRequest, request: Request, response: Response):
     await _enforce_login_rate_limit('admin', req.email, request)
@@ -402,7 +599,7 @@ async def login(req: LoginRequest, request: Request, response: Response):
         raise HTTPException(status_code=401, detail='Credenziali non valide')
     await _record_login_attempt('admin', req.email, request, success=True)
 
-    token = create_access_token(str(user['_id']), user['email'])
+    token = create_access_token(str(user['_id']), user['email'], user.get('token_version', 1))
     response.set_cookie(
         key='access_token',
         value=token,
@@ -1546,7 +1743,7 @@ async def vendor_login(req: LoginRequest, request: Request, response: Response):
         raise HTTPException(status_code=401, detail='Credenziali non valide')
     await _record_login_attempt('vendor', req.email, request, success=True)
 
-    token = create_vendor_token(vendor['id'], vendor['email'])
+    token = create_vendor_token(vendor['id'], vendor['email'], vendor.get('token_version', 1))
     response.set_cookie(
         key='vendor_token',
         value=token,

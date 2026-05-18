@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
+import re
 import logging
 import asyncio
 from pathlib import Path
@@ -344,6 +345,7 @@ class OrganizationCreate(BaseModel):
 
 class OrganizationUpdate(BaseModel):
     name: Optional[str] = None
+    slug: Optional[str] = None
     brand_name: Optional[str] = None
     primary_color: Optional[str] = None
     logo_url: Optional[str] = None
@@ -806,7 +808,10 @@ async def list_organizations(user: dict = Depends(require_super_admin)):
         users_count = await db.users.count_documents({'organization_id': o['id']})
         stores_count = await db.stores.count_documents({'organization_id': o['id']})
         vendors_count = await db.vendors.count_documents({'organization_id': o['id']})
-        # GDPR status per org (super admin view)
+        # GDPR status per org (super admin view).
+        # The DPA is a legal contract between QRHub (processor) and the controller
+        # (the organization, not each individual admin). It is therefore considered
+        # "accepted" for the whole org as soon as AT LEAST ONE org_admin has signed.
         admin_users = await db.users.find(
             {'organization_id': o['id'], 'role': 'org_admin'},
             {'_id': 0, 'email': 1, 'accepted_dpa_version': 1, 'accepted_dpa_at': 1}
@@ -824,8 +829,7 @@ async def list_organizations(user: dict = Depends(require_super_admin)):
             'dpa_required_version': CURRENT_DPA_VERSION,
             'dpa_admins_total': admins_total,
             'dpa_admins_accepted': admins_accepted,
-            'dpa_status': ('accepted' if admins_total > 0 and admins_accepted == admins_total
-                            else ('partial' if admins_accepted > 0 else 'pending')),
+            'dpa_status': 'accepted' if admins_accepted >= 1 else 'pending',
             'dpa_last_accept_at': last_accept,
             'controller_fields_filled': filled_required,
             'controller_fields_required': len(required_fields),
@@ -895,7 +899,19 @@ async def update_organization(org_id: str, payload: OrganizationUpdate, user: di
     
     update = {}
     if payload.name is not None:
-        update['name'] = payload.name
+        update['name'] = (payload.name or '').strip()[:200]
+    if payload.slug is not None:
+        # Slug edit reserved to super admins (changes public URLs / domain mapping)
+        if not _is_super_admin(user):
+            raise HTTPException(status_code=403, detail='Solo il super admin può cambiare lo slug')
+        new_slug = re.sub(r'[^a-z0-9-]+', '-', (payload.slug or '').strip().lower()).strip('-')
+        if not new_slug:
+            raise HTTPException(status_code=400, detail='Slug non valido')
+        if new_slug != org.get('slug'):
+            clash = await db.organizations.find_one({'slug': new_slug, 'id': {'$ne': org_id}}, {'_id': 1})
+            if clash:
+                raise HTTPException(status_code=400, detail='Slug già in uso da un\'altra organizzazione')
+            update['slug'] = new_slug
     if payload.brand_name is not None:
         update['brand_name'] = payload.brand_name
     if payload.primary_color is not None:

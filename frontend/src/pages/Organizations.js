@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { toast } from 'sonner';
-import { Plus, Trash2, Building2, UserPlus, Users, KeyRound, ShieldCheck, ShieldAlert, ShieldX } from 'lucide-react';
+import { Plus, Trash2, Building2, UserPlus, Users, KeyRound, ShieldCheck, ShieldAlert, ShieldX, Pencil } from 'lucide-react';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -20,15 +20,11 @@ const GdprBadge = ({ gdpr }) => {
   if (dpa_status === 'accepted' && controller_complete) {
     icon = ShieldCheck;
     cls = 'bg-emerald-50 text-emerald-700 border-emerald-200';
-    label = 'DPA OK · Titolare OK';
+    label = `DPA OK · Titolare OK (${dpa_admins_accepted}/${dpa_admins_total})`;
   } else if (dpa_status === 'accepted') {
     icon = ShieldAlert;
     cls = 'bg-amber-50 text-amber-700 border-amber-200';
-    label = 'DPA OK · Titolare incompleto';
-  } else if (dpa_status === 'partial') {
-    icon = ShieldAlert;
-    cls = 'bg-amber-50 text-amber-700 border-amber-200';
-    label = `DPA ${dpa_admins_accepted}/${dpa_admins_total}`;
+    label = `DPA OK (${dpa_admins_accepted}/${dpa_admins_total}) · Titolare incompleto`;
   }
   const Icon = icon;
   return (
@@ -52,6 +48,9 @@ const Organizations = () => {
   const [pwdResetFor, setPwdResetFor] = useState(null); // user email being reset
   const [newPassword, setNewPassword] = useState('');
   const [pwdSubmitting, setPwdSubmitting] = useState(false);
+  const [editOrg, setEditOrg] = useState(null); // org being edited
+  const [editForm, setEditForm] = useState({ name: '', slug: '', brand_name: '', primary_color: '' });
+  const [editSubmitting, setEditSubmitting] = useState(false);
 
   const fetchOrgs = async () => {
     setLoading(true);
@@ -200,8 +199,11 @@ const Organizations = () => {
                   <TableCell data-testid={`org-gdpr-${o.id}`}>
                     <GdprBadge gdpr={o.gdpr} />
                   </TableCell>
-                  <TableCell className="text-right">
-                    <Button variant="outline" size="sm" onClick={() => openUsers(o)}><Users className="h-4 w-4" /></Button>
+                  <TableCell className="text-right whitespace-nowrap">
+                    <Button variant="outline" size="sm" onClick={() => openEdit(o)} title="Modifica nome / slug" data-testid={`org-edit-${o.id}`}>
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => openUsers(o)} className="ml-1"><Users className="h-4 w-4" /></Button>
                     <Button variant="outline" size="sm" onClick={() => handleDelete(o.id, o.name)} className="ml-1"><Trash2 className="h-4 w-4 text-red-500" /></Button>
                   </TableCell>
                 </TableRow>
@@ -285,6 +287,69 @@ const Organizations = () => {
               </div>
             )}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit organization (name + slug) */}
+      <Dialog open={!!editOrg} onOpenChange={(v) => !v && setEditOrg(null)}>
+        <DialogContent className="max-w-md w-[95vw]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Pencil className="h-5 w-5 text-[#F96815]" />
+              Modifica "{editOrg?.name}"
+            </DialogTitle>
+            <DialogDescription>
+              <strong>Attenzione</strong>: cambiando lo <code>slug</code> cambia il path pubblico delle landing
+              e le URL dei venditori. Comunicalo agli amministratori dell'organizzazione prima di salvare.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleEditSave} className="space-y-3" data-testid="org-edit-form">
+            <div>
+              <Label>Nome organizzazione *</Label>
+              <Input value={editForm.name}
+                      onChange={(e) => setEditForm({...editForm, name: e.target.value})}
+                      placeholder="VDN SRL"
+                      required maxLength={200}
+                      data-testid="org-edit-name" />
+            </div>
+            <div>
+              <Label>Slug (kebab-case, solo a-z 0-9 e trattini)</Label>
+              <Input value={editForm.slug}
+                      onChange={(e) => setEditForm({...editForm,
+                          slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]+/g, '-')})}
+                      placeholder="vdn-srl"
+                      className="font-mono"
+                      data-testid="org-edit-slug" />
+              <p className="text-xs text-gray-500 mt-1">Univoco tra tutti i tenant. Deve essere identificativo, breve.</p>
+            </div>
+            <div>
+              <Label>Brand name (display)</Label>
+              <Input value={editForm.brand_name}
+                      onChange={(e) => setEditForm({...editForm, brand_name: e.target.value})}
+                      placeholder="VDN"
+                      maxLength={200}
+                      data-testid="org-edit-brand" />
+            </div>
+            <div>
+              <Label>Colore primario</Label>
+              <div className="flex items-center gap-2">
+                <Input type="color" value={editForm.primary_color}
+                        onChange={(e) => setEditForm({...editForm, primary_color: e.target.value})}
+                        className="w-16 h-10 p-1" />
+                <Input value={editForm.primary_color}
+                        onChange={(e) => setEditForm({...editForm, primary_color: e.target.value})}
+                        className="font-mono" />
+              </div>
+            </div>
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button type="button" variant="outline" onClick={() => setEditOrg(null)}>Annulla</Button>
+              <Button type="submit" disabled={editSubmitting}
+                      className="bg-[#F96815] hover:bg-[#e05a0f]"
+                      data-testid="org-edit-save">
+                {editSubmitting ? 'Salvataggio…' : 'Salva modifiche'}
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
 

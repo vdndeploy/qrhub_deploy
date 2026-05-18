@@ -90,33 +90,70 @@ const GdprCompleteness = ({ org }) => {
   );
 };
 
-const DomainCard = ({ d, onRefresh, onVerify, onRemove, busy }) => {
-  const verified = !!d.verified;
-  const dns = d.dns_instructions || {};
-
-  const copyDns = async () => {
-    const txt = `${dns.type}\t${dns.host}\t${dns.value}\t(TTL ${dns.ttl || 3600})`;
+const CopyableValue = ({ value, testId }) => {
+  const copy = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
     try {
-      await navigator.clipboard.writeText(txt);
-      toast.success('Record DNS copiato');
+      await navigator.clipboard.writeText(value);
+      toast.success('Copiato negli appunti');
     } catch { toast.error('Impossibile copiare'); }
   };
+  return (
+    <button type="button" onClick={copy} data-testid={testId}
+            className="group inline-flex items-center gap-1.5 font-mono text-[11px] sm:text-xs font-semibold text-gray-900 hover:text-[#F96815] break-all text-left">
+      <span className="break-all">{value}</span>
+      <Copy className="h-3 w-3 opacity-50 group-hover:opacity-100 flex-shrink-0" />
+    </button>
+  );
+};
+
+const DomainCard = ({ d, onRefresh, onVerify, onRemove, busy }) => {
+  const ownership = !!d.verified; // Vercel ownership check (TXT record / project assignment)
+  const live = d.dns || {};
+  const isSubdomain = d.is_subdomain !== undefined ? d.is_subdomain : (d.domain !== (d.apex || d.domain));
+  const host = isSubdomain ? d.domain.split('.')[0] : '@';
+
+  // Effective DNS state from Vercel's /v6/domains/{d}/config
+  const dnsMisconfigured = live.misconfigured !== false; // default true if unknown
+  const fullyOnline = ownership && !dnsMisconfigured;
+
+  // Recommended records (live → fallback to static guidance)
+  const recCname = live.recommended_cname || d.dns_instructions?.value || 'cname.vercel-dns.com';
+  const recA = (live.recommended_a_values && live.recommended_a_values.length > 0)
+    ? live.recommended_a_values
+    : [d.dns_instructions?.value || '76.76.21.21'];
+  const recordType = isSubdomain ? 'CNAME' : 'A';
+  const recordValues = isSubdomain ? [recCname] : recA;
+
+  // Current state from DNS lookup
+  const currentCnames = live.current_cnames || [];
+  const currentAValues = live.current_a_values || [];
+  const conflicts = live.conflicts || [];
+  const hasCurrent = currentCnames.length > 0 || currentAValues.length > 0;
 
   return (
     <div className="border rounded-lg p-3 sm:p-4 bg-white" data-testid={`domain-card-${d.domain}`}>
       <div className="flex items-start justify-between gap-2 flex-wrap">
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <a href={`https://${d.domain}`} target="_blank" rel="noreferrer"
                 className="font-mono text-sm font-semibold text-gray-900 hover:underline truncate">
               {d.domain}
             </a>
-            {verified ? (
-              <Badge className="bg-emerald-600 hover:bg-emerald-600 text-white">
-                <CheckCircle2 className="h-3 w-3 mr-1" />Verificato
+            {fullyOnline ? (
+              <Badge className="bg-emerald-600 hover:bg-emerald-600 text-white"
+                     data-testid={`domain-status-${d.domain}`}>
+                <CheckCircle2 className="h-3 w-3 mr-1" />Online
+              </Badge>
+            ) : ownership && dnsMisconfigured ? (
+              <Badge variant="outline" className="border-amber-500 text-amber-800 bg-amber-50"
+                     data-testid={`domain-status-${d.domain}`}>
+                <AlertCircle className="h-3 w-3 mr-1" />DNS da configurare
               </Badge>
             ) : (
-              <Badge variant="outline" className="border-amber-400 text-amber-700">
+              <Badge variant="outline" className="border-amber-400 text-amber-700"
+                     data-testid={`domain-status-${d.domain}`}>
                 <Clock3 className="h-3 w-3 mr-1" />In attesa DNS
               </Badge>
             )}
@@ -134,34 +171,94 @@ const DomainCard = ({ d, onRefresh, onVerify, onRemove, busy }) => {
         </div>
       </div>
 
-      {!verified && (
-        <div className="mt-3 space-y-2 bg-amber-50 border border-amber-200 rounded-lg p-3">
+      {!fullyOnline && (
+        <div className="mt-3 space-y-2 bg-amber-50 border border-amber-200 rounded-lg p-3"
+             data-testid={`domain-dns-instructions-${d.domain}`}>
           <div className="flex items-start gap-2">
             <AlertCircle className="h-4 w-4 text-amber-600 flex-shrink-0 mt-0.5" />
-            <div className="text-xs text-amber-900 space-y-1.5 min-w-0 w-full">
-              <p className="font-semibold">Aggiungi questo record DNS sul pannello Aruba:</p>
-              <div className="bg-white border rounded p-2 font-mono text-[11px] sm:text-xs overflow-x-auto">
-                <div className="grid grid-cols-[60px_1fr] sm:grid-cols-[80px_1fr] gap-x-3 gap-y-0.5">
-                  <span className="text-gray-500">Tipo:</span><span className="font-semibold">{dns.type || 'CNAME'}</span>
-                  <span className="text-gray-500">Host:</span><span className="font-semibold">{dns.host || '@'}</span>
-                  <span className="text-gray-500">Valore:</span><span className="font-semibold break-all">{dns.value}</span>
-                  <span className="text-gray-500">TTL:</span><span>{dns.ttl || 3600}</span>
+            <div className="text-xs text-amber-900 space-y-2 min-w-0 w-full">
+              <p className="font-semibold text-sm">
+                {ownership
+                  ? 'DNS non ancora attivo — completa la configurazione su Aruba'
+                  : 'Aggiungi questo record DNS sul pannello Aruba'}
+              </p>
+              <p className="text-[11px] text-amber-800/90">
+                {isSubdomain
+                  ? <>Vai su <strong>Aruba → Pannello Gestione Dominio → DNS / Record DNS</strong> e aggiungi un record <strong>CNAME</strong>:</>
+                  : <>Vai su <strong>Aruba → Pannello Gestione Dominio → DNS / Record DNS</strong> e aggiungi {recordValues.length > 1 ? 'questi record' : 'questo record'} <strong>A</strong>:</>}
+              </p>
+
+              <div className="bg-white border rounded p-2.5 text-[11px] sm:text-xs space-y-1.5">
+                <div className="grid grid-cols-[70px_1fr] sm:grid-cols-[90px_1fr] gap-x-3 gap-y-1.5 items-center">
+                  <span className="text-gray-500">Tipo</span>
+                  <span className="font-mono font-semibold">{recordType}</span>
+
+                  <span className="text-gray-500">Host / Nome</span>
+                  <CopyableValue value={host} testId={`domain-copy-host-${d.domain}`} />
+
+                  <span className="text-gray-500">{recordValues.length > 1 ? 'Valori' : 'Valore'}</span>
+                  <div className="flex flex-col gap-1">
+                    {recordValues.map((v, i) => (
+                      <CopyableValue key={v + i} value={v}
+                                     testId={`domain-copy-value-${d.domain}-${i}`} />
+                    ))}
+                  </div>
+
+                  <span className="text-gray-500">TTL</span>
+                  <span className="font-mono">3600 (o "Auto")</span>
                 </div>
               </div>
+
+              {hasCurrent && (
+                <details className="text-[11px] bg-white/60 border border-amber-200 rounded p-2">
+                  <summary className="cursor-pointer font-semibold text-amber-900">
+                    Cosa risulta attualmente nei DNS pubblici di {d.domain}
+                  </summary>
+                  <div className="mt-2 space-y-1 font-mono text-[10px] sm:text-[11px]">
+                    {currentCnames.length > 0 && (
+                      <div><span className="text-gray-500">CNAME attuali:</span>{' '}
+                        <span className="break-all">{currentCnames.join(', ')}</span></div>
+                    )}
+                    {currentAValues.length > 0 && (
+                      <div><span className="text-gray-500">A attuali:</span>{' '}
+                        <span className="break-all">{currentAValues.join(', ')}</span></div>
+                    )}
+                  </div>
+                </details>
+              )}
+
+              {conflicts.length > 0 && (
+                <div className="text-[11px] bg-red-50 border border-red-200 text-red-800 rounded p-2"
+                     data-testid={`domain-conflicts-${d.domain}`}>
+                  <p className="font-semibold mb-1">⚠ Conflitti rilevati</p>
+                  <ul className="list-disc list-inside space-y-0.5">
+                    {conflicts.map((c, i) => (
+                      <li key={i} className="break-all">
+                        {typeof c === 'object' ? `${c.type || ''} ${c.name || ''} → ${c.value || ''}` : String(c)}
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="mt-1">Rimuovi questi record da Aruba per evitare interferenze.</p>
+                </div>
+              )}
+
               <div className="flex gap-2 flex-wrap pt-1">
-                <Button variant="outline" size="sm" onClick={copyDns} className="h-7 text-xs"
-                        data-testid={`domain-copy-dns-${d.domain}`}>
-                  <Copy className="h-3 w-3 mr-1" />Copia record
-                </Button>
-                <Button size="sm" onClick={() => onVerify(d.domain)} disabled={busy}
+                <Button size="sm" onClick={() => onRefresh(d.domain)} disabled={busy}
                         className="h-7 text-xs bg-amber-600 hover:bg-amber-700 text-white"
-                        data-testid={`domain-verify-${d.domain}`}>
-                  {busy === 'verify' ? 'Verifico...' : 'Verifica ora'}
+                        data-testid={`domain-recheck-${d.domain}`}>
+                  {busy === 'refresh' ? 'Controllo...' : 'Ricontrolla DNS'}
                 </Button>
+                {!ownership && (
+                  <Button size="sm" variant="outline" onClick={() => onVerify(d.domain)} disabled={busy}
+                          className="h-7 text-xs border-amber-500 text-amber-800"
+                          data-testid={`domain-verify-${d.domain}`}>
+                    {busy === 'verify' ? 'Verifico...' : 'Verifica proprietà'}
+                  </Button>
+                )}
               </div>
               <p className="text-[10px] text-amber-800/80 italic pt-1">
-                Dopo aver salvato il record su Aruba, attendi 2-5 minuti e clicca "Verifica ora".
-                Il certificato SSL viene emesso automaticamente.
+                Dopo aver salvato il record su Aruba, attendi 2-10 minuti per la propagazione DNS e clicca "Ricontrolla DNS".
+                Il certificato SSL viene emesso automaticamente da Vercel appena i record sono corretti.
               </p>
             </div>
           </div>
@@ -248,7 +345,10 @@ const OrgSettings = () => {
       const { data } = await axios.get(`${API}/organizations/${org.id}/domains/${domain}/status`,
         { withCredentials: true });
       setDomains(prev => prev.map(x => x.domain === domain ? { ...x, ...data } : x));
-      toast.success(data.verified ? 'Dominio verificato' : 'In attesa di propagazione DNS');
+      const dnsOk = data?.dns && data.dns.misconfigured === false;
+      if (data.verified && dnsOk) toast.success(`${domain} è online`);
+      else if (data.verified && !dnsOk) toast.message('Proprietà verificata, ma DNS non ancora attivo');
+      else toast.message('In attesa di propagazione DNS');
     } catch (e) {
       if (e.response?.status === 404) {
         setDomains(prev => prev.filter(x => x.domain !== domain));

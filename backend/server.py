@@ -1107,21 +1107,56 @@ class DomainAddRequest(BaseModel):
     domain: str
 
 
+async def _vercel_domain_config(domain: str) -> dict:
+    """Fetch live DNS configuration status from Vercel for a domain. Returns
+    the recommended records + whether DNS currently points to Vercel."""
+    try:
+        cfg = await _vercel_call('GET', f'/v6/domains/{domain}/config') or {}
+    except HTTPException:
+        cfg = {}
+    rec_cname = (cfg.get('recommendedCNAME') or [{}])
+    rec_a = (cfg.get('recommendedIPv4') or [{}])
+    # Pick the highest-rank (rank=1) recommendation; fall back to the generic ones.
+    cname_primary = ''
+    if rec_cname and isinstance(rec_cname[0], dict):
+        cname_primary = rec_cname[0].get('value', '') or ''
+    a_primary = []
+    if rec_a and isinstance(rec_a[0], dict):
+        a_primary = rec_a[0].get('value', []) or []
+    return {
+        'misconfigured': bool(cfg.get('misconfigured', True)),
+        'service_type': cfg.get('serviceType', ''),
+        'current_cnames': cfg.get('cnames', []) or [],
+        'current_a_values': cfg.get('aValues', []) or [],
+        'current_nameservers': cfg.get('nameservers', []) or [],
+        'conflicts': cfg.get('conflicts', []) or [],
+        'recommended_cname': cname_primary.rstrip('.'),
+        'recommended_cname_fallback': 'cname.vercel-dns.com',
+        'recommended_a_values': a_primary,
+        'recommended_a_fallback': ['76.76.21.21'],
+    }
+
+
 def _format_domain_record(vercel_resp: dict, organization_id: str, fallback_name: str = '') -> dict:
     """Normalize Vercel domain response into a compact record for the UI."""
     name = vercel_resp.get('name') or fallback_name
     apex = vercel_resp.get('apexName') or name
     is_subdomain = name != apex
+    host = name.split('.')[0] if is_subdomain else '@'
     return {
         'organization_id': organization_id,
         'domain': name,
         'apex': apex,
+        'is_subdomain': is_subdomain,
+        # NOTE: Vercel's "verified" is OWNERSHIP only — it does NOT mean DNS is pointing.
+        # Use dns.misconfigured to check if the actual records are correctly set.
         'verified': bool(vercel_resp.get('verified', False)),
         'verification': vercel_resp.get('verification') or [],
         'created_at': vercel_resp.get('createdAt'),
         'dns_instructions': {
+            # Static guidance — overridden by live `dns` block below when present.
             'type': 'CNAME' if is_subdomain else 'A',
-            'host': name.split('.')[0] if is_subdomain else '@',
+            'host': host,
             'value': 'cname.vercel-dns.com' if is_subdomain else '76.76.21.21',
             'ttl': 3600
         }
@@ -1140,6 +1175,12 @@ async def list_org_domains(org_id: str, user: dict = Depends(get_current_user)):
     if not _can_manage_org(user, org_id):
         raise HTTPException(status_code=403, detail='Non autorizzato')
     docs = await db.vercel_domains.find({'organization_id': org_id}, {'_id': 0}).sort('domain', 1).to_list(500)
+    # Enrich with live DNS status (cached implicitly by Vercel's edge)
+    for d in docs:
+        try:
+            d['dns'] = await _vercel_domain_config(d['domain'])
+        except Exception as e:
+            d['dns'] = {'misconfigured': True, 'error': str(e)[:200]}
     return docs
 
 
@@ -1167,9 +1208,10 @@ async def add_org_domain(org_id: str, payload: DomainAddRequest, user: dict = De
     record = _format_domain_record(resp, org_id, domain)
     record['created_at_local'] = datetime.now(timezone.utc).isoformat()
     record['added_by'] = user.get('email', '')
+    record['dns'] = await _vercel_domain_config(domain)
     await db.vercel_domains.update_one(
         {'organization_id': org_id, 'domain': domain},
-        {'$set': record},
+        {'$set': {k: v for k, v in record.items() if k != 'dns'}},
         upsert=True
     )
     await _sync_org_allowed_domains(org_id)
@@ -1197,6 +1239,7 @@ async def domain_status(org_id: str, domain: str, user: dict = Depends(get_curre
     record = _format_domain_record(resp, org_id, domain)
     record['created_at_local'] = existing.get('created_at_local')
     record['added_by'] = existing.get('added_by', '')
+    record['dns'] = await _vercel_domain_config(domain)
     await db.vercel_domains.update_one(
         {'organization_id': org_id, 'domain': domain},
         {'$set': {'verified': record['verified'], 'verification': record['verification']}}

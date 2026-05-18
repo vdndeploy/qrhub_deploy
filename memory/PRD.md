@@ -67,7 +67,9 @@ Il progetto **QRHub** è una piattaforma multi-tenant open source (MIT) che perm
 | 2026-05-17 | - M5: Sezione "Trasferimenti extra-UE e SCC" su Legal.js con dettagli per ogni sub-processor (Fly EU-only, Cloudinary US+SCC+DPF, Atlas SCC, Vercel SCC, ipapi EU) | ✅ |
 | 2026-05-17 | - M8: Redaction email nei log applicativi (`a***n@example.com` invece di email piena) | ✅ |
 | 2026-05-17 | - **Trust badge "Titolare verificato"** sulla landing pubblica + pagina privacy quando l'org ha tutti i 4 campi compilati (pill verde→emerald per completo) | ✅ |
-| 2026-05-17 | - **Super Admin → Organizations: colonna GDPR** con badge dpa_status (pending/partial/accepted) + controller_complete + endpoint `/api/organizations/:id/dpa-status` per dettaglio per-admin | ✅ |
+| 2026-05-18 | **Deploy Sprint 3+4 frontend su Vercel** | ✅ live |
+| 2026-05-18 | - Risolto problema link Vercel→GitHub: project era ancora linkato al vecchio repoId (`1241334458` = `qrhub_deploy_old`); ricollegato al nuovo (`1242094536` = `qrhub_deploy`) | ✅ |
+| 2026-05-18 | - Verificato in produzione su `qrhub-app.vercel.app`: privacy page, trust badge "Titolare verificato" gradient (org completo), cookie banner, footer privacy link, tutte le pagine Sprint 3+4 | ✅ |
 
 ## Prioritized backlog
 

@@ -128,6 +128,45 @@ const Organizations = () => {
     }
   };
 
+  const openEdit = (org) => {
+    setEditOrg(org);
+    setEditForm({
+      name: org.name || '',
+      slug: org.slug || '',
+      brand_name: org.brand_name || '',
+      primary_color: org.primary_color || '#F96815',
+    });
+  };
+
+  const handleEditSave = async (e) => {
+    e.preventDefault();
+    if (!editOrg) return;
+    const newSlug = (editForm.slug || '').trim();
+    if (newSlug && newSlug !== editOrg.slug) {
+      const ok = window.confirm(
+        `Stai per cambiare lo slug da "${editOrg.slug}" a "${newSlug}".\n\n` +
+        `Le URL pubbliche delle landing dei venditori cambieranno. Procedere?`
+      );
+      if (!ok) return;
+    }
+    setEditSubmitting(true);
+    try {
+      await axios.put(`${API}/organizations/${editOrg.id}`, {
+        name: editForm.name,
+        slug: newSlug || undefined,
+        brand_name: editForm.brand_name,
+        primary_color: editForm.primary_color,
+      }, { withCredentials: true });
+      toast.success('Organizzazione aggiornata');
+      setEditOrg(null);
+      fetchOrgs();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Errore salvataggio');
+    } finally {
+      setEditSubmitting(false);
+    }
+  };
+
   const submitPasswordReset = async (e) => {
     e.preventDefault();
     if (newPassword.length < 6) {

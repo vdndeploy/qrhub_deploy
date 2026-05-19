@@ -354,6 +354,8 @@ class OrganizationUpdate(BaseModel):
     cookie_banner_enabled: Optional[bool] = None
     cookie_banner_text: Optional[str] = None
     cookie_banner_link: Optional[str] = None
+    # Landing page customization
+    landing_headline: Optional[str] = None  # eyebrow text on /v/:id (replaces "Il tuo consulente {brand}")
     # GDPR — controller (titolare del trattamento) info shown on /v/:vendorId/privacy
     legal_name: Optional[str] = None
     vat_number: Optional[str] = None
@@ -380,6 +382,7 @@ class VendorResponse(BaseModel):
     google_review: str
     google_maps_url: str
     qr_url: str
+    landing_url: Optional[str] = ''  # effective public URL (custom domain if available)
     created_at: str
     total_views: int = 0
     email: Optional[str] = ''
@@ -789,6 +792,8 @@ def _org_to_response(o: dict) -> dict:
         'cookie_banner_enabled': bool(o.get('cookie_banner_enabled', True)),  # default ON post-GDPR audit
         'cookie_banner_text': o.get('cookie_banner_text', '') or '',
         'cookie_banner_link': o.get('cookie_banner_link', '') or '',
+        # Landing customization
+        'landing_headline': o.get('landing_headline', '') or '',
         # GDPR controller info
         'legal_name': o.get('legal_name', '') or '',
         'vat_number': o.get('vat_number', '') or '',
@@ -947,6 +952,8 @@ async def update_organization(org_id: str, payload: OrganizationUpdate, user: di
         if purl and not purl.startswith(('http://', 'https://', '/')):
             purl = 'https://' + purl
         update['privacy_policy_url'] = purl[:500]
+    if payload.landing_headline is not None:
+        update['landing_headline'] = (payload.landing_headline or '').strip()[:140]
 
     await db.organizations.update_one({'id': org_id}, {'$set': update})
     updated = await db.organizations.find_one({'id': org_id}, {'_id': 0})
@@ -1605,6 +1612,7 @@ async def get_vendors(user: dict = Depends(get_current_user)):
         v.setdefault('tiktok', '')
         v.setdefault('google_maps_url', '')
         v['has_credentials'] = bool(v.get('password_hash'))
+        v['landing_url'] = await _effective_landing_url(v)
         # Don't leak the hash via response (Pydantic VendorResponse ignores it anyway, but be explicit)
         v.pop('password_hash', None)
     return vendors
@@ -1646,6 +1654,7 @@ async def create_vendor(vendor: VendorCreate, user: dict = Depends(get_current_u
     
     await db.vendors.insert_one(vendor_doc)
     vendor_doc.pop('_id', None)
+    vendor_doc['landing_url'] = await _effective_landing_url(vendor_doc)
     vendor_doc.pop('organization_id', None)
     return VendorResponse(**vendor_doc)
 
@@ -1744,6 +1753,23 @@ async def get_vendor_privacy_info(vendor_id: str):
     }
 
 
+async def _effective_landing_url(vendor: dict) -> str:
+    """Return the canonical public URL for a vendor's landing page.
+    Prefers a verified custom domain on the vendor's org (so QR codes printed
+    today keep working when the user finishes DNS setup). Falls back to the
+    stored qr_url (typically the Vercel default URL)."""
+    org_id = vendor.get('organization_id')
+    if org_id:
+        cd = await db.vercel_domains.find_one(
+            {'organization_id': org_id, 'verified': True},
+            {'_id': 0, 'domain': 1},
+            sort=[('created_at_local', 1)]  # oldest first → most stable
+        )
+        if cd and cd.get('domain'):
+            return f"https://{cd['domain']}/v/{vendor['id']}"
+    return vendor.get('qr_url') or ''
+
+
 @api_router.get('/vendors/{vendor_id}')
 async def get_vendor_public(vendor_id: str):
     vendor = await db.vendors.find_one({'id': vendor_id}, {'_id': 0})
@@ -1775,6 +1801,7 @@ async def get_vendor_public(vendor_id: str):
             {'id': org_id['organization_id']},
             {'_id': 0, 'brand_name': 1, 'primary_color': 1, 'logo_url': 1,
               'cookie_banner_enabled': 1, 'cookie_banner_text': 1, 'cookie_banner_link': 1,
+              'landing_headline': 1, 'name': 1,
               'legal_name': 1, 'vat_number': 1, 'legal_address': 1,
               'privacy_contact_email': 1, 'privacy_policy_url': 1}
         )
@@ -1783,9 +1810,11 @@ async def get_vendor_public(vendor_id: str):
             has_all_required = all((org.get(k) or '').strip() for k in required_fields)
             has_optional = bool((org.get('privacy_policy_url') or '').strip())
             vendor['organization'] = {
+                'name': org.get('name', ''),
                 'brand_name': org.get('brand_name', ''),
                 'primary_color': org.get('primary_color', '#F96815'),
                 'logo_url': org.get('logo_url', ''),
+                'landing_headline': (org.get('landing_headline') or '').strip(),
                 'cookie_banner': {
                     # Post-GDPR audit: banner is always-on for transparency (art. 13).
                     # The flag is kept for backwards compat but no longer hides the banner;
@@ -1838,6 +1867,7 @@ async def update_vendor(vendor_id: str, vendor: VendorUpdate, user: dict = Depen
     updated = await db.vendors.find_one({'id': vendor_id}, {'_id': 0})
     analytics = await db.analytics.count_documents({'vendor_id': vendor_id, 'event_type': 'page_view'})
     updated['total_views'] = analytics
+    updated['landing_url'] = await _effective_landing_url(updated)
     return VendorResponse(**updated)
 
 @api_router.delete('/vendors/{vendor_id}')
@@ -1874,7 +1904,8 @@ async def generate_qr(vendor_id: str, user: dict = Depends(get_current_user)):
         box_size=10,
         border=4
     )
-    qr.add_data(vendor['qr_url'])
+    landing = await _effective_landing_url(vendor)
+    qr.add_data(landing or vendor['qr_url'])
     qr.make(fit=True)
     
     img = qr.make_image(fill_color='black', back_color='white')

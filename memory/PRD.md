@@ -75,6 +75,11 @@ Il progetto **QRHub** è una piattaforma multi-tenant open source (MIT) che perm
 | 2026-05-18 | - Frontend `DomainCard`: tre stati visivi (Online / DNS da configurare / In attesa proprietà). Mostra il CNAME personalizzato live (es. `e854f2fb2060c538.vercel-dns-017.com`) con copy button per ogni valore, dettagli espandibili sui DNS pubblici attuali e box conflitti. Risolve l'inganno "Verificato" quando l'ownership Vercel è ok ma i record CNAME/A non puntano ancora. | ✅ |
 | 2026-05-18 | - Deploy backend su Fly: `qrhub:deployment-...` (machine 683e161a19d528 v17 healthy). Frontend pendente push utente. | ✅ |
 | 2026-05-19 | **Hotfix `/dashboard/organizations` pagina bianca** — JS error `handleEditSave is not defined` dopo la sessione precedente che aveva aggiunto la UI di edit org senza i relativi handler. Aggiunte `openEdit()` e `handleEditSave()` in Organizations.js. Pencil icon ora apre il dialog correttamente. | ✅ verificato local |
+| 2026-05-19 | **Landing page UX + QR custom domain + page title** | ✅ Fly v18 |
+| 2026-05-19 | - Header landing: rimosso `Il tuo consulente {brand_name}` hardcoded → nuovo campo `landing_headline` (org-level, max 140 chars) editabile da OrgSettings. Default: "Il tuo consulente di fiducia". | ✅ |
+| 2026-05-19 | - Pulsante "Condividi" affianco alla mappa (Web Share API + fallback clipboard + toast inline). Traccia evento `share_click` in analytics. | ✅ |
+| 2026-05-19 | - QR code ora usa il dominio custom verificato se presente (es. `https://app.vdn.srl/v/{id}`). Nuovo helper backend `_effective_landing_url()` + `landing_url` esposto in `VendorResponse`. Dialog QR mostra il link reale + pulsanti "Apri link" / "Copia link" + warning verde se usa dominio custom. | ✅ |
+| 2026-05-19 | - `<title>` del browser: index.html → `"QRHub — Pannello Amministratore"` (era "Emergent | Fullstack App"). `VendorLanding.js` imposta dinamicamente `document.title = "{Vendor} · {Brand}"`. | ✅ |
 
 ## Prioritized backlog
 

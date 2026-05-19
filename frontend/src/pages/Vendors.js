@@ -28,7 +28,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Plus, Edit, Trash2, QrCode, Eye, Key, Download } from 'lucide-react';
+import { Plus, Edit, Trash2, QrCode, Eye, Key, Download, ExternalLink, Copy } from 'lucide-react';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -480,11 +480,51 @@ const Vendors = () => {
             </div>
 
             {selectedVendor && (
-              <div className="bg-gray-50 rounded-lg p-4 text-sm">
-                <p className="text-gray-600 mb-1">Link Landing Page:</p>
-                <p className="font-mono text-xs break-all text-gray-900">
-                  {selectedVendor.qr_url}
+              <div className="bg-gray-50 rounded-lg p-4 text-sm space-y-2">
+                <p className="text-gray-600">Link Landing Page:</p>
+                <p className="font-mono text-xs break-all text-gray-900" data-testid="qr-landing-url">
+                  {selectedVendor.landing_url || selectedVendor.qr_url}
                 </p>
+                <div className="flex gap-2 flex-wrap pt-1">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const u = selectedVendor.landing_url || selectedVendor.qr_url;
+                      window.open(u, '_blank', 'noopener,noreferrer');
+                    }}
+                    className="h-7 text-xs"
+                    data-testid="qr-open-link-button"
+                  >
+                    <ExternalLink className="h-3.5 w-3.5 mr-1" />
+                    Apri link
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={async () => {
+                      const u = selectedVendor.landing_url || selectedVendor.qr_url;
+                      try {
+                        await navigator.clipboard.writeText(u);
+                        toast.success('Link copiato');
+                      } catch {
+                        toast.error('Impossibile copiare');
+                      }
+                    }}
+                    className="h-7 text-xs"
+                    data-testid="qr-copy-link-button"
+                  >
+                    <Copy className="h-3.5 w-3.5 mr-1" />
+                    Copia link
+                  </Button>
+                </div>
+                {selectedVendor.landing_url && selectedVendor.qr_url && selectedVendor.landing_url !== selectedVendor.qr_url && (
+                  <p className="text-[11px] text-emerald-700 pt-1">
+                    Il QR usa il tuo dominio personalizzato. Assicurati che i DNS puntino correttamente prima di stampare materiale.
+                  </p>
+                )}
               </div>
             )}
           </div>

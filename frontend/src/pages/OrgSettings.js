@@ -395,6 +395,7 @@ const OrgSettings = () => {
         primary_color: org.primary_color,
         logo_url: org.logo_url,
         logo_public_id: org.logo_public_id,
+        landing_headline: org.landing_headline || '',
         cookie_banner_enabled: !!org.cookie_banner_enabled,
         cookie_banner_text: org.cookie_banner_text || '',
         cookie_banner_link: org.cookie_banner_link || '',
@@ -443,6 +444,20 @@ const OrgSettings = () => {
         <div>
           <Label>Nome Brand visualizzato</Label>
           <Input value={org.brand_name || ''} onChange={(e) => updateField('brand_name', e.target.value)} placeholder="Es. Brand della tua azienda" />
+        </div>
+        <div>
+          <Label>Intestazione landing pubblica</Label>
+          <Input
+            value={org.landing_headline || ''}
+            onChange={(e) => updateField('landing_headline', e.target.value)}
+            placeholder="Es. Il tuo consulente di fiducia"
+            data-testid="org-landing-headline-input"
+            maxLength={140}
+          />
+          <p className="text-[11px] text-gray-500 mt-1">
+            Compare in piccolo sopra il titolo della landing del venditore (es. <span className="font-mono">/v/&hellip;</span>).
+            Lascia vuoto per usare il default "Il tuo consulente di fiducia".
+          </p>
         </div>
         <div>
           <Label>Colore primario</Label>

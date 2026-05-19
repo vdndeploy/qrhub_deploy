@@ -45,7 +45,7 @@ Guida completa per riprendere il progetto in qualsiasi momento, anche da un acco
 - **Backend** (`/backend`): FastAPI, prefix `/api`, server in `server.py`
 - **Frontend** (`/frontend`): React 19 + CRACO + Tailwind + shadcn/ui
 - **DB**: MongoDB Atlas — cluster `clustervdn.dp4u4fo.mongodb.net` (account QRHub) → DB `windtre_vendor_db`
-- **Storage media**: Cloudinary (`doqp3gr5e`)
+- **Storage media**: Cloudinary (vedi `backend/.env`)
 
 ---
 
@@ -54,12 +54,12 @@ Guida completa per riprendere il progetto in qualsiasi momento, anche da un acco
 ### Default (cambia subito in produzione!)
 | Ruolo | Email | Password | Dove |
 |-------|-------|----------|------|
-| Super Admin | `superadmin@qrhub.it` | `changeme123` | Pannello cross-tenant, deploy, monitoring |
-| Org Org Admin | `admin@example.com` | `admin123` | Pannello operativo organizzazione |
+| Super Admin | `superadmin@qrhub.it` | _vedi `backend/.env` (`SUPERADMIN_PASSWORD`) — non più nel repo per sicurezza_ | Pannello cross-tenant, deploy, monitoring |
+| Org Admin (default) | `admin@example.com` | _vedi `backend/.env` (`ADMIN_PASSWORD`) — non più nel repo per sicurezza_ | Pannello operativo organizzazione |
 
 ### Servizi esterni necessari
 - **MongoDB Atlas**: connection string già nel `.env`
-- **Cloudinary**: account `doqp3gr5e` già configurato (vedi DEPLOY.md per nuovo account)
+- **Cloudinary**: account già configurato (cloud_name in `backend/.env` → `CLOUDINARY_CLOUD_NAME`; vedi DEPLOY.md per nuovo account)
 - **Fly.io**: account + token (`https://fly.io/user/personal_access_tokens`)
 - **Vercel**: account + token (`https://vercel.com/account/tokens`)
 - **GitHub** (opzionale): per CI/CD futuro
@@ -75,9 +75,9 @@ Se hai cambiato account Emergent o vuoi ripartire da capo:
 1. **Login** sul nuovo account Emergent.
 2. Crea un nuovo progetto con prompt:
    > `clona https://github.com/<your-github-org>/<repo> e configura per usare MongoDB Atlas`
-3. Quando l'agente chiede credenziali, fornisci:
+3. Quando l'agente chiede credenziali, fornisci la connection string MongoDB Atlas dal tuo dashboard (NON committarla nel repo):
    ```
-   mongodb+srv://vdndeploy_db_user:7FMONVsq6oCr65EC@clustervdn.dp4u4fo.mongodb.net/
+   mongodb+srv://<USER>:<PASSWORD>@<CLUSTER>.mongodb.net/
    ```
 4. L'agente clona automaticamente, ripristina `.env`, installa dipendenze e avvia.
 5. Il database Atlas mantiene **tutti i dati** (organizzazioni, venditori, analytics, config deploy).
@@ -91,7 +91,7 @@ Poi segui [Avvio in locale](#-avvio-in-locale-senza-emergent).
 
 > ⚠️ **Importante**: il file `.env` con la connection string Mongo **non** è nel repo (e non deve esserci). Riprendi quella reale da:
 > - Pannello superadmin → tab "Secrets" → MONGO_URL (se già salvata in DB)
-> - Oppure questa guida (cluster: `clustervdn.dp4u4fo.mongodb.net`, user: `vdndeploy_db_user`)
+> - Oppure dal tuo gestore di password (1Password, Bitwarden, file Excel cifrato, ecc.)
 
 ---
 
@@ -109,20 +109,20 @@ cd backend
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 
-# 2. .env (CREALO — NON è nel repo)
+# 2. .env (CREALO — NON è nel repo, riprendi i valori dal tuo gestore password)
 cat > .env <<'EOF'
-MONGO_URL=mongodb+srv://vdndeploy_db_user:7FMONVsq6oCr65EC@clustervdn.dp4u4fo.mongodb.net/
-DB_NAME=windtre_vendor_db
+MONGO_URL=mongodb+srv://<USER>:<PASSWORD>@<CLUSTER>.mongodb.net/
+DB_NAME=qrhub_vendor_db
 CORS_ORIGINS=*
-JWT_SECRET=cambiami-in-produzione
+JWT_SECRET=<32+ byte random, genera con: openssl rand -hex 32>
 ADMIN_EMAIL=admin@example.com
-ADMIN_PASSWORD=admin123
+ADMIN_PASSWORD=<scegli una password forte>
 SUPERADMIN_EMAIL=superadmin@qrhub.it
-SUPERADMIN_PASSWORD=changeme123
+SUPERADMIN_PASSWORD=<scegli una password forte>
 FRONTEND_URL=http://localhost:3000
-CLOUDINARY_CLOUD_NAME=doqp3gr5e
-CLOUDINARY_API_KEY=984179873275136
-CLOUDINARY_API_SECRET=cO9He7MFo4_z6rVR_HsVrxg8f2g
+CLOUDINARY_CLOUD_NAME=<tuo cloud_name>
+CLOUDINARY_API_KEY=<tua API key>
+CLOUDINARY_API_SECRET=<tua API secret>
 EOF
 
 # 3. Avvia backend
@@ -142,7 +142,7 @@ echo "REACT_APP_BACKEND_URL=http://localhost:8001" > .env
 yarn start
 ```
 
-Apri `http://localhost:3000` → login con `superadmin@qrhub.it / changeme123`.
+Apri `http://localhost:3000` → login con le credenziali super admin che hai messo in `.env`.
 
 ---
 
@@ -165,18 +165,18 @@ fly volumes create app_uploads --size 1 --region fra
 
 # 3. Imposta secrets (copiabili dal pannello "Deploy" → tab Fly.io)
 fly secrets set --app qrhub-backend \
-  MONGO_URL="mongodb+srv://..." \
-  DB_NAME="windtre_vendor_db" \
+  MONGO_URL="mongodb+srv://<USER>:<PASSWORD>@<CLUSTER>.mongodb.net/" \
+  DB_NAME="qrhub_vendor_db" \
   JWT_SECRET="$(openssl rand -hex 32)" \
   ADMIN_EMAIL="admin@example.com" \
-  ADMIN_PASSWORD="..." \
+  ADMIN_PASSWORD="<password forte>" \
   SUPERADMIN_EMAIL="superadmin@qrhub.it" \
-  SUPERADMIN_PASSWORD="..." \
+  SUPERADMIN_PASSWORD="<password forte>" \
   FRONTEND_URL="https://<vercel-app>.vercel.app" \
   CORS_ORIGINS="https://<vercel-app>.vercel.app" \
-  CLOUDINARY_CLOUD_NAME="doqp3gr5e" \
-  CLOUDINARY_API_KEY="984179873275136" \
-  CLOUDINARY_API_SECRET="cO9He7MFo4_z6rVR_HsVrxg8f2g"
+  CLOUDINARY_CLOUD_NAME="<tuo cloud_name>" \
+  CLOUDINARY_API_KEY="<tua API key>" \
+  CLOUDINARY_API_SECRET="<tua API secret>"
 
 # 4. Deploy
 fly deploy --app qrhub-backend
@@ -305,7 +305,7 @@ Senza queste credenziali l'org admin riceve "Vercel non è ancora configurato da
 ### Backup MongoDB Atlas
 Atlas fa **snapshot automatici giornalieri** sul tier M0+. Per backup manuali:
 ```bash
-mongodump --uri="mongodb+srv://vdndeploy_db_user:7FMONVsq6oCr65EC@clustervdn.dp4u4fo.mongodb.net/windtre_vendor_db" -o ./backup
+mongodump --uri="mongodb+srv://<USER>:<PASSWORD>@<CLUSTER>.mongodb.net/qrhub_vendor_db" -o ./backup
 ```
 
 ### Ripristino

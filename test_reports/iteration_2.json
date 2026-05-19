@@ -33,7 +33,7 @@
     "/app/backend/tests/test_gdpr_sprint3.py (NEW — 15 pytest tests per BACKEND-1..7)"
   ],
   "success_rate": {"backend": "100% (15/15)", "frontend": "100% (6/6 scenari)"},
-  "test_credentials": "Superadmin: superadmin@qrhub.it / changeme123 (letto da /app/memory/test_credentials.md). Org admin temporaneo creato e cancellato in ogni test per BACKEND-1..5 + FRONTEND-4..6. Email temporanee usano @example.com (TLD valido per EmailStr).",
+  "test_credentials": "Superadmin: superadmin@qrhub.it / <REDACTED> (letto da /app/memory/test_credentials.md). Org admin temporaneo creato e cancellato in ogni test per BACKEND-1..5 + FRONTEND-4..6. Email temporanee usano @example.com (TLD valido per EmailStr).",
   "seed_data_creation": "Per il flusso frontend ho creato un'organizzazione temporanea 'gdpr-fe-test-56c42392' con un org_admin fetest-80a23d4d@example.com, uno store e un vendor — tutto cancellato in cascata via DELETE /api/organizations/{org_id} a fine test. login_attempts collection è stata pulita all'inizio e alla fine.",
   "retest_needed": false,
   "main_agent_can_self_test": true,

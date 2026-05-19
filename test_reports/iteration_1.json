@@ -33,7 +33,7 @@
     "/app/backend/tests/test_gdpr_hardening.py (NEW — 8 pytest tests covering BACKEND-1..6)"
   ],
   "success_rate": {"backend": "100% (8/8)", "frontend": "100% (4/4)"},
-  "test_credentials": "Used superadmin@qrhub.it / changeme123 (read from /app/memory/test_credentials.md). Used fake emails 'ratelimit-test@example.com', 'vendor-ratelimit-test@example.com', 'ratelimit-ui-test@example.com' for rate-limit tests.",
+  "test_credentials": "Used superadmin@qrhub.it / <REDACTED> (read from /app/memory/test_credentials.md). Used fake emails 'ratelimit-test@example.com', 'vendor-ratelimit-test@example.com', 'ratelimit-ui-test@example.com' for rate-limit tests.",
   "seed_data_creation": "Temporary writes were limited to login_attempts inserts (rate-limit tests) and a brief PUT on the demo organization's GDPR fields (legal_name etc). Originals were restored at end of the test_put_org_with_gdpr_fields_persists test. login_attempts collection was cleaned at end (deleted 5+2 rows) so the real superadmin remains unlocked.",
   "retest_needed": false,
   "main_agent_can_self_test": true,

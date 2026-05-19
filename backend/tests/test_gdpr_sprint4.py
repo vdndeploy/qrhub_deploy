@@ -18,11 +18,14 @@ import re
 import pytest
 import requests
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://qr-deploy-1.preview.emergentagent.com').rstrip('/')
-SUPER_EMAIL = 'superadmin@qrhub.it'
-SUPER_PASS = 'changeme123'
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'http://localhost:8001').rstrip('/')
+SUPER_EMAIL = os.environ.get('SUPERADMIN_EMAIL', 'superadmin@qrhub.it')
+SUPER_PASS = os.environ.get('SUPERADMIN_PASSWORD', '')
 DEMO_ORG_ID = '6a09a0732670dabed5479190'
 DEMO_VENDOR_ID = '6a09a0d12670dabed5479197'
+
+if not SUPER_PASS:
+    pytest.skip('SUPERADMIN_PASSWORD must be set in env', allow_module_level=True)
 
 # 1x1 transparent PNG
 PNG_1PX = base64.b64decode(

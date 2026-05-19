@@ -11,12 +11,15 @@ import pytest
 import requests
 from pymongo import MongoClient
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://qr-deploy-1.preview.emergentagent.com').rstrip('/')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'http://localhost:8001').rstrip('/')
 VENDOR_ID = '6a09a0d12670dabed5479197'
-SUPER_EMAIL = 'superadmin@qrhub.it'
-SUPER_PWD = 'changeme123'
-MONGO_URL = 'mongodb+srv://vdndeploy_db_user:7FMONVsq6oCr65EC@clustervdn.dp4u4fo.mongodb.net/?retryWrites=true&w=majority'
-DB_NAME = 'qrhub_vendor_db'
+SUPER_EMAIL = os.environ.get('SUPERADMIN_EMAIL', 'superadmin@qrhub.it')
+SUPER_PWD = os.environ.get('SUPERADMIN_PASSWORD', '')
+MONGO_URL = os.environ.get('MONGO_URL', '')
+DB_NAME = os.environ.get('DB_NAME', 'qrhub_vendor_db')
+
+if not SUPER_PWD or not MONGO_URL:
+    pytest.skip('SUPERADMIN_PASSWORD and MONGO_URL must be set (e.g. via backend/.env)', allow_module_level=True)
 
 
 def _clear_login_attempts():

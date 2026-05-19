@@ -4,12 +4,15 @@ import uuid
 import pytest
 import requests
 
-BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://vendor-qr-hub.preview.emergentagent.com").rstrip("/")
+BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "http://localhost:8001").rstrip("/")
 
-SUPER_EMAIL = "superadmin@qrhub.it"
-SUPER_PASSWORD = "changeme123"
-ORG_ADMIN_EMAIL = "admin@windtre.com"
-ORG_ADMIN_PASSWORD = "admin123"
+SUPER_EMAIL = os.environ.get("SUPERADMIN_EMAIL", "superadmin@qrhub.it")
+SUPER_PASSWORD = os.environ.get("SUPERADMIN_PASSWORD", "")
+ORG_ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "admin@example.com")
+ORG_ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "")
+
+if not SUPER_PASSWORD or not ORG_ADMIN_PASSWORD:
+    pytest.skip('SUPERADMIN_PASSWORD and ADMIN_PASSWORD must be set in env', allow_module_level=True)
 
 
 # ---------- session helpers ----------

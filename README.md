@@ -8,13 +8,15 @@ Piattaforma multi-tenant per generare e gestire landing page con QR code per ven
 
 📖 **Per la documentazione completa leggi [GUIDA.md](./GUIDA.md)** — include setup, deploy, rotazione credenziali, monitoring, troubleshooting e come riprendere il progetto in futuro.
 
-### Demo credenziali default
+### Credenziali default (locale)
+Le password reali NON sono nel repo. Imposta i tuoi valori in `backend/.env`:
+
 | Ruolo | Email | Password |
 |-------|-------|----------|
-| Super Admin | `superadmin@qrhub.it` | `changeme123` |
-| Org Org Admin | `admin@example.com` | `admin123` |
+| Super Admin | `superadmin@qrhub.it` | `SUPERADMIN_PASSWORD` (in `.env`) |
+| Org Admin | `admin@example.com` | `ADMIN_PASSWORD` (in `.env`) |
 
-> ⚠️ Cambia entrambe in produzione dal pannello super admin → tab Secrets → "Ruota credenziali".
+> ⚠️ Usa password forti già al primo avvio. In produzione ruotale dal pannello super admin → tab Secrets → "Ruota credenziali".
 
 ## Stack
 

@@ -4,9 +4,12 @@ import os
 import pytest
 import requests
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://vendor-qr-hub.preview.emergentagent.com').rstrip('/')
-ADMIN_EMAIL = 'admin@windtre.com'
-ADMIN_PASSWORD = 'admin123'
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'http://localhost:8001').rstrip('/')
+ADMIN_EMAIL = os.environ.get('ADMIN_EMAIL', 'admin@example.com')
+ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', '')
+
+if not ADMIN_PASSWORD:
+    pytest.skip('ADMIN_PASSWORD must be set in env', allow_module_level=True)
 
 # 1x1 transparent PNG
 PNG_BYTES = (
@@ -79,7 +82,7 @@ class TestUploadCloudinary:
         assert r.status_code == 200, r.text
         body = r.json()
         assert 'url' in body and 'public_id' in body
-        assert 'res.cloudinary.com/doqp3gr5e' in body['url']
+        assert 'res.cloudinary.com/' in body['url']
         assert body['resource_type'] == 'image'
         assert body['width'] == 1 and body['height'] == 1
         TestUploadCloudinary.public_id = body['public_id']
@@ -156,7 +159,7 @@ class TestPostsCRUD:
         # which suppresses auto-positioning - tracked as a backend bug).
         r1 = admin_session.post(f'{BASE_URL}/api/stores/{test_store}/posts', json={
             'title': 'TEST Post 1', 'text': 'hello', 'cta_text': 'Scopri',
-            'media_url': 'https://res.cloudinary.com/doqp3gr5e/image/upload/v1/posts/dummy.png',
+            'media_url': 'https://res.cloudinary.com/example/image/upload/v1/posts/dummy.png',
             'media_public_id': 'posts/dummy_p1', 'media_resource_type': 'image',
             'aspect_ratio': 1.0, 'position': None
         })

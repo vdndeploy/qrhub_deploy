@@ -62,7 +62,7 @@ if len(JWT_SECRET) < 32:
             len(JWT_SECRET)
         )
 ADMIN_EMAIL = os.environ.get('ADMIN_EMAIL', 'admin@example.com')
-ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'admin123')
+ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', '')  # empty = no auto-seed (no hardcoded default for security)
 
 # Cookie settings — set to "none"/True in production (cross-site Vercel <-> Fly.io)
 COOKIE_SAMESITE = os.environ.get('COOKIE_SAMESITE', 'lax').lower()
@@ -3103,21 +3103,30 @@ logger = logging.getLogger(__name__)
 
 @app.on_event('startup')
 async def seed_admin():
-    # 1. Create super_admin if not exists
+    # 1. Create super_admin if not exists.
+    # IMPORTANT: no hardcoded default password — server will skip the seed if
+    # SUPERADMIN_PASSWORD is not set in the environment. Forces an explicit
+    # secret on first boot.
     SUPERADMIN_EMAIL = os.environ.get('SUPERADMIN_EMAIL', 'superadmin@qrhub.it')
-    SUPERADMIN_PASSWORD = os.environ.get('SUPERADMIN_PASSWORD', 'changeme123')
-    
+    SUPERADMIN_PASSWORD = os.environ.get('SUPERADMIN_PASSWORD', '')
+
     super_admin = await db.users.find_one({'role': 'super_admin'})
     if not super_admin:
-        await db.users.insert_one({
-            'email': SUPERADMIN_EMAIL,
-            'password_hash': hash_password(SUPERADMIN_PASSWORD),
-            'name': 'Super Admin',
-            'role': 'super_admin',
-            'organization_id': None,
-            'created_at': datetime.now(timezone.utc).isoformat()
-        })
-        logger.info(f'Super admin created: {_redact_email(SUPERADMIN_EMAIL)}')
+        if not SUPERADMIN_PASSWORD:
+            logger.warning(
+                'SECURITY: SUPERADMIN_PASSWORD not set — skipping super-admin seed. '
+                'Set SUPERADMIN_PASSWORD in the environment and restart to bootstrap.'
+            )
+        else:
+            await db.users.insert_one({
+                'email': SUPERADMIN_EMAIL,
+                'password_hash': hash_password(SUPERADMIN_PASSWORD),
+                'name': 'Super Admin',
+                'role': 'super_admin',
+                'organization_id': None,
+                'created_at': datetime.now(timezone.utc).isoformat()
+            })
+            logger.info(f'Super admin created: {_redact_email(SUPERADMIN_EMAIL)}')
     
     # 2. Auto-migrate: create default org if none exists, attach legacy data to it
     org_count = await db.organizations.count_documents({})
@@ -3158,25 +3167,29 @@ async def seed_admin():
     except Exception as _e:
         logger.warning(f'Org anonymization skipped: {_e}')
 
-    # 3. Legacy ADMIN_EMAIL → ensure exists as default org_admin
-    admin = await db.users.find_one({'email': ADMIN_EMAIL})
-    if not admin:
-        default_org = await db.organizations.find_one({'slug': 'demo'}, {'_id': 0, 'id': 1})
-        await db.users.insert_one({
-            'email': ADMIN_EMAIL,
-            'password_hash': hash_password(ADMIN_PASSWORD),
-            'name': 'Org Admin',
-            'role': 'org_admin',
-            'organization_id': default_org['id'] if default_org else None,
-            'created_at': datetime.now(timezone.utc).isoformat()
-        })
-        logger.info(f'Org admin created: {_redact_email(ADMIN_EMAIL)}')
-    elif not verify_password(ADMIN_PASSWORD, admin['password_hash']):
-        await db.users.update_one(
-            {'email': ADMIN_EMAIL},
-            {'$set': {'password_hash': hash_password(ADMIN_PASSWORD)}}
-        )
-        logger.info(f'Admin password updated: {_redact_email(ADMIN_EMAIL)}')
+    # 3. Legacy ADMIN_EMAIL → ensure exists as default org_admin.
+    # Skip seeding if no ADMIN_PASSWORD is set (no hardcoded default).
+    if ADMIN_PASSWORD:
+        admin = await db.users.find_one({'email': ADMIN_EMAIL})
+        if not admin:
+            default_org = await db.organizations.find_one({'slug': 'demo'}, {'_id': 0, 'id': 1})
+            await db.users.insert_one({
+                'email': ADMIN_EMAIL,
+                'password_hash': hash_password(ADMIN_PASSWORD),
+                'name': 'Org Admin',
+                'role': 'org_admin',
+                'organization_id': default_org['id'] if default_org else None,
+                'created_at': datetime.now(timezone.utc).isoformat()
+            })
+            logger.info(f'Org admin created: {_redact_email(ADMIN_EMAIL)}')
+        elif not verify_password(ADMIN_PASSWORD, admin['password_hash']):
+            await db.users.update_one(
+                {'email': ADMIN_EMAIL},
+                {'$set': {'password_hash': hash_password(ADMIN_PASSWORD)}}
+            )
+            logger.info(f'Admin password updated: {_redact_email(ADMIN_EMAIL)}')
+    else:
+        logger.warning('ADMIN_PASSWORD not set — skipping org-admin seed.')
 
     # Anonymize legacy user display name "Admin VDN"
     try:
@@ -3187,9 +3200,31 @@ async def seed_admin():
     except Exception:
         pass
 
+    # Local-only credential reminder file (gitignored). DOES NOT contain real passwords:
+    # only the env-var names where the operator stored them. This keeps test_credentials.md
+    # useful for testing agents while never persisting plaintext secrets on disk.
     Path('/app/memory').mkdir(exist_ok=True)
-    with open('/app/memory/test_credentials.md', 'w') as f:
-        f.write(f'''# Test Credentials\n\n## Super Admin (QRHub Platform)\n- Email: {SUPERADMIN_EMAIL}\n- Password: {SUPERADMIN_PASSWORD}\n- Role: super_admin\n\n## Org Admin (default organization)\n- Email: {ADMIN_EMAIL}\n- Password: {ADMIN_PASSWORD}\n- Role: org_admin\n\n## API Endpoints\n- POST /api/auth/login\n- GET /api/auth/me\n- POST /api/auth/logout\n- GET /api/organizations (super admin)\n- GET /api/my-organization (any logged-in user)\n''')
+    try:
+        with open('/app/memory/test_credentials.md', 'w') as f:
+            f.write(
+                '# Test Credentials (env-driven — passwords NOT stored here)\n\n'
+                '## Super Admin (QRHub Platform)\n'
+                f'- Email: {SUPERADMIN_EMAIL}\n'
+                '- Password: see env var `SUPERADMIN_PASSWORD` (in `backend/.env`)\n'
+                '- Role: super_admin\n\n'
+                '## Org Admin (default organization)\n'
+                f'- Email: {ADMIN_EMAIL}\n'
+                '- Password: see env var `ADMIN_PASSWORD` (in `backend/.env`)\n'
+                '- Role: org_admin\n\n'
+                '## API Endpoints\n'
+                '- POST /api/auth/login\n'
+                '- GET /api/auth/me\n'
+                '- POST /api/auth/logout\n'
+                '- GET /api/organizations (super admin)\n'
+                '- GET /api/my-organization (any logged-in user)\n'
+            )
+    except Exception as _e:
+        logger.warning(f'Could not refresh /app/memory/test_credentials.md: {_e}')
     
     # One-shot migration: legacy single-post on Store -> posts collection entry
     try:

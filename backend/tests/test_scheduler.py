@@ -19,8 +19,11 @@ if not BASE_URL:
             if line.startswith('REACT_APP_BACKEND_URL='):
                 BASE_URL = line.split('=', 1)[1].strip().rstrip('/')
 
-ADMIN_EMAIL = 'admin@windtre.com'
-ADMIN_PASSWORD = 'admin123'
+ADMIN_EMAIL = os.environ.get('ADMIN_EMAIL', 'admin@example.com')
+ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', '')
+
+if not ADMIN_PASSWORD:
+    pytest.skip('ADMIN_PASSWORD must be set in env', allow_module_level=True)
 
 
 @pytest.fixture(scope='session')

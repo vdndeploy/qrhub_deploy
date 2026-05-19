@@ -3,9 +3,12 @@ import os
 import pytest
 import requests
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://vendor-qr-hub.preview.emergentagent.com').rstrip('/')
-ADMIN_EMAIL = 'admin@windtre.com'
-ADMIN_PASSWORD = 'admin123'
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'http://localhost:8001').rstrip('/')
+ADMIN_EMAIL = os.environ.get('ADMIN_EMAIL', 'admin@example.com')
+ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', '')
+
+if not ADMIN_PASSWORD:
+    pytest.skip('ADMIN_PASSWORD must be set in env (e.g. backend/.env)', allow_module_level=True)
 
 
 @pytest.fixture(scope='session')

@@ -15,7 +15,7 @@ Il progetto **QRHub** è una piattaforma multi-tenant open source (MIT) che perm
 - **Backend**: FastAPI + Motor (Mongo async) — singolo file `backend/server.py`
 - **Frontend**: React 19 + CRACO + Tailwind + shadcn/ui — `frontend/`
 - **DB**: MongoDB Atlas (cluster `clustervdn`)
-- **Storage media**: Cloudinary `doqp3gr5e`
+- **Storage media**: Cloudinary (vedi env `CLOUDINARY_CLOUD_NAME`)
 - **Hosting**: Fly.io (app `qrhub`, region `fra`) + Vercel (project `prj_wu9KqzoRLxTYRy6Lij9msfOg3ko1`)
 - **Dominio prod frontend**: https://qrhub-app.vercel.app
 
@@ -80,6 +80,10 @@ Il progetto **QRHub** è una piattaforma multi-tenant open source (MIT) che perm
 | 2026-05-19 | - Pulsante "Condividi" affianco alla mappa (Web Share API + fallback clipboard + toast inline). Traccia evento `share_click` in analytics. | ✅ |
 | 2026-05-19 | - QR code ora usa il dominio custom verificato se presente (es. `https://app.vdn.srl/v/{id}`). Nuovo helper backend `_effective_landing_url()` + `landing_url` esposto in `VendorResponse`. Dialog QR mostra il link reale + pulsanti "Apri link" / "Copia link" + warning verde se usa dominio custom. | ✅ |
 | 2026-05-19 | - `<title>` del browser: index.html → `"QRHub — Pannello Amministratore"` (era "Emergent | Fullstack App"). `VendorLanding.js` imposta dinamicamente `document.title = "{Vendor} · {Brand}"`. | ✅ |
+| 2026-05-19 | **Security audit — bonifica credenziali dal repo** | ✅ in attesa di push |
+| 2026-05-19 | - Rimossi i secret in chiaro da `GUIDA.md`, `README.md`, `backend/tests/*.py`, `frontend/src/pages/Settings.js` (placeholder), `memory/PRD.md`, `test_reports/iteration_*.json` | ✅ |
+| 2026-05-19 | - `backend/server.py`: rimossi i default `'admin123'` / `'changeme123'`. Seed super-admin e org-admin ora si attivano SOLO se le env `SUPERADMIN_PASSWORD` / `ADMIN_PASSWORD` sono definite (no auto-bootstrap con password deboli). | ✅ |
+| 2026-05-19 | - `/app/memory/test_credentials.md` rigenerato a ogni boot ora contiene SOLO l'email + il nome dell'env var (mai la password in chiaro). | ✅ |
 
 ## Prioritized backlog
 
@@ -92,6 +96,10 @@ Il progetto **QRHub** è una piattaforma multi-tenant open source (MIT) che perm
 | H6 | DPA template + accept flow per org_admin al primo login | ~2h |
 
 ### P1 — MEDIUM (entro 1 mese)
+
+| ID | Task | Effort |
+|---|---|---|
+| OG-1 | **Open Graph / Twitter card dinamica** per ogni landing `/v/:vendorId` (anteprima ricca su WhatsApp/Telegram/LinkedIn con foto profilo + nome venditore + brand). Endpoint backend che renderizza un'immagine 1200×630 + meta tags injected via SSR helper. | ~3h |
 
 | ID | Task | Effort |
 |---|---|---|

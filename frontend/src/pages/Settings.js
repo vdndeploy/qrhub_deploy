@@ -893,11 +893,11 @@ const Settings = () => {
                     desc="In alternativa, compila i 3 valori separati (solo se non usi CLOUDINARY_URL sopra).">
             <TextField id="cloudinary_cloud_name" label="Cloud Name"
               value={config.cloudinary_cloud_name} onChange={update('cloudinary_cloud_name')}
-              placeholder="doqp3gr5e" mono
+              placeholder="es. mycloud123" mono
               testid="cloudinary-cloud-name-input" />
             <SecretInput id="cloudinary_api_key" label="API Key"
               value={config.cloudinary_api_key} onChange={update('cloudinary_api_key')}
-              placeholder="984179873275136"
+              placeholder="es. 123456789012345"
               testid="cloudinary-api-key-input" />
             <SecretInput id="cloudinary_api_secret" label="API Secret"
               value={config.cloudinary_api_secret} onChange={update('cloudinary_api_secret')}

@@ -7,11 +7,14 @@ import pytest
 import requests
 
 BASE_URL = os.environ.get('REACT_APP_BACKEND_URL').rstrip('/')
-ADMIN_EMAIL = 'admin@windtre.com'
-ADMIN_PASSWORD = 'admin123'
+ADMIN_EMAIL = os.environ.get('ADMIN_EMAIL', 'admin@example.com')
+ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', '')
+
+if not ADMIN_PASSWORD:
+    pytest.skip('ADMIN_PASSWORD must be set in env', allow_module_level=True)
 
 TEST_VENDOR_EMAIL = 'TEST_vendor_pdf@example.com'
-TEST_VENDOR_PASSWORD = 'vendpass123'
+TEST_VENDOR_PASSWORD = 'vendpass123'  # ephemeral, created+deleted within the test run
 
 # Shared state across tests
 state: dict = {'store_id': None, 'vendor_id': None}

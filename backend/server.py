@@ -274,6 +274,55 @@ async def get_current_vendor(request: Request) -> dict:
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail='Invalid token')
 
+async def get_current_user_or_vendor(request: Request) -> dict:
+    """Auth dependency that accepts EITHER an admin/user `access_token` OR a vendor
+    `vendor_token` cookie. Used by endpoints shared between dashboards (e.g. /api/upload).
+
+    Returns a dict normalised to include:
+      - `_principal`: 'user' | 'vendor'
+      - `organization_id`: tenant scope (same field name in both)
+      - `role`: original role for users; 'vendor' for vendors
+      - other vendor fields are preserved (id, name, email, ...)
+    """
+    # Try user (admin) first — same flow as get_current_user
+    user_token = request.cookies.get('access_token')
+    if not user_token:
+        auth_header = request.headers.get('Authorization', '')
+        if auth_header.startswith('Bearer '):
+            user_token = auth_header[7:]
+    if user_token:
+        try:
+            payload = jwt.decode(user_token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+            if payload.get('type') == 'access':
+                user = await db.users.find_one({'_id': ObjectId(payload['sub'])})
+                if user and payload.get('tv', 1) == user.get('token_version', 1):
+                    user['_id'] = str(user['_id'])
+                    user.pop('password_hash', None)
+                    user.setdefault('role', 'org_admin')
+                    user.setdefault('organization_id', None)
+                    user['_principal'] = 'user'
+                    return user
+        except jwt.InvalidTokenError:
+            pass
+
+    # Fall back to vendor token
+    vtoken = request.cookies.get('vendor_token')
+    if vtoken:
+        try:
+            payload = jwt.decode(vtoken, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+            if payload.get('type') == 'vendor_access':
+                vendor = await db.vendors.find_one({'id': payload['vendor_id']}, {'_id': 0})
+                if vendor and payload.get('tv', 1) == vendor.get('token_version', 1):
+                    vendor.pop('password_hash', None)
+                    vendor['role'] = 'vendor'
+                    vendor['_principal'] = 'vendor'
+                    return vendor
+        except jwt.InvalidTokenError:
+            pass
+
+    raise HTTPException(status_code=401, detail='Not authenticated')
+
+
 class LoginRequest(BaseModel):
     email: EmailStr
     password: str
@@ -1451,12 +1500,17 @@ async def delete_post(post_id: str, user: dict = Depends(get_current_user)):
     return {'message': 'Post eliminato'}
 
 @api_router.post('/upload')
-async def upload_file(file: UploadFile = File(...), folder: str = Form('uploads'), user: dict = Depends(get_current_user)):
+async def upload_file(file: UploadFile = File(...), folder: str = Form('uploads'), user: dict = Depends(get_current_user_or_vendor)):
     allowed_types = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'video/mp4', 'video/webm']
     if file.content_type not in allowed_types:
         raise HTTPException(status_code=400, detail='Tipo file non supportato')
-    
-    if folder not in ('uploads', 'posts'):
+
+    is_vendor = user.get('_principal') == 'vendor'
+    # Vendors can only upload their own profile photo: hard-pin them to a fixed folder
+    # so they can't write to /posts or other admin areas.
+    if is_vendor:
+        folder = 'uploads'
+    elif folder not in ('uploads', 'posts'):
         folder = 'uploads'
 
     # GDPR M1 — tenant isolation: prefix Cloudinary folder with org id so different

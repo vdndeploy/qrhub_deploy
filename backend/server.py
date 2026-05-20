@@ -1,9 +1,10 @@
 from fastapi import FastAPI, APIRouter, HTTPException, Depends, Request, Response, Header, UploadFile, File, Form
-from fastapi.responses import StreamingResponse, Response as FastAPIResponse
+from fastapi.responses import StreamingResponse, Response as FastAPIResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
+import html as html_lib
 import os
 import re
 import logging
@@ -3105,6 +3106,101 @@ async def uptime_check_now(user: dict = Depends(require_super_admin)):
 
 
 app.include_router(api_router)
+
+# ──────────────────────────────────────────────────────────────────
+# Open Graph / Twitter card preview pages for vendor landings.
+# Social crawlers (WhatsApp, Telegram, FB, Twitter, LinkedIn, Slack, Discord, ...)
+# don't execute JavaScript so they can't read the SPA's <title>. We expose a
+# server-rendered HTML page at /og/v/:vendorId that contains the proper meta tags
+# and an immediate redirect to the real SPA so humans landing here still see the
+# normal landing page.
+# Vercel rewrites bot User-Agents from /v/:id to this URL (see frontend/vercel.json).
+# ──────────────────────────────────────────────────────────────────
+
+def _build_og_html(vendor: dict, org: dict, request_url_base: str) -> str:
+    """Render a minimal HTML page with OG/Twitter meta tags + redirect-to-SPA."""
+    brand = (org.get('brand_name') or org.get('name') or 'QRHub').strip()
+    vname = (vendor.get('name') or 'Contattami').strip()
+    title = f'{vname} · {brand}'
+    bio = (vendor.get('bio') or '').strip()
+    description = bio or f'Contatta {vname} di {brand}. WhatsApp, recensioni, social — un tap e ci sei.'
+    image_url = ''
+    if vendor.get('profile_image_enabled') and vendor.get('profile_image_url'):
+        image_url = vendor['profile_image_url']
+    elif org.get('logo_url'):
+        image_url = org['logo_url']
+    primary_color = org.get('primary_color') or '#F96815'
+    spa_url = f"{request_url_base}/v/{vendor['id']}"
+
+    e = html_lib.escape
+    tags = [
+        f'<title>{e(title)}</title>',
+        f'<meta name="description" content="{e(description)}" />',
+        f'<meta name="theme-color" content="{e(primary_color)}" />',
+        '<meta property="og:type" content="profile" />',
+        f'<meta property="og:title" content="{e(title)}" />',
+        f'<meta property="og:description" content="{e(description)}" />',
+        f'<meta property="og:url" content="{e(spa_url)}" />',
+        f'<meta property="og:site_name" content="{e(brand)}" />',
+        '<meta property="og:locale" content="it_IT" />',
+        f'<meta name="twitter:card" content="{"summary_large_image" if image_url else "summary"}" />',
+        f'<meta name="twitter:title" content="{e(title)}" />',
+        f'<meta name="twitter:description" content="{e(description)}" />',
+    ]
+    if image_url:
+        tags += [
+            f'<meta property="og:image" content="{e(image_url)}" />',
+            '<meta property="og:image:width" content="1200" />',
+            '<meta property="og:image:height" content="1200" />',
+            f'<meta property="og:image:alt" content="{e(vname)}" />',
+            f'<meta name="twitter:image" content="{e(image_url)}" />',
+            f'<meta name="twitter:image:alt" content="{e(vname)}" />',
+        ]
+    meta_block = '\n  '.join(tags)
+    redirect_target = e(spa_url)
+    return f'''<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  {meta_block}
+  <link rel="canonical" href="{redirect_target}" />
+  <meta http-equiv="refresh" content="0; url={redirect_target}" />
+  <script>window.location.replace("{redirect_target}");</script>
+</head>
+<body style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:#fff;color:#111;padding:24px;text-align:center">
+  <h1 style="margin:0 0 8px;font-size:20px">{e(title)}</h1>
+  <p style="margin:0 0 16px;color:#555">{e(description)}</p>
+  <p><a href="{redirect_target}" style="color:{e(primary_color)};font-weight:600;text-decoration:none">Apri la landing &rarr;</a></p>
+</body>
+</html>'''
+
+
+@app.get('/og/v/{vendor_id}', response_class=HTMLResponse)
+async def og_vendor_preview(vendor_id: str, request: Request):
+    """Server-rendered preview page consumed by social-media crawlers."""
+    frontend_url = os.environ.get('FRONTEND_URL', 'https://qrhub-app.vercel.app').rstrip('/')
+    vendor = await db.vendors.find_one({'id': vendor_id}, {'_id': 0})
+    if not vendor:
+        empty_vendor = {'id': vendor_id, 'name': 'Contattami', 'bio': '', 'profile_image_enabled': False}
+        empty_org = {'brand_name': 'QRHub', 'primary_color': '#F96815'}
+        return HTMLResponse(_build_og_html(empty_vendor, empty_org, frontend_url), status_code=200)
+    org = {}
+    if vendor.get('organization_id'):
+        org = await db.organizations.find_one(
+            {'id': vendor['organization_id']},
+            {'_id': 0, 'name': 1, 'brand_name': 1, 'primary_color': 1, 'logo_url': 1}
+        ) or {}
+    html = _build_og_html(vendor, org, frontend_url)
+    return HTMLResponse(
+        content=html,
+        status_code=200,
+        headers={
+            'Cache-Control': 'public, max-age=300, s-maxage=3600',
+            'X-Robots-Tag': 'noindex',
+        },
+    )
+
 
 cors_origins = os.environ.get('CORS_ORIGINS', '*')
 if cors_origins == '*':

@@ -7,6 +7,17 @@
     {
       "source": "/api/:path*",
       "destination": "https://qrhub.fly.dev/api/:path*"
+    },
+    {
+      "source": "/v/:vendorId",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": "(.*facebookexternalhit.*|.*Facebot.*|.*Twitterbot.*|.*LinkedInBot.*|.*Slackbot.*|.*WhatsApp.*|.*TelegramBot.*|.*Discordbot.*|.*Pinterest.*|.*SkypeUriPreview.*|.*Embedly.*|.*redditbot.*|.*Googlebot.*|.*bingbot.*|.*Applebot.*|.*vkShare.*|.*W3C_Validator.*|.*Iframely.*)"
+        }
+      ],
+      "destination": "https://qrhub.fly.dev/og/v/:vendorId"
     }
   ]
 }

@@ -84,6 +84,10 @@ Il progetto **QRHub** è una piattaforma multi-tenant open source (MIT) che perm
 | 2026-05-19 | - Rimossi i secret in chiaro da `GUIDA.md`, `README.md`, `backend/tests/*.py`, `frontend/src/pages/Settings.js` (placeholder), `memory/PRD.md`, `test_reports/iteration_*.json` | ✅ |
 | 2026-05-19 | - `backend/server.py`: rimossi i default `'admin123'` / `'changeme123'`. Seed super-admin e org-admin ora si attivano SOLO se le env `SUPERADMIN_PASSWORD` / `ADMIN_PASSWORD` sono definite (no auto-bootstrap con password deboli). | ✅ |
 | 2026-05-19 | - `/app/memory/test_credentials.md` rigenerato a ogni boot ora contiene SOLO l'email + il nome dell'env var (mai la password in chiaro). | ✅ |
+| 2026-05-19 | **OG/Twitter card per anteprima social** (WhatsApp/Telegram/FB/LinkedIn) — risolve `<title>` errato in anteprima | ✅ Fly v20 |
+| 2026-05-19 | - Backend: nuovo endpoint `GET /og/v/:vendorId` server-rendered con tag OG/Twitter (title `"{vendor} · {brand}"`, descrizione da bio, image da `profile_image_url` se enabled altrimenti `org.logo_url`, theme_color = primary_color). Include redirect `meta http-equiv=refresh` + JS verso `/v/:id` per fallback umano. | ✅ |
+| 2026-05-19 | - `frontend/vercel.json`: rewrite condizionale via header `User-Agent` matcher (whatsapp, telegram, facebook, twitter, linkedin, slack, discord, pinterest, googlebot, ecc.) → quando un crawler chiede `/v/:id`, Vercel proxy verso `qrhub.fly.dev/og/v/:id`. Browser umani continuano a vedere la SPA normalmente. | ✅ |
+| 2026-05-19 | - Risolve il task `OG-1` del backlog. | ✅ |
 
 ## Prioritized backlog
 

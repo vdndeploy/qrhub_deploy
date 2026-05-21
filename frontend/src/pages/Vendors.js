@@ -89,6 +89,7 @@ const Vendors = () => {
         name: vendor.name,
         bio: vendor.bio,
         store_id: vendor.store_id || '',
+        slug: vendor.slug || '',
       });
     } else {
       setEditingVendor(null);
@@ -96,6 +97,7 @@ const Vendors = () => {
         name: '',
         bio: '',
         store_id: '',
+        slug: '',
       });
     }
     setIsDialogOpen(true);
@@ -119,7 +121,7 @@ const Vendors = () => {
       setIsDialogOpen(false);
       fetchVendors();
     } catch (e) {
-      toast.error('Errore nel salvataggio');
+      toast.error(e.response?.data?.detail || 'Errore nel salvataggio');
     }
   };
 
@@ -347,6 +349,31 @@ const Vendors = () => {
                 }
                 data-testid="vendor-bio-input"
               />
+            </div>
+
+            <div>
+              <Label htmlFor="vendor-slug">
+                Link personalizzato <span className="text-gray-500 font-normal">(opzionale)</span>
+              </Label>
+              <div className="flex items-center gap-2 rounded-md border bg-white pl-2 focus-within:ring-2 focus-within:ring-[#F96815]/30">
+                <span className="text-xs text-gray-500 font-mono truncate hidden sm:inline">{`${window.location.origin}/v/`}</span>
+                <span className="text-xs text-gray-500 font-mono sm:hidden">/v/</span>
+                <Input
+                  id="vendor-slug"
+                  value={formData.slug || ''}
+                  onChange={(e) =>
+                    setFormData({ ...formData, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '') })
+                  }
+                  placeholder={editingVendor ? '(lascia vuoto per usare il codice automatico)' : 'es. gizwindtre'}
+                  maxLength={64}
+                  className="border-0 focus-visible:ring-0 focus-visible:ring-offset-0 font-mono text-sm"
+                  data-testid="vendor-slug-input"
+                />
+              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                Solo lettere minuscole, numeri e trattini (es. <code className="bg-gray-100 px-1 rounded">mario-roma</code>).
+                {editingVendor && ' Cambiarlo aggiorna anche il QR; le URL precedenti continuano a funzionare con il codice originale.'}
+              </p>
             </div>
 
             <div>

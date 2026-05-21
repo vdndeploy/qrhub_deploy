@@ -99,6 +99,13 @@ Il progetto **QRHub** è una piattaforma multi-tenant open source (MIT) che perm
 | 2026-05-21 | - **Logo SVG WINDTRE hardcoded RIMOSSO** da `VendorLanding.js`. Ora la landing pubblica usa `vendor.organization.logo_url` se presente, altrimenti un fallback brandizzato (pill con brand_name + primary_color). | ✅ |
 | 2026-05-21 | - `Organizations.js` (super admin): Create + Edit org dialog hanno ora upload logo con preview live (16x16 thumb + bottone Carica/Cambia/Rimuovi) + campo `brand_name`. Validazione client: solo image/* max 5MB. | ✅ |
 | 2026-05-21 | - **Pagina `/dashboard/media`** (alias di `/dashboard/files` + rinominato in nav "Media"): aggiunto banner 4 stats card (totale, foto profilo, post, orfani con shortcut "→") + lightbox click-to-zoom su ogni thumbnail con metadata + delete inline. | ✅ |
+| 2026-05-21 | **Custom vendor slug + cambio password + GDPR M6** | ✅ Fly v23 |
+| 2026-05-21 | - **Vendor slug personalizzato**: nuovo campo `slug` (a-z0-9-, max 64) su `vendors`. URL `/v/gizwindtre` ora risolto come `/v/<uuid>` (entrambi funzionano per compatibilità con QR già stampati). Indice unique su `vendors.slug` (partial, escludendo stringhe vuote). | ✅ |
+| 2026-05-21 | - `_resolve_vendor_doc()` helper centralizzato: usato da `/api/vendors/{id}`, `/og/v/{id}`, `/api/analytics` (canonical_vid mapping per integrità report). | ✅ |
+| 2026-05-21 | - Frontend `Vendors.js`: input "Link personalizzato" con prefisso URL + sanitizzazione lato client + helper text. `_effective_landing_url`, OG endpoint, QR generation usano lo slug se presente. | ✅ |
+| 2026-05-21 | - **Cambio password self-service**: `POST /api/me/password` con verifica password attuale, bump `token_version` (kick out altre sessioni), refresh cookie attivo. Sezione UI in `MyAccount.js` con form 3-campi. | ✅ |
+| 2026-05-21 | - **GDPR M6** (data minimization): aggiunto `Field(..., max_length=N)` su `LoginRequest`, `StoreCreate`, `VendorCredentials`, `OrganizationCreate`, `OrganizationUpdate`, `OrgUserCreate`, `PasswordChangeRequest`. Validazione 422 client-friendly. | ✅ |
+| 2026-05-21 | - Sezione "Cambia email" placeholder UI (richiede integrazione email service Resend/SMTP, da configurare separatamente). | 🟡 stub |
 
 ## Prioritized backlog
 

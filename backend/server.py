@@ -326,40 +326,85 @@ async def get_current_user_or_vendor(request: Request) -> dict:
 
 class LoginRequest(BaseModel):
     email: EmailStr
-    password: str
+    password: str = Field(..., min_length=1, max_length=200)
 
 class VendorCreate(BaseModel):
-    name: str
-    bio: Optional[str] = ''
-    store_id: str
+    name: str = Field(..., min_length=1, max_length=200)
+    bio: Optional[str] = Field('', max_length=2000)
+    store_id: str = Field(..., max_length=64)
+    slug: Optional[str] = Field('', max_length=64,
+                                description='URL-friendly slug; falls back to the vendor id when empty')
 
 class VendorUpdate(BaseModel):
-    name: str
-    bio: Optional[str] = ''
-    store_id: str
+    name: str = Field(..., min_length=1, max_length=200)
+    bio: Optional[str] = Field('', max_length=2000)
+    store_id: str = Field(..., max_length=64)
+    slug: Optional[str] = Field(None, max_length=64)
+
+
+_SLUG_RE = re.compile(r'^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$')
+
+def _normalize_vendor_slug(raw: str) -> str:
+    """Sanitise a vendor slug. Returns '' if input is empty/invalid."""
+    s = (raw or '').strip().lower()
+    if not s:
+        return ''
+    # Replace any non a-z0-9- with hyphens, collapse repeats, trim hyphens
+    s = re.sub(r'[^a-z0-9-]+', '-', s)
+    s = re.sub(r'-+', '-', s).strip('-')
+    if not s:
+        return ''
+    # Block any reserved single tokens that would collide with our routes
+    if s in ('privacy', 'admin', 'api', 'login', 'logout', 'me'):
+        return ''
+    return s[:64]
+
+
+async def _vendor_slug_taken(slug: str, except_vendor_id: str = '') -> bool:
+    if not slug:
+        return False
+    q: dict = {'slug': slug}
+    if except_vendor_id:
+        q['id'] = {'$ne': except_vendor_id}
+    return await db.vendors.find_one(q, {'_id': 0, 'id': 1}) is not None
+
+
+async def _resolve_vendor_doc(vendor_key: str) -> Optional[dict]:
+    """Resolve a vendor by either its long UUID id or its custom slug.
+    Public landing endpoint uses this so /v/gizwindtre and /v/<uuid> both work.
+    """
+    if not vendor_key:
+        return None
+    # ObjectId-style ids are 24 hex chars; check id first to avoid stealth
+    # collisions with slugs that look numeric.
+    doc = await db.vendors.find_one({'id': vendor_key}, {'_id': 0})
+    if doc:
+        return doc
+    doc = await db.vendors.find_one({'slug': vendor_key.lower()}, {'_id': 0})
+    return doc
 
 
 class VendorProfileUpdate(BaseModel):
     """Self-update from the vendor's own dashboard."""
-    name: str
-    bio: Optional[str] = ''
-    profile_image_url: Optional[str] = ''
+    name: str = Field(..., min_length=1, max_length=200)
+    bio: Optional[str] = Field('', max_length=2000)
+    profile_image_url: Optional[str] = Field('', max_length=600)
     profile_image_enabled: Optional[bool] = False
 
 class StoreCreate(BaseModel):
-    name: str
-    whatsapp: Optional[str] = ''
-    whatsapp_message: Optional[str] = ''
-    instagram: Optional[str] = ''
-    facebook: Optional[str] = ''
-    tiktok: Optional[str] = ''
-    google_review: Optional[str] = ''
-    google_maps_url: Optional[str] = ''
-    post_title: Optional[str] = ''
-    post_text: Optional[str] = ''
-    post_media_url: Optional[str] = ''
-    post_cta_text: Optional[str] = ''
-    post_whatsapp_message: Optional[str] = ''
+    name: str = Field(..., min_length=1, max_length=200)
+    whatsapp: Optional[str] = Field('', max_length=400)  # WA URL or wa.me link
+    whatsapp_message: Optional[str] = Field('', max_length=1000)
+    instagram: Optional[str] = Field('', max_length=400)
+    facebook: Optional[str] = Field('', max_length=400)
+    tiktok: Optional[str] = Field('', max_length=400)
+    google_review: Optional[str] = Field('', max_length=400)
+    google_maps_url: Optional[str] = Field('', max_length=400)
+    post_title: Optional[str] = Field('', max_length=200)
+    post_text: Optional[str] = Field('', max_length=4000)
+    post_media_url: Optional[str] = Field('', max_length=600)
+    post_cta_text: Optional[str] = Field('', max_length=60)
+    post_whatsapp_message: Optional[str] = Field('', max_length=1000)
 
 class StoreResponse(BaseModel):
     id: str
@@ -380,48 +425,49 @@ class StoreResponse(BaseModel):
 
 class VendorCredentials(BaseModel):
     email: EmailStr
-    password: str
+    password: str = Field(..., min_length=8, max_length=200)
 
 
 class OrganizationCreate(BaseModel):
-    name: str
-    slug: Optional[str] = ''  # URL-safe id
-    brand_name: Optional[str] = ''
-    primary_color: Optional[str] = '#F96815'
-    logo_url: Optional[str] = ''
-    logo_public_id: Optional[str] = ''
+    name: str = Field(..., min_length=1, max_length=200)
+    slug: Optional[str] = Field('', max_length=64)
+    brand_name: Optional[str] = Field('', max_length=200)
+    primary_color: Optional[str] = Field('#F96815', max_length=20)
+    logo_url: Optional[str] = Field('', max_length=600)
+    logo_public_id: Optional[str] = Field('', max_length=300)
     allowed_domains: Optional[List[str]] = []
 
 
 class OrganizationUpdate(BaseModel):
-    name: Optional[str] = None
-    slug: Optional[str] = None
-    brand_name: Optional[str] = None
-    primary_color: Optional[str] = None
-    logo_url: Optional[str] = None
-    logo_public_id: Optional[str] = None
+    name: Optional[str] = Field(None, max_length=200)
+    slug: Optional[str] = Field(None, max_length=64)
+    brand_name: Optional[str] = Field(None, max_length=200)
+    primary_color: Optional[str] = Field(None, max_length=20)
+    logo_url: Optional[str] = Field(None, max_length=600)
+    logo_public_id: Optional[str] = Field(None, max_length=300)
     allowed_domains: Optional[List[str]] = None
     cookie_banner_enabled: Optional[bool] = None
-    cookie_banner_text: Optional[str] = None
-    cookie_banner_link: Optional[str] = None
+    cookie_banner_text: Optional[str] = Field(None, max_length=2000)
+    cookie_banner_link: Optional[str] = Field(None, max_length=400)
     # Landing page customization
-    landing_headline: Optional[str] = None  # eyebrow text on /v/:id (replaces "Il tuo consulente {brand}")
+    landing_headline: Optional[str] = Field(None, max_length=140)
     # GDPR — controller (titolare del trattamento) info shown on /v/:vendorId/privacy
-    legal_name: Optional[str] = None
-    vat_number: Optional[str] = None
-    legal_address: Optional[str] = None
-    privacy_contact_email: Optional[str] = None
-    privacy_policy_url: Optional[str] = None
+    legal_name: Optional[str] = Field(None, max_length=200)
+    vat_number: Optional[str] = Field(None, max_length=40)
+    legal_address: Optional[str] = Field(None, max_length=400)
+    privacy_contact_email: Optional[str] = Field(None, max_length=200)
+    privacy_policy_url: Optional[str] = Field(None, max_length=500)
 
 
 class OrgUserCreate(BaseModel):
     email: EmailStr
-    password: str
-    name: Optional[str] = ''
-    organization_id: str
+    password: str = Field(..., min_length=8, max_length=200)
+    name: Optional[str] = Field('', max_length=200)
+    organization_id: str = Field(..., max_length=64)
 
 class VendorResponse(BaseModel):
     id: str
+    slug: Optional[str] = ''
     name: str
     bio: str
     store_id: str
@@ -619,6 +665,49 @@ async def revoke_all_sessions(response: Response, user: dict = Depends(get_curre
         max_age=86400, path='/'
     )
     return {'message': 'Tutte le altre sessioni sono state invalidate', 'token_version': new_tv}
+
+
+class PasswordChangeRequest(BaseModel):
+    current_password: str = Field(..., min_length=1, max_length=200)
+    new_password: str = Field(..., min_length=8, max_length=200)
+
+
+@api_router.post('/me/password')
+async def change_my_password(payload: PasswordChangeRequest, response: Response,
+                              user: dict = Depends(get_current_user)):
+    """Change the logged-in user's password. Verifies the current password,
+    bumps token_version so every other session is invalidated, refreshes the
+    cookie of the active tab."""
+    # get_current_user strips password_hash from the dict — re-fetch it for the verify check.
+    full_user = await db.users.find_one({'_id': ObjectId(user['_id'])})
+    if not full_user:
+        raise HTTPException(status_code=401, detail='Not authenticated')
+    if not verify_password(payload.current_password, full_user.get('password_hash', '')):
+        # Don't leak whether current_password format was wrong vs mismatch.
+        raise HTTPException(status_code=401, detail='Password attuale non corretta')
+    if payload.new_password == payload.current_password:
+        raise HTTPException(status_code=400, detail='La nuova password deve essere diversa da quella attuale')
+
+    new_tv = int(user.get('token_version', 1)) + 1
+    await db.users.update_one(
+        {'_id': ObjectId(user['_id'])},
+        {'$set': {
+            'password_hash': hash_password(payload.new_password),
+            'token_version': new_tv,
+            'password_changed_at': datetime.now(timezone.utc).isoformat(),
+        }}
+    )
+    # Audit log (no PII apart from hashed email shown via _redact_email)
+    logger.info(f'Password changed for user {_redact_email(user.get("email", ""))}')
+
+    # Refresh the cookie so the active session stays alive after token_version bump.
+    new_token = create_access_token(user['_id'], user.get('email', ''), new_tv)
+    response.set_cookie(
+        key='access_token', value=new_token,
+        httponly=True, secure=COOKIE_SECURE, samesite=COOKIE_SAMESITE,
+        max_age=86400, path='/'
+    )
+    return {'message': 'Password aggiornata. Le altre sessioni sono state disconnesse.'}
 
 
 # Vendor-side counterparts -------------------------------------------------------
@@ -1840,10 +1929,19 @@ async def create_vendor(vendor: VendorCreate, user: dict = Depends(get_current_u
     
     vendor_id = str(ObjectId())
     frontend_url = os.environ.get('FRONTEND_URL', 'http://localhost:3000')
-    qr_url = f"{frontend_url}/v/{vendor_id}"
-    
+
+    # Optional custom slug — must be unique tenant-wide (and globally to avoid /v/:key collisions)
+    slug = _normalize_vendor_slug(vendor.slug or '')
+    if slug:
+        if await _vendor_slug_taken(slug):
+            raise HTTPException(status_code=409, detail=f'Slug "{slug}" già in uso da un altro venditore')
+
+    landing_key = slug or vendor_id
+    qr_url = f"{frontend_url}/v/{landing_key}"
+
     vendor_doc = {
         'id': vendor_id,
+        'slug': slug,
         'organization_id': user.get('organization_id'),
         'name': vendor.name,
         'bio': vendor.bio or '',
@@ -1972,6 +2070,7 @@ async def _effective_landing_url(vendor: dict) -> str:
     today keep working when the user finishes DNS setup). Falls back to the
     stored qr_url (typically the Vercel default URL)."""
     org_id = vendor.get('organization_id')
+    landing_key = (vendor.get('slug') or '').strip() or vendor.get('id', '')
     if org_id:
         cd = await db.vercel_domains.find_one(
             {'organization_id': org_id, 'verified': True},
@@ -1979,13 +2078,14 @@ async def _effective_landing_url(vendor: dict) -> str:
             sort=[('created_at_local', 1)]  # oldest first → most stable
         )
         if cd and cd.get('domain'):
-            return f"https://{cd['domain']}/v/{vendor['id']}"
+            return f"https://{cd['domain']}/v/{landing_key}"
     return vendor.get('qr_url') or ''
 
 
 @api_router.get('/vendors/{vendor_id}')
 async def get_vendor_public(vendor_id: str):
-    vendor = await db.vendors.find_one({'id': vendor_id}, {'_id': 0})
+    # vendor_id can be either the canonical UUID or a custom slug like "gizwindtre"
+    vendor = await _resolve_vendor_doc(vendor_id)
     if not vendor:
         raise HTTPException(status_code=404, detail='Vendor not found')
     vendor.setdefault('tiktok', '')
@@ -2007,11 +2107,13 @@ async def get_vendor_public(vendor_id: str):
     vendor['posts'] = posts
     # Strip multi-tenant internal field
     vendor.pop('organization_id', None)
-    # Include organization branding (lightweight)
-    org_id = await db.vendors.find_one({'id': vendor_id}, {'_id': 0, 'organization_id': 1})
-    if org_id and org_id.get('organization_id'):
+    # Include organization branding (lightweight) — we already have the doc resolved above.
+    # Lookup is via the resolved vendor doc rather than re-querying by vendor_id (which
+    # might be a slug). Read the org from the same doc we already loaded.
+    real_vendor = await db.vendors.find_one({'id': vendor['id']}, {'_id': 0, 'organization_id': 1})
+    if real_vendor and real_vendor.get('organization_id'):
         org = await db.organizations.find_one(
-            {'id': org_id['organization_id']},
+            {'id': real_vendor['organization_id']},
             {'_id': 0, 'brand_name': 1, 'primary_color': 1, 'logo_url': 1,
               'cookie_banner_enabled': 1, 'cookie_banner_text': 1, 'cookie_banner_link': 1,
               'landing_headline': 1, 'name': 1,
@@ -2075,7 +2177,19 @@ async def update_vendor(vendor_id: str, vendor: VendorUpdate, user: dict = Depen
         'post_cta_text': store.get('post_cta_text', ''),
         'post_whatsapp_message': store.get('post_whatsapp_message', '')
     }
-    
+
+    # Slug change is optional. Empty string explicitly clears it (back to UUID-only URL).
+    if vendor.slug is not None:
+        new_slug = _normalize_vendor_slug(vendor.slug or '')
+        if new_slug != (existing.get('slug') or ''):
+            if new_slug and await _vendor_slug_taken(new_slug, except_vendor_id=vendor_id):
+                raise HTTPException(status_code=409, detail=f'Slug "{new_slug}" già in uso da un altro venditore')
+            update_doc['slug'] = new_slug
+            # Refresh qr_url so newly-printed QRs use the friendly URL (existing
+            # printed QRs still resolve because /v/<uuid> is always supported).
+            frontend_url = os.environ.get('FRONTEND_URL', 'http://localhost:3000')
+            update_doc['qr_url'] = f"{frontend_url}/v/{new_slug or vendor_id}"
+
     await db.vendors.update_one({'id': vendor_id}, {'$set': update_doc})
     updated = await db.vendors.find_one({'id': vendor_id}, {'_id': 0})
     analytics = await db.analytics.count_documents({'vendor_id': vendor_id, 'event_type': 'page_view'})
@@ -2232,8 +2346,17 @@ async def track_event(event: AnalyticsEvent, request: Request):
     # Geo lookup at event-time; only aggregated city/country stored (no IP, no raw UA)
     geo = await _geo_lookup(ip) if ip else {'city': '', 'region': '', 'country': '', 'lat': None, 'lon': None}
     
+    # Resolve slug → canonical id so analytics always stores the UUID even if the
+    # public landing was accessed via /v/<slug>. Otherwise legacy reports/by-vendor
+    # joins would silently break for any vendor using a custom slug.
+    canonical_vid = event.vendor_id
+    if canonical_vid:
+        v = await _resolve_vendor_doc(canonical_vid)
+        if v and v.get('id'):
+            canonical_vid = v['id']
+
     event_doc = {
-        'vendor_id': event.vendor_id,
+        'vendor_id': canonical_vid,
         'event_type': event.event_type,
         'timestamp': event.timestamp or datetime.now(timezone.utc).isoformat(),
         'device': device_type,
@@ -3288,7 +3411,8 @@ def _build_og_html(vendor: dict, org: dict, request_url_base: str) -> str:
     elif org.get('logo_url'):
         image_url = org['logo_url']
     primary_color = org.get('primary_color') or '#F96815'
-    spa_url = f"{request_url_base}/v/{vendor['id']}"
+    landing_key = (vendor.get('slug') or '').strip() or vendor['id']
+    spa_url = f"{request_url_base}/v/{landing_key}"
 
     e = html_lib.escape
     tags = [
@@ -3338,7 +3462,7 @@ def _build_og_html(vendor: dict, org: dict, request_url_base: str) -> str:
 async def og_vendor_preview(vendor_id: str, request: Request):
     """Server-rendered preview page consumed by social-media crawlers."""
     frontend_url = os.environ.get('FRONTEND_URL', 'https://qrhub-app.vercel.app').rstrip('/')
-    vendor = await db.vendors.find_one({'id': vendor_id}, {'_id': 0})
+    vendor = await _resolve_vendor_doc(vendor_id)
     if not vendor:
         empty_vendor = {'id': vendor_id, 'name': 'Contattami', 'bio': '', 'profile_image_enabled': False}
         empty_org = {'brand_name': 'QRHub', 'primary_color': '#F96815'}
@@ -3544,6 +3668,18 @@ async def seed_admin():
             await db.files.update_one({'_id': f['_id']}, {'$set': {'kind': kind}})
     except Exception as _e:
         logger.warning(f'media library backfill skipped: {_e}')
+
+    # Vendor custom slug index — unique only for non-empty values. Allows multiple
+    # vendors with no slug (backward compat) while preventing slug collisions.
+    try:
+        await db.vendors.create_index(
+            'slug',
+            unique=True,
+            partialFilterExpression={'slug': {'$type': 'string', '$gt': ''}},
+            name='vendors_slug_unique_nonempty',
+        )
+    except Exception as _e:
+        logger.warning(f'vendors.slug index skipped: {_e}')
     
     # One-shot migration: legacy single-post on Store -> posts collection entry
     try:

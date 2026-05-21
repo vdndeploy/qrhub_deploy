@@ -4,7 +4,9 @@ import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Download, ShieldOff, Trash2, KeyRound } from 'lucide-react';
+import { Download, ShieldOff, Trash2, KeyRound, Lock } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -32,6 +34,33 @@ const MyAccount = () => {
   const [revoking, setRevoking] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [dpa, setDpa] = useState(null);
+  const [pwForm, setPwForm] = useState({ current: '', next: '', confirm: '' });
+  const [pwSubmitting, setPwSubmitting] = useState(false);
+
+  const handlePasswordChange = async (e) => {
+    e.preventDefault();
+    if (pwForm.next.length < 8) {
+      toast.error('La nuova password deve avere almeno 8 caratteri'); return;
+    }
+    if (pwForm.next !== pwForm.confirm) {
+      toast.error('Le due nuove password non coincidono'); return;
+    }
+    if (pwForm.next === pwForm.current) {
+      toast.error('La nuova password deve essere diversa dall\'attuale'); return;
+    }
+    setPwSubmitting(true);
+    try {
+      await axios.post(`${API}/me/password`,
+        { current_password: pwForm.current, new_password: pwForm.next },
+        { withCredentials: true });
+      toast.success('Password aggiornata. Le altre sessioni sono state disconnesse.');
+      setPwForm({ current: '', next: '', confirm: '' });
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Errore aggiornamento password');
+    } finally {
+      setPwSubmitting(false);
+    }
+  };
 
   useEffect(() => {
     axios.get(`${API}/me/dpa-status`, { withCredentials: true })
@@ -107,6 +136,69 @@ const MyAccount = () => {
         <Button onClick={handleExport} disabled={exporting} className="bg-[#F96815] hover:bg-[#e05a0f]"
                 data-testid="export-data-button">
           <Download className="h-4 w-4 mr-2" />{exporting ? 'Esportazione…' : 'Esporta i miei dati'}
+        </Button>
+      </Section>
+
+      <Section title="Cambia password" icon={Lock} accent="orange">
+        <p>Aggiorna la password del tuo account. Per sicurezza, le altre sessioni attive verranno automaticamente disconnesse.</p>
+        <form onSubmit={handlePasswordChange} className="space-y-3 max-w-md" data-testid="change-password-form">
+          <div>
+            <Label className="text-xs">Password attuale</Label>
+            <Input
+              type="password"
+              autoComplete="current-password"
+              value={pwForm.current}
+              onChange={(e) => setPwForm({ ...pwForm, current: e.target.value })}
+              required
+              data-testid="current-password-input"
+            />
+          </div>
+          <div>
+            <Label className="text-xs">Nuova password <span className="text-gray-500">(min 8 caratteri)</span></Label>
+            <Input
+              type="password"
+              autoComplete="new-password"
+              value={pwForm.next}
+              onChange={(e) => setPwForm({ ...pwForm, next: e.target.value })}
+              minLength={8}
+              required
+              data-testid="new-password-input"
+            />
+          </div>
+          <div>
+            <Label className="text-xs">Conferma nuova password</Label>
+            <Input
+              type="password"
+              autoComplete="new-password"
+              value={pwForm.confirm}
+              onChange={(e) => setPwForm({ ...pwForm, confirm: e.target.value })}
+              minLength={8}
+              required
+              data-testid="confirm-password-input"
+            />
+          </div>
+          <Button
+            type="submit"
+            disabled={pwSubmitting}
+            className="bg-[#F96815] hover:bg-[#e05a0f]"
+            data-testid="change-password-submit"
+          >
+            <Lock className="h-4 w-4 mr-2" />
+            {pwSubmitting ? 'Aggiornamento…' : 'Aggiorna password'}
+          </Button>
+        </form>
+      </Section>
+
+      <Section title="Cambia email" icon={KeyRound} accent="amber">
+        <p>
+          Il cambio email richiede un link di conferma inviato al nuovo indirizzo (per evitare typo e takeover).
+        </p>
+        <p className="text-xs text-gray-500">
+          Stiamo configurando l'invio email. Per modificare ora la tua mail, contatta un super admin.
+        </p>
+        <Button variant="outline" disabled className="opacity-60 cursor-not-allowed"
+                title="Richiede integrazione email — disponibile a breve">
+          Cambia email (in arrivo)
         </Button>
       </Section>
 

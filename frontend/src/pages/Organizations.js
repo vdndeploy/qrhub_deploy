@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { toast } from 'sonner';
-import { Plus, Trash2, Building2, UserPlus, Users, KeyRound, ShieldCheck, ShieldAlert, ShieldX, Pencil } from 'lucide-react';
+import { Plus, Trash2, Building2, UserPlus, Users, KeyRound, ShieldCheck, ShieldAlert, ShieldX, Pencil, Upload, X as XIcon } from 'lucide-react';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -43,14 +43,49 @@ const Organizations = () => {
   const [createOpen, setCreateOpen] = useState(false);
   const [userOpen, setUserOpen] = useState(null); // org obj for "add user" dialog
   const [usersList, setUsersList] = useState([]);
-  const [form, setForm] = useState({ name: '', primary_color: '#F96815' });
+  const [form, setForm] = useState({ name: '', primary_color: '#F96815', brand_name: '', logo_url: '', logo_public_id: '' });
   const [userForm, setUserForm] = useState({ email: '', password: '', name: '' });
   const [pwdResetFor, setPwdResetFor] = useState(null); // user email being reset
   const [newPassword, setNewPassword] = useState('');
   const [pwdSubmitting, setPwdSubmitting] = useState(false);
   const [editOrg, setEditOrg] = useState(null); // org being edited
-  const [editForm, setEditForm] = useState({ name: '', slug: '', brand_name: '', primary_color: '' });
+  const [editForm, setEditForm] = useState({ name: '', slug: '', brand_name: '', primary_color: '', logo_url: '', logo_public_id: '' });
   const [editSubmitting, setEditSubmitting] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+
+  // Upload helper used by both create and edit dialogs. Sends file under folder=uploads
+  // and writes the resulting Cloudinary url/public_id back into the given setter.
+  const handleLogoFile = async (e, setter) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      toast.error('Seleziona un file immagine');
+      e.target.value = '';
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Logo troppo grande (max 5MB)');
+      e.target.value = '';
+      return;
+    }
+    setUploadingLogo(true);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('folder', 'uploads');
+      const { data } = await axios.post(`${API}/upload`, fd, {
+        withCredentials: true,
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      setter((prev) => ({ ...prev, logo_url: data.url, logo_public_id: data.public_id || '' }));
+      toast.success('Logo caricato');
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Errore upload logo');
+    } finally {
+      setUploadingLogo(false);
+      e.target.value = '';
+    }
+  };
 
   const fetchOrgs = async () => {
     setLoading(true);
@@ -72,7 +107,7 @@ const Organizations = () => {
       await axios.post(`${API}/organizations`, form, { withCredentials: true });
       toast.success('Organizzazione creata');
       setCreateOpen(false);
-      setForm({ name: '', primary_color: '#F96815' });
+      setForm({ name: '', primary_color: '#F96815', brand_name: '', logo_url: '', logo_public_id: '' });
       fetchOrgs();
     } catch (err) {
       toast.error(err.response?.data?.detail || 'Errore');
@@ -135,6 +170,8 @@ const Organizations = () => {
       slug: org.slug || '',
       brand_name: org.brand_name || '',
       primary_color: org.primary_color || '#F96815',
+      logo_url: org.logo_url || '',
+      logo_public_id: org.logo_public_id || '',
     });
   };
 
@@ -156,6 +193,8 @@ const Organizations = () => {
         slug: newSlug || undefined,
         brand_name: editForm.brand_name,
         primary_color: editForm.primary_color,
+        logo_url: editForm.logo_url,
+        logo_public_id: editForm.logo_public_id,
       }, { withCredentials: true });
       toast.success('Organizzazione aggiornata');
       setEditOrg(null);
@@ -265,6 +304,42 @@ const Organizations = () => {
               <Input required value={form.name} onChange={(e) => setForm({...form, name: e.target.value})} placeholder="Es. Nome Azienda" data-testid="org-name-input" />
             </div>
             <div>
+              <Label>Brand name (display, opzionale)</Label>
+              <Input value={form.brand_name} onChange={(e) => setForm({...form, brand_name: e.target.value})} placeholder="Es. TIM" maxLength={200} data-testid="org-create-brand-input" />
+              <p className="text-xs text-gray-500 mt-1">Nome mostrato nelle landing dei venditori. Se vuoto, usa il nome dell'organizzazione.</p>
+            </div>
+            <div>
+              <Label>Logo (opzionale)</Label>
+              <div className="flex items-center gap-3">
+                <div className="w-16 h-16 rounded border bg-gray-50 flex items-center justify-center overflow-hidden flex-shrink-0">
+                  {form.logo_url ? (
+                    <img src={form.logo_url} alt="logo" className="w-full h-full object-contain" />
+                  ) : (
+                    <Building2 className="h-6 w-6 text-gray-300" />
+                  )}
+                </div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Button type="button" variant="outline" size="sm"
+                          onClick={() => document.getElementById('org-create-logo-input').click()}
+                          disabled={uploadingLogo}
+                          data-testid="org-create-logo-upload">
+                    <Upload className={`h-4 w-4 mr-1 ${uploadingLogo ? 'animate-pulse' : ''}`} />
+                    {uploadingLogo ? 'Caricamento…' : (form.logo_url ? 'Cambia logo' : 'Carica logo')}
+                  </Button>
+                  {form.logo_url && (
+                    <Button type="button" variant="ghost" size="sm"
+                            onClick={() => setForm({...form, logo_url: '', logo_public_id: ''})}
+                            data-testid="org-create-logo-remove">
+                      <XIcon className="h-4 w-4 mr-1" />Rimuovi
+                    </Button>
+                  )}
+                  <input id="org-create-logo-input" type="file" accept="image/*" className="hidden"
+                          onChange={(e) => handleLogoFile(e, setForm)} />
+                </div>
+              </div>
+              <p className="text-xs text-gray-500 mt-1">PNG/JPG/SVG con sfondo trasparente. Max 5MB. Compare nell'header pubblico delle landing.</p>
+            </div>
+            <div>
               <Label>Colore primario</Label>
               <div className="flex gap-2 items-center">
                 <Input type="color" value={form.primary_color} onChange={(e) => setForm({...form, primary_color: e.target.value})} className="w-16 h-10 cursor-pointer" />
@@ -368,6 +443,36 @@ const Organizations = () => {
                       placeholder="VDN"
                       maxLength={200}
                       data-testid="org-edit-brand" />
+            </div>
+            <div>
+              <Label>Logo</Label>
+              <div className="flex items-center gap-3">
+                <div className="w-16 h-16 rounded border bg-gray-50 flex items-center justify-center overflow-hidden flex-shrink-0">
+                  {editForm.logo_url ? (
+                    <img src={editForm.logo_url} alt="logo" className="w-full h-full object-contain" />
+                  ) : (
+                    <Building2 className="h-6 w-6 text-gray-300" />
+                  )}
+                </div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Button type="button" variant="outline" size="sm"
+                          onClick={() => document.getElementById('org-edit-logo-input').click()}
+                          disabled={uploadingLogo}
+                          data-testid="org-edit-logo-upload">
+                    <Upload className={`h-4 w-4 mr-1 ${uploadingLogo ? 'animate-pulse' : ''}`} />
+                    {uploadingLogo ? 'Caricamento…' : (editForm.logo_url ? 'Cambia' : 'Carica')}
+                  </Button>
+                  {editForm.logo_url && (
+                    <Button type="button" variant="ghost" size="sm"
+                            onClick={() => setEditForm({...editForm, logo_url: '', logo_public_id: ''})}
+                            data-testid="org-edit-logo-remove">
+                      <XIcon className="h-4 w-4 mr-1" />Rimuovi
+                    </Button>
+                  )}
+                  <input id="org-edit-logo-input" type="file" accept="image/*" className="hidden"
+                          onChange={(e) => handleLogoFile(e, setEditForm)} />
+                </div>
+              </div>
             </div>
             <div>
               <Label>Colore primario</Label>

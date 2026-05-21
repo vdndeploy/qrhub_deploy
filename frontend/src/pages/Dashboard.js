@@ -127,15 +127,15 @@ const Dashboard = () => {
                   <span className="ml-1 sm:ml-0 text-xs sm:text-sm">Venditori</span>
                 </Button>
               </Link>
-              <Link to="/dashboard/files" className="flex-shrink-0">
+              <Link to="/dashboard/media" className="flex-shrink-0">
                 <Button
-                  variant={isActive('/dashboard/files') ? 'default' : 'ghost'}
+                  variant={isActive('/dashboard/media') || isActive('/dashboard/files') ? 'default' : 'ghost'}
                   size="sm"
-                  className={isActive('/dashboard/files') ? 'bg-[#F96815] hover:bg-[#e05a0f]' : ''}
-                  data-testid="nav-files"
+                  className={isActive('/dashboard/media') || isActive('/dashboard/files') ? 'bg-[#F96815] hover:bg-[#e05a0f]' : ''}
+                  data-testid="nav-media"
                 >
                   <FolderOpen className="h-4 w-4 sm:mr-2" />
-                  <span className="ml-1 sm:ml-0 text-xs sm:text-sm">File</span>
+                  <span className="ml-1 sm:ml-0 text-xs sm:text-sm">Media</span>
                 </Button>
               </Link>
               <Link to="/dashboard/organization" className="flex-shrink-0">
@@ -211,6 +211,7 @@ const Dashboard = () => {
           <Route path="stores" element={<Stores />} />
           <Route path="vendors" element={<Vendors />} />
           <Route path="files" element={<Files />} />
+          <Route path="media" element={<Files />} />
           <Route path="organization" element={<OrgSettings />} />
           <Route path="organizations" element={<Organizations />} />
           <Route path="settings" element={<Settings />} />

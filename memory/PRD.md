@@ -95,6 +95,10 @@ Il progetto **QRHub** è una piattaforma multi-tenant open source (MIT) che perm
 | 2026-05-21 | - Frontend: nuovo componente `<MediaPicker>` modale griglia con tab Foto profilo / Immagini post, search per filename, paginazione 60/pag, badge "in uso/libera", "Usa" / "Elimina" inline con hover overlay. Stats footer ("12 file · 3.2 MB"). | ✅ |
 | 2026-05-21 | - Integrato in `VendorDashboard.js` (bottone "Scegli dalla libreria" accanto al carica foto profilo, kind=uploads, hidePostsTab) e in `PostsManager.js` (kind=posts). | ✅ |
 | 2026-05-21 | - Risparmio Cloudinary: stessa foto profilo riusabile su account venditore multipli; stessa immagine annuncio riusabile su negozi multipli. | ✅ |
+| 2026-05-21 | **Logo Org customizzabile + pagina Media completa** | ✅ Fly v22 |
+| 2026-05-21 | - **Logo SVG WINDTRE hardcoded RIMOSSO** da `VendorLanding.js`. Ora la landing pubblica usa `vendor.organization.logo_url` se presente, altrimenti un fallback brandizzato (pill con brand_name + primary_color). | ✅ |
+| 2026-05-21 | - `Organizations.js` (super admin): Create + Edit org dialog hanno ora upload logo con preview live (16x16 thumb + bottone Carica/Cambia/Rimuovi) + campo `brand_name`. Validazione client: solo image/* max 5MB. | ✅ |
+| 2026-05-21 | - **Pagina `/dashboard/media`** (alias di `/dashboard/files` + rinominato in nav "Media"): aggiunto banner 4 stats card (totale, foto profilo, post, orfani con shortcut "→") + lightbox click-to-zoom su ogni thumbnail con metadata + delete inline. | ✅ |
 
 ## Prioritized backlog
 

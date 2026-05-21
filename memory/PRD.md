@@ -106,6 +106,12 @@ Il progetto **QRHub** è una piattaforma multi-tenant open source (MIT) che perm
 | 2026-05-21 | - **Cambio password self-service**: `POST /api/me/password` con verifica password attuale, bump `token_version` (kick out altre sessioni), refresh cookie attivo. Sezione UI in `MyAccount.js` con form 3-campi. | ✅ |
 | 2026-05-21 | - **GDPR M6** (data minimization): aggiunto `Field(..., max_length=N)` su `LoginRequest`, `StoreCreate`, `VendorCredentials`, `OrganizationCreate`, `OrganizationUpdate`, `OrgUserCreate`, `PasswordChangeRequest`. Validazione 422 client-friendly. | ✅ |
 | 2026-05-21 | - Sezione "Cambia email" placeholder UI (richiede integrazione email service Resend/SMTP, da configurare separatamente). | 🟡 stub |
+| 2026-05-21 | **Refactor `server.py` → router modulari (Fase 1)** | ✅ Fly v24 |
+| 2026-05-21 | - `server.py`: 3752 → 2538 righe (-32%). 3 nuovi moduli in `/app/backend/routers/`. | ✅ |
+| 2026-05-21 | - `routers/deploy.py` (536 righe) — 8 endpoint Fly/Vercel/rotate-credentials/uptime | ✅ |
+| 2026-05-21 | - `routers/media.py` (349 righe) — 7 endpoint upload/files/media library | ✅ |
+| 2026-05-21 | - `routers/analytics.py` (467 righe) — 6 endpoint analytics + PDF export | ✅ |
+| 2026-05-21 | - Late-binding pattern (`from server import ...` con `app.include_router()` a fondo file) per evitare circular imports. Logger spostato in cima a server.py. Tutti i 61 endpoint OpenAPI registrati e testati live su Fly. | ✅ |
 
 ## Prioritized backlog
 

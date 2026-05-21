@@ -88,6 +88,13 @@ Il progetto **QRHub** è una piattaforma multi-tenant open source (MIT) che perm
 | 2026-05-19 | - Backend: nuovo endpoint `GET /og/v/:vendorId` server-rendered con tag OG/Twitter (title `"{vendor} · {brand}"`, descrizione da bio, image da `profile_image_url` se enabled altrimenti `org.logo_url`, theme_color = primary_color). Include redirect `meta http-equiv=refresh` + JS verso `/v/:id` per fallback umano. | ✅ |
 | 2026-05-19 | - `frontend/vercel.json`: rewrite condizionale via header `User-Agent` matcher (whatsapp, telegram, facebook, twitter, linkedin, slack, discord, pinterest, googlebot, ecc.) → quando un crawler chiede `/v/:id`, Vercel proxy verso `qrhub.fly.dev/og/v/:id`. Browser umani continuano a vedere la SPA normalmente. | ✅ |
 | 2026-05-19 | - Risolve il task `OG-1` del backlog. | ✅ |
+| 2026-05-21 | **Media Library (galleria foto Cloudinary multi-tenant)** | ✅ Fly v21 |
+| 2026-05-21 | - Backend: 3 nuovi endpoint sotto `/api/media` (list, stats, delete) con dual auth `get_current_user_or_vendor`. Tenant isolato via `org_{id}/*` Cloudinary folder. Admins vedono `uploads`+`posts`; venditori vedono solo `uploads` e cancellano solo le proprie (`uploaded_by_id`). | ✅ |
+| 2026-05-21 | - `db.files` arricchito con `kind`, `uploaded_by_id`, `uploaded_by_principal`. Backfill automatico al boot per i file storici (derivato dal path Cloudinary). | ✅ |
+| 2026-05-21 | - Protezione: DELETE refusa se il media è referenziato da un post o foto profilo (409 + messaggio chiaro). `in_use` calcolato da `posts.media_public_id`, `stores.post_media_public_id`, `vendors.profile_image_url`, `organizations.logo_url`. | ✅ |
+| 2026-05-21 | - Frontend: nuovo componente `<MediaPicker>` modale griglia con tab Foto profilo / Immagini post, search per filename, paginazione 60/pag, badge "in uso/libera", "Usa" / "Elimina" inline con hover overlay. Stats footer ("12 file · 3.2 MB"). | ✅ |
+| 2026-05-21 | - Integrato in `VendorDashboard.js` (bottone "Scegli dalla libreria" accanto al carica foto profilo, kind=uploads, hidePostsTab) e in `PostsManager.js` (kind=posts). | ✅ |
+| 2026-05-21 | - Risparmio Cloudinary: stessa foto profilo riusabile su account venditore multipli; stessa immagine annuncio riusabile su negozi multipli. | ✅ |
 
 ## Prioritized backlog
 

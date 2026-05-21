@@ -6,9 +6,10 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
-import { LogOut, Eye, MousePointerClick, ExternalLink, Save, Upload, X, Image as ImageIcon } from 'lucide-react';
+import { LogOut, Eye, MousePointerClick, ExternalLink, Save, Upload, X, Image as ImageIcon, FolderOpen } from 'lucide-react';
 import axios from 'axios';
 import AnalyticsDetailed from './AnalyticsDetailed';
+import MediaPicker from '@/components/MediaPicker';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -23,6 +24,7 @@ const VendorDashboard = () => {
   });
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   useEffect(() => {
     if (vendor) {
@@ -320,6 +322,15 @@ const VendorDashboard = () => {
                         data-testid="vendor-profile-image-input"
                       />
                     </label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setPickerOpen(true)}
+                      className="ml-2 h-9 text-xs"
+                      data-testid="vendor-profile-from-library"
+                    >
+                      <FolderOpen className="h-4 w-4 mr-1" />Scegli dalla libreria
+                    </Button>
                     <p className="text-xs text-gray-500 mt-2">
                       {formData.profile_image_url && !formData.profile_image_enabled && (
                         <span className="text-amber-700">⚠ Foto caricata ma nascosta — attiva il toggle a destra per mostrarla.</span>
@@ -380,6 +391,18 @@ const VendorDashboard = () => {
           </div>
         </div>
       </div>
+
+      <MediaPicker
+        open={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        onSelect={(item) => {
+          setFormData((prev) => ({ ...prev, profile_image_url: item.url }));
+          toast.success('Foto selezionata. Clicca Salva per applicare.');
+        }}
+        kind="uploads"
+        hidePostsTab
+        title="Foto profilo della libreria"
+      />
     </div>
   );
 };

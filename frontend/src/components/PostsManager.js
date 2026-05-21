@@ -6,7 +6,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { Plus, Trash2, Edit, Upload, MoveUp, MoveDown, X, Image as ImgIcon, Video, Calendar, Clock } from 'lucide-react';
+import { Plus, Trash2, Edit, Upload, MoveUp, MoveDown, X, Image as ImgIcon, Video, Calendar, Clock, FolderOpen } from 'lucide-react';
+import MediaPicker from '@/components/MediaPicker';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -21,6 +22,7 @@ const PostsManager = ({ open, onClose, storeId, storeName }) => {
   const [form, setForm] = useState(emptyForm());
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   const fetchPosts = useCallback(async () => {
     if (!storeId) return;
@@ -187,9 +189,12 @@ const PostsManager = ({ open, onClose, storeId, storeName }) => {
             </div>
             <div>
               <Label>Media (immagine o video)</Label>
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
                 <Button type="button" variant="outline" onClick={() => document.getElementById('post-media-upload').click()} disabled={uploading}>
                   <Upload className="h-4 w-4 mr-2" />{uploading ? 'Caricamento...' : 'Carica File'}
+                </Button>
+                <Button type="button" variant="outline" onClick={() => setPickerOpen(true)} disabled={uploading} data-testid="post-media-from-library">
+                  <FolderOpen className="h-4 w-4 mr-2" />Scegli dalla libreria
                 </Button>
                 {form.media_url && <Button type="button" variant="ghost" onClick={removeMedia}><X className="h-4 w-4 mr-1" />Rimuovi</Button>}
               </div>
@@ -244,6 +249,22 @@ const PostsManager = ({ open, onClose, storeId, storeName }) => {
           </div>
         )}
       </DialogContent>
+      <MediaPicker
+        open={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        onSelect={(item) => {
+          setForm((f) => ({
+            ...f,
+            media_url: item.url,
+            media_public_id: item.public_id,
+            media_resource_type: item.resource_type || 'image',
+            aspect_ratio: item.width && item.height ? item.width / item.height : null,
+          }));
+          toast.success('Immagine selezionata');
+        }}
+        kind="posts"
+        title="Immagini per i post"
+      />
     </Dialog>
   );
 };

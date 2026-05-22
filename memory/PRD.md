@@ -112,6 +112,11 @@ Il progetto **QRHub** è una piattaforma multi-tenant open source (MIT) che perm
 | 2026-05-21 | - `routers/media.py` (349 righe) — 7 endpoint upload/files/media library | ✅ |
 | 2026-05-21 | - `routers/analytics.py` (467 righe) — 6 endpoint analytics + PDF export | ✅ |
 | 2026-05-21 | - Late-binding pattern (`from server import ...` con `app.include_router()` a fondo file) per evitare circular imports. Logger spostato in cima a server.py. Tutti i 61 endpoint OpenAPI registrati e testati live su Fly. | ✅ |
+| 2026-05-22 | **Platform primary domain (qrhub.it) — multi-tenant host isolation** | ✅ Fly v25 |
+| 2026-05-22 | - Backend: nuovi 5 endpoint sotto `/api/platform/*`: GET/PUT/DELETE `primary-domain`, POST `primary-domain/verify`, GET `config` (pubblico no-auth). Registra automaticamente il dominio su Vercel API riusando i helper esistenti. DNS instructions live dall'API Vercel. | ✅ |
+| 2026-05-22 | - Collection MongoDB `platform_settings` (single doc `_id: 'platform_domain'`). | ✅ |
+| 2026-05-22 | - Frontend `<DomainGuard>` component: legge `/api/platform/config` al boot, controlla `window.location.hostname` contro `primary_domain` + `admin_hosts_allowlist` + `admin_host_suffixes` (`.preview.emergentagent.com`, `.vercel.app`, `.emergent.host`). Su tenant custom domain reindirizza tutto fuorché `/v/*` al primary domain. | ✅ |
+| 2026-05-22 | - Super Admin UI: nuovo tab "Dominio" (👑 icona corona, primo nel set di tab) con form registrazione + verifica DNS + istruzioni copy-paste per Aruba/Cloudflare. | ✅ |
 
 ## Prioritized backlog
 

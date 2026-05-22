@@ -1439,6 +1439,169 @@ async def remove_org_domain(org_id: str, domain: str, user: dict = Depends(get_c
 
 
 # ──────────────────────────────────────────────────────────────────
+# Platform primary domain (e.g. qrhub.it) — set by super admin.
+# This is the canonical hostname where the admin login + dashboard live.
+# Custom-domain tenants (e.g. app.vdn.srl) serve ONLY public landing pages;
+# any attempt to reach /login or /dashboard there is redirected here.
+#
+# Stored as a single doc in db.platform_settings keyed by `_id='platform_domain'`.
+# Same Vercel-API integration as org domains, just without an organization_id.
+# ──────────────────────────────────────────────────────────────────
+
+class PlatformDomainSet(BaseModel):
+    domain: str = Field(..., min_length=3, max_length=253)
+
+
+def _platform_domain_record(vercel_resp: dict, fallback_name: str = '') -> dict:
+    """Same shape as _format_domain_record but without organization_id."""
+    return {
+        'domain': (vercel_resp.get('name') or fallback_name).lower(),
+        'apex': vercel_resp.get('apexName') or '',
+        'verified': bool(vercel_resp.get('verified')),
+        'verification': vercel_resp.get('verification') or [],
+        'created_at_vercel': vercel_resp.get('createdAt'),
+        'created_at_local': datetime.now(timezone.utc).isoformat(),
+    }
+
+
+@api_router.get('/platform/primary-domain')
+async def get_platform_primary_domain(user: dict = Depends(require_super_admin)):
+    """Return the configured platform primary domain doc + live DNS status."""
+    doc = await db.platform_settings.find_one({'_id': 'platform_domain'}, {'_id': 0})
+    if not doc:
+        return {'domain': None}
+    # Always refresh DNS state on read so the UI shows current truth.
+    try:
+        doc['dns'] = await _vercel_domain_config(doc['domain'])
+    except Exception as e:
+        logger.warning(f"platform_domain dns refresh failed: {e}")
+        doc.setdefault('dns', {'misconfigured': True})
+    return doc
+
+
+@api_router.put('/platform/primary-domain')
+async def set_platform_primary_domain(payload: PlatformDomainSet, user: dict = Depends(require_super_admin)):
+    """Configure (or replace) the platform's primary domain.
+    Registers it on Vercel via API — same flow used for tenant org domains."""
+    new_domain = _normalize_domain(payload.domain)
+    if not new_domain or '.' not in new_domain:
+        raise HTTPException(status_code=400, detail='Dominio non valido')
+
+    # If a previous platform domain exists and is different, remove it from Vercel
+    # so we don't leave stale aliases. The new one takes its place.
+    creds = await _vercel_credentials()
+    old = await db.platform_settings.find_one({'_id': 'platform_domain'}, {'_id': 0})
+    if old and old.get('domain') and old['domain'] != new_domain:
+        try:
+            await _vercel_call(
+                'DELETE',
+                f"/v9/projects/{creds['project_id']}/domains/{old['domain']}",
+                expect_404_ok=True,
+            )
+        except Exception as e:
+            logger.warning(f'best-effort cleanup of old platform domain failed: {e}')
+
+    # Register on Vercel (idempotent — if it already exists Vercel returns 409
+    # which _vercel_call converts to a clean dict response or HTTPException).
+    try:
+        resp = await _vercel_call(
+            'POST',
+            f"/v10/projects/{creds['project_id']}/domains",
+            json={'name': new_domain},
+        )
+    except HTTPException as he:
+        # 409 = already attached to this project — re-fetch it as a GET so we
+        # don't fail when reconfiguring an existing platform domain.
+        if he.status_code == 409:
+            resp = await _vercel_call(
+                'GET',
+                f"/v9/projects/{creds['project_id']}/domains/{new_domain}",
+            )
+        else:
+            raise
+
+    record = _platform_domain_record(resp, new_domain)
+    record['added_by'] = user.get('email', '')
+    record['dns'] = await _vercel_domain_config(new_domain)
+
+    await db.platform_settings.update_one(
+        {'_id': 'platform_domain'},
+        {'$set': record},
+        upsert=True,
+    )
+    logger.info(f'Platform primary domain set to {new_domain} by {_redact_email(user.get("email", ""))}')
+    return record
+
+
+@api_router.post('/platform/primary-domain/verify')
+async def verify_platform_primary_domain(user: dict = Depends(require_super_admin)):
+    """Re-check verification + DNS state from Vercel API."""
+    doc = await db.platform_settings.find_one({'_id': 'platform_domain'}, {'_id': 0})
+    if not doc or not doc.get('domain'):
+        raise HTTPException(status_code=404, detail='Nessun dominio piattaforma configurato')
+    domain = doc['domain']
+    creds = await _vercel_credentials()
+    resp = await _vercel_call('POST', f"/v9/projects/{creds['project_id']}/domains/{domain}/verify")
+    record = _platform_domain_record(resp, domain)
+    record['dns'] = await _vercel_domain_config(domain)
+    await db.platform_settings.update_one(
+        {'_id': 'platform_domain'},
+        {'$set': {'verified': record['verified'], 'verification': record['verification'], 'dns': record['dns']}},
+    )
+    return record
+
+
+@api_router.delete('/platform/primary-domain')
+async def remove_platform_primary_domain(user: dict = Depends(require_super_admin)):
+    """Unset the platform primary domain. Vercel alias is removed best-effort."""
+    doc = await db.platform_settings.find_one({'_id': 'platform_domain'}, {'_id': 0})
+    if not doc or not doc.get('domain'):
+        return {'message': 'Nessun dominio da rimuovere'}
+    domain = doc['domain']
+    try:
+        creds = await _vercel_credentials()
+        await _vercel_call(
+            'DELETE',
+            f"/v9/projects/{creds['project_id']}/domains/{domain}",
+            expect_404_ok=True,
+        )
+    except Exception as e:
+        logger.warning(f'platform domain delete: vercel call failed: {e}')
+    await db.platform_settings.delete_one({'_id': 'platform_domain'})
+    return {'message': 'Dominio piattaforma rimosso', 'domain': domain}
+
+
+# Public endpoint consumed by the frontend DomainGuard to decide whether the
+# current hostname is the canonical admin domain or a tenant landing domain.
+@api_router.get('/platform/config')
+async def get_platform_config():
+    """No-auth helper for the frontend SPA to know the canonical admin hostname."""
+    doc = await db.platform_settings.find_one(
+        {'_id': 'platform_domain'},
+        {'_id': 0, 'domain': 1, 'verified': 1},
+    )
+    primary = (doc.get('domain') if doc else None) or ''
+    return {
+        'primary_domain': primary,
+        'primary_verified': bool(doc.get('verified')) if doc else False,
+        # Hosts where the admin login is also allowed (Vercel default + localhost dev).
+        'admin_hosts_allowlist': [
+            'qrhub-app.vercel.app',
+            'localhost',
+            '127.0.0.1',
+        ],
+        # Hostname suffix patterns also treated as admin hosts. Useful for the
+        # Emergent preview environment (*.preview.emergentagent.com) and any
+        # *.vercel.app deploy preview created by Vercel for branch builds.
+        'admin_host_suffixes': [
+            '.preview.emergentagent.com',
+            '.vercel.app',
+            '.emergent.host',
+        ],
+    }
+
+
+# ──────────────────────────────────────────────────────────────────
 # Posts (Multi-announcement Carousel) — multiple posts per store
 # ──────────────────────────────────────────────────────────────────
 class PostCreate(BaseModel):

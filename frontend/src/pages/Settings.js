@@ -18,7 +18,7 @@ import {
   Save, Lock, Rocket, Globe2, Github, KeyRound,
   Cloud, Copy, Eye, EyeOff, ShieldCheck, ExternalLink,
   Zap, RefreshCw, Activity, RotateCw, AlertTriangle,
-  HeartPulse, CheckCircle2, XCircle,
+  HeartPulse, CheckCircle2, XCircle, Crown, Trash2,
 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 
@@ -328,8 +328,11 @@ const Settings = () => {
         </Button>
       </div>
 
-      <Tabs defaultValue="flyio" className="w-full">
-        <TabsList className="grid grid-cols-2 sm:grid-cols-6 w-full sm:w-auto">
+      <Tabs defaultValue="domain" className="w-full">
+        <TabsList className="grid grid-cols-2 sm:grid-cols-7 w-full sm:w-auto">
+          <TabsTrigger value="domain" data-testid="tab-domain">
+            <Crown className="h-4 w-4 mr-1.5" /> Dominio
+          </TabsTrigger>
           <TabsTrigger value="flyio" data-testid="tab-flyio">
             <Rocket className="h-4 w-4 mr-1.5" /> Fly.io
           </TabsTrigger>
@@ -349,6 +352,11 @@ const Settings = () => {
             <Github className="h-4 w-4 mr-1.5" /> GitHub
           </TabsTrigger>
         </TabsList>
+
+        {/* PLATFORM PRIMARY DOMAIN */}
+        <TabsContent value="domain" className="space-y-6 mt-5">
+          <PlatformDomainSection />
+        </TabsContent>
 
         {/* FLY.IO */}
         <TabsContent value="flyio" className="space-y-6 mt-5">
@@ -961,3 +969,218 @@ const Settings = () => {
 };
 
 export default Settings;
+
+// ──────────────────────────────────────────────────────────────────
+// Platform Primary Domain — super admin section.
+// Mirrors the tenant Domain UX (verify + DNS instructions) but for the
+// canonical admin host (e.g. qrhub.it). When set, custom tenant domains
+// (e.g. app.vdn.srl) automatically redirect non-landing traffic here.
+// ──────────────────────────────────────────────────────────────────
+const PlatformDomainSection = () => {
+  const [doc, setDoc] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [input, setInput] = useState('');
+  const [busy, setBusy] = useState('');
+
+  const refresh = async () => {
+    try {
+      const { data } = await axios.get(`${API}/platform/primary-domain`, { withCredentials: true });
+      setDoc(data?.domain ? data : null);
+    } catch (e) {
+      // No domain set yet = 200 with {domain:null}; only show error for real failures.
+      console.warn('platform domain fetch:', e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { refresh(); }, []);
+
+  const submit = async (e) => {
+    e?.preventDefault?.();
+    const domain = input.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/+$/, '');
+    if (!domain || !domain.includes('.')) {
+      toast.error('Dominio non valido (es. qrhub.it)');
+      return;
+    }
+    setBusy('set');
+    try {
+      await axios.put(`${API}/platform/primary-domain`, { domain }, { withCredentials: true });
+      toast.success(`Dominio "${domain}" registrato su Vercel`);
+      setInput('');
+      refresh();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Errore registrazione dominio');
+    } finally {
+      setBusy('');
+    }
+  };
+
+  const recheck = async () => {
+    setBusy('verify');
+    try {
+      await axios.post(`${API}/platform/primary-domain/verify`, {}, { withCredentials: true });
+      toast.success('Stato DNS aggiornato');
+      refresh();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Errore verifica');
+    } finally {
+      setBusy('');
+    }
+  };
+
+  const remove = async () => {
+    if (!window.confirm(`Vuoi davvero rimuovere "${doc.domain}" come dominio principale?\nIl login admin tornerà a rispondere solo su qrhub-app.vercel.app finché non lo riconfiguri.`)) return;
+    setBusy('remove');
+    try {
+      await axios.delete(`${API}/platform/primary-domain`, { withCredentials: true });
+      toast.success('Dominio rimosso');
+      setDoc(null);
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Errore rimozione');
+    } finally {
+      setBusy('');
+    }
+  };
+
+  const copyVal = async (v) => {
+    try { await navigator.clipboard.writeText(v); toast.success('Copiato'); }
+    catch { toast.error('Impossibile copiare'); }
+  };
+
+  if (loading) {
+    return <div className="text-sm text-gray-500">Caricamento…</div>;
+  }
+
+  const live = doc?.dns || {};
+  const isApex = doc && doc.domain && doc.apex && doc.domain === doc.apex;
+  const dnsMisconfigured = !doc?.verified || live.misconfigured !== false;
+  const recCname = live.recommended_cname || 'cname.vercel-dns.com';
+  const recA = (live.recommended_a_values && live.recommended_a_values.length > 0)
+    ? live.recommended_a_values : ['76.76.21.21'];
+  const recordType = isApex ? 'A' : 'CNAME';
+  const recordValues = isApex ? recA : [recCname];
+
+  return (
+    <div className="space-y-5 max-w-3xl">
+      <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm">
+        <div className="font-semibold text-amber-900 mb-1 flex items-center gap-2">
+          <Crown className="h-4 w-4" /> Dominio principale piattaforma
+        </div>
+        <p className="text-amber-900/90">
+          Quando configurato, è l'unico hostname dove vivono il login admin e il dashboard.
+          I domini personalizzati dei tenant (es. app.vdn.srl) serviranno solo le landing pubbliche
+          dei venditori; ogni altra richiesta verrà reindirizzata qui automaticamente.
+        </p>
+      </div>
+
+      {!doc ? (
+        <form onSubmit={submit} className="space-y-3" data-testid="platform-domain-form">
+          <Label>Dominio</Label>
+          <div className="flex gap-2 flex-wrap">
+            <Input
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="es. qrhub.it"
+              className="flex-1 min-w-[240px] font-mono"
+              data-testid="platform-domain-input"
+            />
+            <Button
+              type="submit"
+              disabled={busy === 'set' || !input.trim()}
+              className="bg-[#F96815] hover:bg-[#e05a0f]"
+              data-testid="platform-domain-submit"
+            >
+              {busy === 'set' ? 'Registro su Vercel…' : 'Registra'}
+            </Button>
+          </div>
+          <p className="text-xs text-gray-500">
+            Inseriscilo senza <code>https://</code>. Verrà registrato automaticamente sul progetto Vercel.
+            Dopo serviranno i record DNS sul tuo provider (Aruba/Cloudflare/etc.).
+          </p>
+        </form>
+      ) : (
+        <div className="border rounded-lg p-4 bg-white" data-testid="platform-domain-card">
+          <div className="flex items-start justify-between gap-3 flex-wrap mb-3">
+            <div className="min-w-0">
+              <a
+                href={`https://${doc.domain}`}
+                target="_blank" rel="noreferrer"
+                className="text-lg font-mono font-bold hover:underline text-gray-900"
+                data-testid="platform-domain-link"
+              >
+                {doc.domain}
+              </a>
+              <div className="mt-1">
+                {!dnsMisconfigured ? (
+                  <Badge className="bg-emerald-600 hover:bg-emerald-600 text-white">
+                    <CheckCircle2 className="h-3 w-3 mr-1" />Online
+                  </Badge>
+                ) : doc.verified ? (
+                  <Badge variant="outline" className="border-amber-500 text-amber-800 bg-amber-50">
+                    <AlertTriangle className="h-3 w-3 mr-1" />DNS da configurare
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="border-amber-400 text-amber-700">
+                    <AlertTriangle className="h-3 w-3 mr-1" />In attesa verifica
+                  </Badge>
+                )}
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button size="sm" variant="outline" onClick={recheck} disabled={busy === 'verify'}
+                       data-testid="platform-domain-recheck">
+                <RefreshCw className={`h-3.5 w-3.5 mr-1 ${busy === 'verify' ? 'animate-spin' : ''}`} />
+                Ricontrolla
+              </Button>
+              <Button size="sm" variant="outline" onClick={remove} disabled={busy === 'remove'}
+                       className="text-red-600 border-red-200 hover:bg-red-50"
+                       data-testid="platform-domain-remove">
+                <Trash2 className="h-3.5 w-3.5 mr-1" />Rimuovi
+              </Button>
+            </div>
+          </div>
+
+          {dnsMisconfigured && (
+            <div className="space-y-2 bg-amber-50 border border-amber-200 rounded-lg p-3">
+              <p className="text-sm font-semibold text-amber-900">
+                Configura il DNS sul provider del dominio (Aruba/Cloudflare/…)
+              </p>
+              <div className="bg-white border rounded p-2.5 text-xs space-y-1.5">
+                <div className="grid grid-cols-[80px_1fr] gap-x-3 gap-y-1.5 items-center">
+                  <span className="text-gray-500">Tipo</span>
+                  <span className="font-mono font-semibold">{recordType}</span>
+
+                  <span className="text-gray-500">Host / Nome</span>
+                  <button type="button" onClick={() => copyVal(isApex ? '@' : doc.domain.split('.')[0])}
+                          className="font-mono font-semibold text-left hover:text-[#F96815] inline-flex items-center gap-1">
+                    {isApex ? '@' : doc.domain.split('.')[0]}
+                    <Copy className="h-3 w-3 opacity-50" />
+                  </button>
+
+                  <span className="text-gray-500">{recordValues.length > 1 ? 'Valori' : 'Valore'}</span>
+                  <div className="flex flex-col gap-1">
+                    {recordValues.map((v, i) => (
+                      <button key={v + i} type="button" onClick={() => copyVal(v)}
+                               className="font-mono font-semibold text-left break-all hover:text-[#F96815] inline-flex items-center gap-1">
+                        {v} <Copy className="h-3 w-3 opacity-50 flex-shrink-0" />
+                      </button>
+                    ))}
+                  </div>
+
+                  <span className="text-gray-500">TTL</span>
+                  <span className="font-mono">3600 (o "Auto")</span>
+                </div>
+              </div>
+              <p className="text-[11px] text-amber-800/80 italic pt-1">
+                Dopo aver salvato il record sul provider DNS, attendi 5–10 minuti per la propagazione
+                e clicca "Ricontrolla". Il certificato SSL viene emesso automaticamente da Vercel.
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+

@@ -10,6 +10,7 @@ import VendorDashboard from '@/pages/VendorDashboard';
 import VendorPrivacy from '@/pages/VendorPrivacy';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import ProtectedVendorRoute from '@/components/ProtectedVendorRoute';
+import DomainGuard from '@/components/DomainGuard';
 import '@/App.css';
 
 function App() {
@@ -17,29 +18,31 @@ function App() {
     <AuthProvider>
       <VendorAuthProvider>
         <BrowserRouter>
-          <Routes>
-            <Route path="/login" element={<Login />} />
-            <Route path="/vendor-login" element={<VendorLogin />} />
-            <Route path="/v/:vendorId" element={<VendorLanding />} />
-            <Route path="/v/:vendorId/privacy" element={<VendorPrivacy />} />
-            <Route
-              path="/dashboard/*"
-              element={
-                <ProtectedRoute>
-                  <Dashboard />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/vendor-dashboard"
-              element={
-                <ProtectedVendorRoute>
-                  <VendorDashboard />
-                </ProtectedVendorRoute>
-              }
-            />
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
-          </Routes>
+          <DomainGuard>
+            <Routes>
+              <Route path="/login" element={<Login />} />
+              <Route path="/vendor-login" element={<VendorLogin />} />
+              <Route path="/v/:vendorId" element={<VendorLanding />} />
+              <Route path="/v/:vendorId/privacy" element={<VendorPrivacy />} />
+              <Route
+                path="/dashboard/*"
+                element={
+                  <ProtectedRoute>
+                    <Dashboard />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/vendor-dashboard"
+                element={
+                  <ProtectedVendorRoute>
+                    <VendorDashboard />
+                  </ProtectedVendorRoute>
+                }
+              />
+              <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            </Routes>
+          </DomainGuard>
           <Toaster />
         </BrowserRouter>
       </VendorAuthProvider>

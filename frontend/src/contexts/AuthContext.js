@@ -15,33 +15,26 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Decide whether the current pathname is a "fully public" page where we want
-  // to skip the auth probe entirely (avoids a 401 in the console for plain
-  // visitors that have never logged in). Login pages and vendor landings are
-  // public BUT we still want to know whether the user is logged in there:
-  //   - on /login we redirect already-authenticated admins to /dashboard
-  //   - on landings we keep navigation breadcrumbs working
-  // so we ALWAYS run checkAuth except on legal/marketing pages where it would
-  // be pure noise.
-  const path = typeof window !== 'undefined' ? window.location.pathname : '/';
-  const isStrictlyPublic = (
-    path === '/' || path === '/terms' || path === '/privacy' || path === '/license'
-  );
-
+  // Always probe /auth/me at mount, regardless of the current pathname.
+  // Why: AuthProvider mounts ONCE per page load. If we'd skipped the probe on
+  // the marketing/legal pages, navigating SPA-style to /login afterwards would
+  // keep `user=false` forever, making the user think their session expired
+  // every time they visited the home page first. A 401 here is expected for
+  // anonymous visitors and is silenced so it doesn't pollute the console.
   useEffect(() => {
-    if (isStrictlyPublic) {
-      setUser(false);
-      setLoading(false);
-      return;
-    }
     checkAuth();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const checkAuth = async () => {
     try {
-      const { data } = await axios.get(`${API}/auth/me`, { withCredentials: true });
-      setUser(data);
+      const { data } = await axios.get(`${API}/auth/me`, {
+        withCredentials: true,
+        // 401 is the normal "not logged in" path — don't let axios throw on
+        // anything else either, we handle it manually below.
+        validateStatus: (s) => s < 500,
+      });
+      if (data && data.email) setUser(data);
+      else setUser(false);
     } catch (e) {
       setUser(false);
     } finally {
@@ -55,7 +48,6 @@ export const AuthProvider = ({ children }) => {
       { email, password },
       { withCredentials: true }
     );
-    // Hydrate full user (role, organization_id) from /auth/me
     const { data: me } = await axios.get(`${API}/auth/me`, { withCredentials: true });
     setUser(me);
     return me;

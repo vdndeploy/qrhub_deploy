@@ -16,28 +16,19 @@ export const VendorAuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Skip the vendor-auth probe on truly public pages (marketing landing,
-    // legal pages, vendor-facing landings). Everywhere else — including
-    // /vendor-login — we still probe so a vendor that already has a valid
-    // session gets auto-redirected to the dashboard instead of seeing the
-    // login form again.
-    const path = window.location.pathname;
-    const isStrictlyPublic = (
-      path === '/' || path === '/terms' || path === '/privacy' || path === '/license'
-      || path.startsWith('/v/')
-    );
-    if (isStrictlyPublic) {
-      setVendor(false);
-      setLoading(false);
-      return;
-    }
+    // Same logic as AuthContext: always probe at mount so navigation between
+    // public pages and the vendor login doesn't drop the session state.
     checkAuth();
   }, []);
 
   const checkAuth = async () => {
     try {
-      const { data } = await axios.get(`${API}/vendor-auth/me`, { withCredentials: true });
-      setVendor(data);
+      const { data } = await axios.get(`${API}/vendor-auth/me`, {
+        withCredentials: true,
+        validateStatus: (s) => s < 500,
+      });
+      if (data && data.email) setVendor(data);
+      else setVendor(false);
     } catch (e) {
       setVendor(false);
     } finally {

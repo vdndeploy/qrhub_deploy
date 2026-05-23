@@ -36,6 +36,17 @@ Il progetto **QRHub** è una piattaforma multi-tenant open source (MIT) che perm
 - Open source MIT, no-profit
 
 
+### 2026-05-23 (notte) — Anteprima link social compatta
+
+- **OG image piccola e quadrata** (`backend/server.py` → `_build_og_html`):
+  - `twitter:card` cambiato da `summary_large_image` a `summary` → forza Twitter/X e crawler simili sulla layout "thumbnail laterale" invece di banner.
+  - `og:image` ora include una trasformazione Cloudinary on-the-fly: `/upload/w_400,h_400,c_fill,g_face,q_auto,f_auto/` viene iniettata nell'URL dell'immagine prima del path versionato. Crop quadrato 400×400 centrato sul volto, qualità auto, formato auto (webp/avif).
+  - `og:image:width/height` riduzione da 1200 → 400, sotto la soglia che fa scattare il rendering "small thumbnail" su WhatsApp/Telegram.
+  - Risultato: link incollati su WhatsApp/Telegram/Twitter mostrano una thumbnail tonda piccola accanto al titolo invece del banner gigante.
+  - Fallback: se l'URL non è Cloudinary o ha già transformazioni, viene servito così com'è (no double-transform).
+  - Deployato su Fly (`qrhub.fly.dev`), verificato in produzione.
+
+
 ### 2026-05-23 (notte) — Preview token firmato + Footer legale Login
 
 - **Fix critico preview** (`backend/server.py` + `pages/Vendors.js` + `pages/VendorLanding.js`):

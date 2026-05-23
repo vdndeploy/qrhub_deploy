@@ -2523,6 +2523,24 @@ def _build_og_html(vendor: dict, org: dict, request_url_base: str) -> str:
         image_url = vendor['profile_image_url']
     elif org.get('logo_url'):
         image_url = org['logo_url']
+
+    # For social link previews on WhatsApp/Telegram we want a SMALL, square
+    # thumbnail (rendered as a circle next to the link snippet) instead of the
+    # big banner card. Both messengers fall back to "small thumbnail mode" when
+    # the og:image is square AND under ~500px on each side.
+    # If the image lives on Cloudinary we can synthesize a 400×400 face-centered
+    # crop on-the-fly; otherwise we just hand over the original URL and trust
+    # the client's resize logic.
+    image_url_thumb = image_url
+    if image_url and 'res.cloudinary.com' in image_url and '/upload/' in image_url and '/upload/w_' not in image_url:
+        # Insert transformation segment right after the `/upload/` marker.
+        # c_fill   = keep the face fully visible by cropping
+        # g_face   = bias the crop toward the detected face when present
+        # q_auto   = optimal quality
+        # f_auto   = serve modern format (webp/avif) when supported
+        image_url_thumb = image_url.replace(
+            '/upload/', '/upload/w_400,h_400,c_fill,g_face,q_auto,f_auto/', 1
+        )
     primary_color = org.get('primary_color') or '#F96815'
     landing_key = (vendor.get('slug') or '').strip() or vendor['id']
     spa_url = f"{request_url_base}/v/{landing_key}"
@@ -2538,17 +2556,20 @@ def _build_og_html(vendor: dict, org: dict, request_url_base: str) -> str:
         f'<meta property="og:url" content="{e(spa_url)}" />',
         f'<meta property="og:site_name" content="{e(brand)}" />',
         '<meta property="og:locale" content="it_IT" />',
-        f'<meta name="twitter:card" content="{"summary_large_image" if image_url else "summary"}" />',
+        # `summary` (not `summary_large_image`) opts Twitter/X and similar
+        # crawlers into the small-thumbnail layout that looks nice next to the
+        # link instead of a big banner pretending to be hero content.
+        '<meta name="twitter:card" content="summary" />',
         f'<meta name="twitter:title" content="{e(title)}" />',
         f'<meta name="twitter:description" content="{e(description)}" />',
     ]
-    if image_url:
+    if image_url_thumb:
         tags += [
-            f'<meta property="og:image" content="{e(image_url)}" />',
-            '<meta property="og:image:width" content="1200" />',
-            '<meta property="og:image:height" content="1200" />',
+            f'<meta property="og:image" content="{e(image_url_thumb)}" />',
+            '<meta property="og:image:width" content="400" />',
+            '<meta property="og:image:height" content="400" />',
             f'<meta property="og:image:alt" content="{e(vname)}" />',
-            f'<meta name="twitter:image" content="{e(image_url)}" />',
+            f'<meta name="twitter:image" content="{e(image_url_thumb)}" />',
             f'<meta name="twitter:image:alt" content="{e(vname)}" />',
         ]
     meta_block = '\n  '.join(tags)

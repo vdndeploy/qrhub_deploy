@@ -1061,13 +1061,31 @@ async def org_dpa_status(org_id: str, user: dict = Depends(require_super_admin))
     }
 
 
+DEFAULT_PROFILING_TEXT_IT = """Quando interagisci con i pulsanti presenti su questa landing (chiamata WhatsApp, recensione Google, apertura Google Maps, social Instagram/Facebook/TikTok) lasci la nostra pagina ed entri in servizi gestiti da soggetti terzi che operano in autonomia come titolari del trattamento, ciascuno secondo la propria informativa privacy:
+
+• Meta Platforms Ireland (WhatsApp, Instagram, Facebook): contatto, messaggi e profilazione pubblicitaria sulle proprie piattaforme. Privacy: https://www.facebook.com/privacy/policy/
+• Google Ireland (Google Maps, Recensioni, Profilo aziendale): geolocalizzazione, contributi recensioni, profilazione search/maps. Privacy: https://policies.google.com/privacy
+• TikTok Technology (TikTok): visualizzazione contenuti, raccomandazione e profilazione pubblicitaria. Privacy: https://www.tiktok.com/legal/privacy-policy
+
+I dati che condividi con questi servizi non sono visibili né conservati da noi: viaggiano direttamente dal tuo dispositivo verso le piattaforme citate. Ti consigliamo di leggere le rispettive informative prima di interagire."""
+
+DEFAULT_TERMS_TEXT_IT = """L'utilizzo di questa landing presuppone l'accettazione delle seguenti condizioni:
+
+• I contenuti pubblicati sono curati dal venditore e dalla nostra organizzazione, che ne è responsabile a tutti gli effetti.
+• Le informazioni di contatto (numero WhatsApp, social, indirizzo) sono fornite per agevolare la comunicazione commerciale: non sostituiscono i canali ufficiali di assistenza clienti.
+• Eventuali promozioni, prezzi e disponibilità sono indicativi e possono variare senza preavviso.
+• La piattaforma tecnica QRHub fornisce solo il software che ospita la landing: non risponde dei contenuti, della loro accuratezza o della disponibilità del venditore.
+
+Per segnalazioni, esercizio dei diritti GDPR o richieste relative ai contenuti scrivere al contatto privacy indicato nell'informativa."""
+
+
 @api_router.post('/organizations')
 async def create_organization(payload: OrganizationCreate, user: dict = Depends(require_super_admin)):
     slug = payload.slug or _slugify(payload.name)
     existing = await db.organizations.find_one({'slug': slug}, {'_id': 0})
     if existing:
         raise HTTPException(status_code=400, detail='Slug già in uso')
-    
+
     org_id = str(ObjectId())
     doc = {
         'id': org_id,
@@ -1078,6 +1096,11 @@ async def create_organization(payload: OrganizationCreate, user: dict = Depends(
         'logo_url': payload.logo_url or '',
         'logo_public_id': payload.logo_public_id or '',
         'allowed_domains': payload.allowed_domains or [],
+        # Seed the GDPR-required editable copy with the default Italian text so
+        # new orgs always have a working privacy page on day one. They can edit
+        # it later from OrgSettings → tab Pubblico.
+        'data_profiling_text': DEFAULT_PROFILING_TEXT_IT,
+        'terms_text': DEFAULT_TERMS_TEXT_IT,
         'created_at': datetime.now(timezone.utc).isoformat()
     }
     await db.organizations.insert_one(doc.copy())
@@ -2739,6 +2762,25 @@ async def seed_admin():
         await db.posts.update_many({'organization_id': {'$exists': False}}, {'$set': {'organization_id': default_org_id}})
         await db.files.update_many({'organization_id': {'$exists': False}}, {'$set': {'organization_id': default_org_id}})
         logger.info(f'Default organization created and legacy data migrated: {default_org_id}')
+
+    # 2c. Idempotent backfill: ensure every org has the default GDPR copy. We
+    # only touch orgs where the field is missing or empty, so manually-edited
+    # texts are preserved.
+    try:
+        backfill = await db.organizations.update_many(
+            {'$or': [{'data_profiling_text': {'$exists': False}}, {'data_profiling_text': ''}]},
+            {'$set': {'data_profiling_text': DEFAULT_PROFILING_TEXT_IT}}
+        )
+        backfill2 = await db.organizations.update_many(
+            {'$or': [{'terms_text': {'$exists': False}}, {'terms_text': ''}]},
+            {'$set': {'terms_text': DEFAULT_TERMS_TEXT_IT}}
+        )
+        if backfill.modified_count or backfill2.modified_count:
+            logger.info(
+                f'GDPR copy backfill: profiling={backfill.modified_count}, terms={backfill2.modified_count}'
+            )
+    except Exception as e:
+        logger.warning(f'GDPR copy backfill skipped: {e}')
 
     # 2b. One-time anonymization: rename any legacy "VDN" / "vdn" / "WindTre" branded org to generic "Demo"
     try:

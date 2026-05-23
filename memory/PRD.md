@@ -54,6 +54,7 @@ Il progetto **QRHub** è una piattaforma multi-tenant open source (MIT) che perm
   - Fallback gentile quando l'org non ha ancora pubblicato i testi.
 
 - **Deployato su Fly.io**, verificato `/api/vendors/{id}` in produzione ritorna correttamente `legal_name`.
+- **Pre-popolamento automatico**: la `POST /api/organizations` ora seed `data_profiling_text` e `terms_text` con i default italiani al momento della creazione. In più, on startup il backend esegue un **backfill idempotente** sulle org esistenti che hanno il campo vuoto/mancante — testi manualmente editati sono preservati. Verifica prod: org Vento Del Nord backfillata con profiling 1071ch + terms 793ch.
 
 
 ### 2026-05-23 (notte) — Anteprima link social compatta

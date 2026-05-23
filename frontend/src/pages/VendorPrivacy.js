@@ -26,6 +26,19 @@ const VendorPrivacy = () => {
     return () => { cancel = true; };
   }, [vendorId]);
 
+  // React Router doesn't auto-scroll to hash anchors. Once the data is loaded
+  // (so the #terms section exists in the DOM) check the URL hash and jump.
+  useEffect(() => {
+    if (!data) return;
+    const hash = (window.location.hash || '').replace('#', '');
+    if (!hash) return;
+    // Defer one tick so React has actually committed the section.
+    requestAnimationFrame(() => {
+      const el = document.getElementById(hash);
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }, [data]);
+
   if (error) {
     return (
       <div className="privacy-page" data-testid="privacy-error">

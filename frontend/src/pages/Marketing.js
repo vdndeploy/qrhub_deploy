@@ -416,9 +416,11 @@ const Marketing = () => {
 
       <footer className="m-footer">
         <span>© {new Date().getFullYear()} QRHub — Piattaforma multi-tenant per landing QR.</span>
-        <span style={{ display: 'inline-flex', gap: 16 }}>
-          <a href="https://github.com" target="_blank" rel="noreferrer">GitHub</a>
-          <a href="/login">Accesso</a>
+        <span style={{ display: 'inline-flex', gap: 16, flexWrap: 'wrap' }}>
+          <Link to="/terms" data-testid="footer-terms">Termini</Link>
+          <Link to="/privacy" data-testid="footer-privacy">Privacy</Link>
+          <Link to="/license" data-testid="footer-license">Licenza</Link>
+          <Link to="/login">Accesso</Link>
         </span>
       </footer>
     </div>

@@ -5,6 +5,9 @@ import { VendorAuthProvider } from '@/contexts/VendorAuthContext';
 import Login from '@/pages/Login';
 import Dashboard from '@/pages/Dashboard';
 import Marketing from '@/pages/Marketing';
+import Terms from '@/pages/Terms';
+import Privacy from '@/pages/Privacy';
+import License from '@/pages/License';
 import VendorLanding from '@/pages/VendorLanding';
 import VendorLogin from '@/pages/VendorLogin';
 import VendorDashboard from '@/pages/VendorDashboard';
@@ -42,6 +45,9 @@ function App() {
                 }
               />
               <Route path="/" element={<Marketing />} />
+              <Route path="/terms" element={<Terms />} />
+              <Route path="/privacy" element={<Privacy />} />
+              <Route path="/license" element={<License />} />
             </Routes>
           </DomainGuard>
           <Toaster />

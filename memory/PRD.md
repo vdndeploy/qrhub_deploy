@@ -36,6 +36,18 @@ Il progetto **QRHub** è una piattaforma multi-tenant open source (MIT) che perm
 - Open source MIT, no-profit
 
 
+### 2026-05-23 (notte) — Pagine legali pubbliche su qrhub.it
+
+- **3 nuove route pubbliche** sotto qrhub.it (frontend only, niente backend):
+  - `/terms` (`pages/Terms.js`) — Termini di Servizio della piattaforma. Chiarisce il rapporto tra titolare QRHub, organizzazioni e venditori. Esplicita che i contenuti delle landing sono responsabilità esclusiva del proprietario del dominio assegnato (l'org), non di qrhub.it.
+  - `/privacy` (`pages/Privacy.js`) — Informativa privacy del sito vetrina. Distingue chiaramente i due livelli (qrhub.it vs landing tenant). qrhub.it non usa cookie di tracciamento, solo localStorage `qrhub_theme` strict-necessary.
+  - `/license` (`pages/License.js`) — Licenza adottata: **PolyForm Noncommercial 1.0.0** con clausole rafforzative: autorizzazione preventiva, no fork pubblico, no uso commerciale. Procedura di richiesta a `collaborazioni@qrhub.it`.
+- **Componente condiviso** `<LegalShell>` (`components/LegalShell.js`) + CSS `Legal.public.css` scoped sotto `.legal-page` — palette dark + lime coerente con marketing.
+- **Footer Marketing.js** ora linka Termini · Privacy · Licenza (sostituiti i precedenti link GitHub).
+- **Niente cookie banner** su qrhub.it: non è necessario (no tracking, solo localStorage strict-necessary). Le landing tenant mantengono il proprio banner sotto responsabilità org.
+- Email contatto unificata: `collaborazioni@qrhub.it`.
+
+
 ### 2026-05-23 (notte) — Anteprima landing per admin
 
 - **Anteprima landing senza dominio custom** (`pages/VendorLanding.js` + `pages/Vendors.js`):

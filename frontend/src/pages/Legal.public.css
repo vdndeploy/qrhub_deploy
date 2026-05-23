@@ -1,0 +1,139 @@
+/* ────────────────────────────────────────────────────────────────────────
+ * Shared layout for the public legal pages on qrhub.it (/terms /privacy
+ * /license). Matches the marketing landing aesthetic (dark + lime accent).
+ * Scoped under `.legal-page` so it never bleeds into the dashboard.
+ * ──────────────────────────────────────────────────────────────────────── */
+
+.legal-page {
+  font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  background: #0a0a0b;
+  color: #e6e6ea;
+  min-height: 100vh;
+  line-height: 1.6;
+  position: relative;
+  overflow-x: hidden;
+}
+
+.legal-page::before {
+  content: '';
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background-image:
+    linear-gradient(rgba(255,255,255,.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.025) 1px, transparent 1px);
+  background-size: 64px 64px;
+  mask-image: radial-gradient(ellipse 60% 40% at 50% 0%, #000 30%, transparent 70%);
+  -webkit-mask-image: radial-gradient(ellipse 60% 40% at 50% 0%, #000 30%, transparent 70%);
+}
+
+.legal-page > * { position: relative; z-index: 1; }
+
+.legal-page .legal-nav {
+  position: sticky; top: 16px; z-index: 50;
+  display: flex; justify-content: center;
+  padding: 16px 16px 0;
+}
+.legal-page .legal-nav-inner {
+  display: flex; align-items: center; gap: 18px;
+  padding: 10px 22px;
+  background: rgba(17,17,20,.85);
+  backdrop-filter: blur(14px);
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 999px;
+  box-shadow: 0 8px 32px rgba(0,0,0,.4);
+}
+.legal-page .legal-brand {
+  display: inline-flex; align-items: center; gap: 8px;
+  color: #fff; font-weight: 700; font-size: 17px; letter-spacing: -.01em;
+  text-decoration: none;
+}
+.legal-page .legal-brand-dot {
+  width: 22px; height: 22px; border-radius: 6px; background: #D2FA46;
+}
+.legal-page .legal-back {
+  font-size: 13px; color: #a8a8b0; text-decoration: none; transition: color .15s;
+}
+.legal-page .legal-back:hover { color: #fff; }
+
+.legal-page .legal-wrap {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 48px 24px 80px;
+}
+.legal-page .legal-eyebrow {
+  display: inline-flex; padding: 6px 14px; border-radius: 999px;
+  background: rgba(210,250,70,.08); color: #D2FA46;
+  border: 1px solid rgba(210,250,70,.25);
+  font-size: 12px; font-weight: 600;
+  margin-bottom: 18px;
+  text-transform: uppercase; letter-spacing: .08em;
+}
+.legal-page h1 {
+  font-size: clamp(32px, 4.5vw, 48px); font-weight: 800;
+  letter-spacing: -.025em; line-height: 1.1;
+  margin: 0 0 14px; color: #fff;
+}
+.legal-page .legal-subtitle {
+  color: #8a8a92; font-size: 16px;
+  margin-bottom: 36px;
+}
+.legal-page .legal-meta {
+  font-size: 12px; color: #6a6a72;
+  border-top: 1px solid rgba(255,255,255,.06);
+  border-bottom: 1px solid rgba(255,255,255,.06);
+  padding: 14px 0;
+  margin-bottom: 36px;
+  display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px;
+}
+.legal-page h2 {
+  font-size: 20px; font-weight: 700; color: #fff;
+  margin: 44px 0 12px;
+  letter-spacing: -.01em;
+}
+.legal-page h2 .num {
+  color: #D2FA46;
+  font-variant-numeric: tabular-nums;
+  margin-right: 8px;
+  font-weight: 600;
+}
+.legal-page h3 {
+  font-size: 15px; font-weight: 600; color: #c8c8d0;
+  margin: 22px 0 8px;
+}
+.legal-page p { color: #b8b8be; font-size: 15px; margin: 0 0 14px; }
+.legal-page p strong { color: #fff; font-weight: 600; }
+.legal-page ul {
+  margin: 0 0 16px; padding-left: 22px;
+  color: #b8b8be; font-size: 15px;
+}
+.legal-page ul li { margin-bottom: 6px; }
+.legal-page a { color: #D2FA46; text-decoration: none; transition: color .15s; }
+.legal-page a:hover { color: #dcff5e; text-decoration: underline; }
+
+.legal-page .legal-callout {
+  background: rgba(210,250,70,.06);
+  border: 1px solid rgba(210,250,70,.18);
+  border-radius: 16px;
+  padding: 18px 22px;
+  margin: 24px 0;
+  font-size: 14.5px; color: #d8d8de;
+}
+.legal-page .legal-callout strong { color: #D2FA46; }
+
+.legal-page .legal-warn {
+  background: rgba(255,176,107,.06);
+  border: 1px solid rgba(255,176,107,.20);
+  border-radius: 16px;
+  padding: 18px 22px;
+  margin: 24px 0;
+  font-size: 14.5px; color: #d8d8de;
+}
+.legal-page .legal-warn strong { color: #ffae7e; }
+
+.legal-page .legal-footer {
+  margin-top: 60px; padding-top: 28px;
+  border-top: 1px solid rgba(255,255,255,.06);
+  display: flex; justify-content: space-between; flex-wrap: wrap; gap: 16px;
+  font-size: 13px; color: #6a6a72;
+}
+.legal-page .legal-footer a { color: #a8a8b0; }
+.legal-page .legal-footer a:hover { color: #D2FA46; }

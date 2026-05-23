@@ -78,6 +78,13 @@
 .vendor-footer{max-width:480px;margin:40px auto 0;padding:24px 20px;text-align:center;font-size:13px;color:#999;font-weight:600}
 .vendor-footer-link{color:#374151;text-decoration:underline;text-underline-offset:2px}
 .vendor-footer-link:hover{color:#111827}
+.vendor-footer-org{margin:18px auto 14px;padding:14px 16px;border:1px solid #e5e7eb;border-radius:14px;background:#fafafa;font-weight:500;font-size:12px;color:#444;text-align:center;line-height:1.5}
+.vendor-footer-org-name{font-weight:700;color:#111;font-size:13px;margin-bottom:6px}
+.vendor-footer-org-meta{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:6px 14px;color:#666}
+.vendor-footer-org-meta span,.vendor-footer-org-meta a{position:relative}
+.vendor-footer-org-meta span:not(:last-child)::after,.vendor-footer-org-meta a:not(:last-child)::after{content:"·";position:absolute;right:-9px;color:#bbb}
+.vendor-footer-org-meta a{color:#374151;text-decoration:none}
+.vendor-footer-org-meta a:hover{color:#111;text-decoration:underline}
 .vendor-trust-badge{display:inline-flex;align-items:center;gap:6px;margin-bottom:14px;padding:6px 12px;border-radius:999px;font-size:11.5px;font-weight:700;letter-spacing:.2px;border:1px solid #a7f3d0;background:#ecfdf5;color:#065f46;text-decoration:none;transition:transform .15s ease,box-shadow .15s ease}
 .vendor-trust-badge:hover{transform:translateY(-1px);box-shadow:0 2px 6px rgba(16,185,129,.25)}
 .vendor-trust-complete{background:linear-gradient(135deg,#10b981,#0ea5e9);color:#fff;border-color:transparent;box-shadow:0 1px 3px rgba(16,185,129,.4)}

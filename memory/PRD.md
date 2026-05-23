@@ -36,6 +36,26 @@ Il progetto **QRHub** è una piattaforma multi-tenant open source (MIT) che perm
 - Open source MIT, no-profit
 
 
+### 2026-05-23 (notte) — Footer landing con dati titolare + profilazione editabile
+
+- **Footer landing arricchito** (`pages/VendorLanding.js` + `.css`):
+  - Card identità con denominazione legale, sede, P.IVA, email privacy (pull dai campi GDPR dell'org).
+  - Link footer aggiornati: Informativa privacy · Termini & condizioni · Privacy policy estesa (se impostata) · Powered by QRHub.
+  - Backend endpoint `/api/vendors/{id}` ora include legal_name/vat/address/email/policy_url nel blocco `organization`.
+
+- **Nuova sezione "Profilazione" nel pannello org** (`pages/OrgSettings.js`):
+  - Posizionata subito dopo il banner cookie nel tab "Pubblico".
+  - Due textarea editabili: `data_profiling_text` (4000 char) e `terms_text` (8000 char).
+  - **Default predefinito** in italiano che cita Meta (WhatsApp/Instagram/Facebook), Google (Maps/Recensioni), TikTok con relativi link alle privacy policy ufficiali. Bottone "Usa testo predefinito" per riapplicarlo.
+  - Backend: nuovi campi `Organization.data_profiling_text` e `Organization.terms_text` con persistenza.
+
+- **VendorPrivacy esteso** (`pages/VendorPrivacy.js`):
+  - Aggiunte due sezioni: "Profilazione tramite servizi terzi" (renderizza `data_profiling_text` con `whiteSpace: pre-line`) e "Termini e condizioni d'uso" (ancora `#terms` linkabile dal footer landing).
+  - Fallback gentile quando l'org non ha ancora pubblicato i testi.
+
+- **Deployato su Fly.io**, verificato `/api/vendors/{id}` in produzione ritorna correttamente `legal_name`.
+
+
 ### 2026-05-23 (notte) — Anteprima link social compatta
 
 - **OG image piccola e quadrata** (`backend/server.py` → `_build_og_html`):

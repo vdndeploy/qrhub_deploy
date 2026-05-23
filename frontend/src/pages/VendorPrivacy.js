@@ -176,6 +176,35 @@ const VendorPrivacy = () => {
           </ul>
         </Block>
 
+        <Block title="Profilazione tramite servizi terzi" accent={accent}>
+          {data.data_profiling_text ? (
+            <p style={{ whiteSpace: 'pre-line' }} data-testid="privacy-profiling-text">
+              {data.data_profiling_text}
+            </p>
+          ) : (
+            <p className="privacy-muted" data-testid="privacy-profiling-missing">
+              Il titolare non ha ancora pubblicato un'informativa sui canali terzi (WhatsApp, social, Google).
+              Per dubbi sui trattamenti operati da Meta, Google o TikTok rivolgiti direttamente alle rispettive informative.
+            </p>
+          )}
+        </Block>
+
+        <section className="privacy-block" id="terms" data-testid="privacy-block-terms">
+          <h2 style={{ borderLeftColor: accent }}>Termini e condizioni d'uso</h2>
+          <div className="privacy-block-body">
+            {data.terms_text ? (
+              <p style={{ whiteSpace: 'pre-line' }} data-testid="privacy-terms-text">
+                {data.terms_text}
+              </p>
+            ) : (
+              <p className="privacy-muted" data-testid="privacy-terms-missing">
+                Il titolare non ha pubblicato termini specifici per questa landing.
+                Per qualunque richiesta usa i contatti riportati sopra.
+              </p>
+            )}
+          </div>
+        </section>
+
         <footer className="privacy-footer">
           <p>Ultimo aggiornamento: {(data.updated_at || '').slice(0, 10)}</p>
           <p>

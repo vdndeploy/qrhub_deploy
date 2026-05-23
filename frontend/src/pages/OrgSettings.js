@@ -14,6 +14,26 @@ import {
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
+// Suggested default copy for the per-org "data profiling" statement. The org
+// can replace it from the OrgSettings UI; the landing privacy page falls back
+// to this same text when the org hasn't customized it yet.
+const DEFAULT_PROFILING_TEXT = `Quando interagisci con i pulsanti presenti su questa landing (chiamata WhatsApp, recensione Google, apertura Google Maps, social Instagram/Facebook/TikTok) lasci la nostra pagina ed entri in servizi gestiti da soggetti terzi che operano in autonomia come titolari del trattamento, ciascuno secondo la propria informativa privacy:
+
+• Meta Platforms Ireland (WhatsApp, Instagram, Facebook): contatto, messaggi e profilazione pubblicitaria sulle proprie piattaforme. Privacy: https://www.facebook.com/privacy/policy/
+• Google Ireland (Google Maps, Recensioni, Profilo aziendale): geolocalizzazione, contributi recensioni, profilazione search/maps. Privacy: https://policies.google.com/privacy
+• TikTok Technology (TikTok): visualizzazione contenuti, raccomandazione e profilazione pubblicitaria. Privacy: https://www.tiktok.com/legal/privacy-policy
+
+I dati che condividi con questi servizi non sono visibili né conservati da noi: viaggiano direttamente dal tuo dispositivo verso le piattaforme citate. Ti consigliamo di leggere le rispettive informative prima di interagire.`;
+
+const DEFAULT_TERMS_TEXT = `L'utilizzo di questa landing presuppone l'accettazione delle seguenti condizioni:
+
+• I contenuti pubblicati sono curati dal venditore e dalla nostra organizzazione, che ne è responsabile a tutti gli effetti.
+• Le informazioni di contatto (numero WhatsApp, social, indirizzo) sono fornite per agevolare la comunicazione commerciale: non sostituiscono i canali ufficiali di assistenza clienti.
+• Eventuali promozioni, prezzi e disponibilità sono indicativi e possono variare senza preavviso.
+• La piattaforma tecnica QRHub fornisce solo il software che ospita la landing: non risponde dei contenuti, della loro accuratezza o della disponibilità del venditore.
+
+Per segnalazioni, esercizio dei diritti GDPR o richieste relative ai contenuti scrivere al contatto privacy indicato nell'informativa.`;
+
 const GDPR_REQUIRED = [
   { key: 'legal_name', label: 'Denominazione legale' },
   { key: 'vat_number', label: 'P.IVA / Codice Fiscale' },
@@ -584,6 +604,68 @@ const OrgSettings = () => {
           <strong>Importante</strong> — La piattaforma QRHub non memorizza indirizzi IP né cookie di profilazione.
           Salva solo dati aggregati (visite, click per canale, città/paese approssimativi, device family) ai fini
           statistici. Per maggiori dettagli vedi la <a href="/dashboard/legal" className="underline font-semibold">pagina "Note Legali"</a>.
+        </div>
+      </div>
+
+      {/* Profilazione dati raccolti dai canali terzi (Meta, Google, TikTok) */}
+      <div className="bg-white dark:bg-[#131316] border rounded-lg p-5 space-y-4" data-testid="org-data-profiling-section">
+        <h3 className="font-semibold flex items-center gap-2">
+          <span className="inline-block w-5 h-5 rounded bg-sky-100 text-sky-700 text-[11px] font-bold flex items-center justify-center">i</span>
+          Profilazione dati raccolti dai canali terzi
+        </h3>
+        <p className="text-xs text-gray-500 dark:text-[#6a6a72]">
+          Quando un visitatore tocca i pulsanti WhatsApp, Instagram, Facebook, TikTok, Google Maps o Recensioni Google,
+          esce dalla landing ed entra in un servizio terzo che può profilarlo. Sei tu (in qualità di organizzazione titolare
+          del dominio) che devi dichiararlo nella tua informativa. QRHub fornisce un testo predefinito che puoi adattare.
+        </p>
+        <div>
+          <Label>Testo informativa profilazione</Label>
+          <Textarea
+            rows={8}
+            value={org.data_profiling_text || ''}
+            onChange={(e) => updateField('data_profiling_text', e.target.value)}
+            placeholder={DEFAULT_PROFILING_TEXT}
+            data-testid="org-data-profiling-input"
+            maxLength={4000}
+          />
+          <div className="flex items-center justify-between mt-1 flex-wrap gap-2">
+            <p className="text-[11px] text-gray-400 dark:text-[#5a5a62]">
+              {(org.data_profiling_text || '').length}/4000 · Compare nella pagina <code className="bg-gray-100 dark:bg-[#1a1a1c] px-1 rounded">/v/[id]/privacy</code>
+            </p>
+            <button
+              type="button"
+              onClick={() => updateField('data_profiling_text', DEFAULT_PROFILING_TEXT)}
+              className="text-[11px] text-[#D2FA46] hover:text-[#bce63d] font-medium"
+              data-testid="reset-profiling-default"
+            >
+              Usa testo predefinito
+            </button>
+          </div>
+        </div>
+
+        <div>
+          <Label>Termini e Condizioni d'uso della landing (opzionale)</Label>
+          <Textarea
+            rows={6}
+            value={org.terms_text || ''}
+            onChange={(e) => updateField('terms_text', e.target.value)}
+            placeholder={DEFAULT_TERMS_TEXT}
+            data-testid="org-terms-input"
+            maxLength={8000}
+          />
+          <div className="flex items-center justify-between mt-1 flex-wrap gap-2">
+            <p className="text-[11px] text-gray-400 dark:text-[#5a5a62]">
+              {(org.terms_text || '').length}/8000 · Compare insieme all'informativa
+            </p>
+            <button
+              type="button"
+              onClick={() => updateField('terms_text', DEFAULT_TERMS_TEXT)}
+              className="text-[11px] text-[#D2FA46] hover:text-[#bce63d] font-medium"
+              data-testid="reset-terms-default"
+            >
+              Usa testo predefinito
+            </button>
+          </div>
         </div>
       </div>
 

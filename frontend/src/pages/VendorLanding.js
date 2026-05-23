@@ -534,12 +534,55 @@ const VendorLanding = () => {
             Titolare verificato
           </a>
         )}
+
+        {/* Identity block — populated when the org filled the GDPR data
+            (Sede legale, P.IVA, contatto). Falls back gracefully when fields
+            are empty so we never render orphan punctuation. */}
+        {(vendor.organization?.legal_name
+          || vendor.organization?.vat_number
+          || vendor.organization?.legal_address
+          || vendor.organization?.privacy_contact_email) && (
+          <div className="vendor-footer-org" data-testid="vendor-footer-org-info">
+            {vendor.organization.legal_name && (
+              <div className="vendor-footer-org-name">{vendor.organization.legal_name}</div>
+            )}
+            <div className="vendor-footer-org-meta">
+              {vendor.organization.legal_address && <span>{vendor.organization.legal_address}</span>}
+              {vendor.organization.vat_number && (
+                <span>P.IVA {vendor.organization.vat_number}</span>
+              )}
+              {vendor.organization.privacy_contact_email && (
+                <a href={`mailto:${vendor.organization.privacy_contact_email}`}>
+                  {vendor.organization.privacy_contact_email}
+                </a>
+              )}
+            </div>
+          </div>
+        )}
+
         <p>
           <a href={`/v/${vendorId}/privacy`}
               className="vendor-footer-link"
               data-testid="vendor-footer-privacy-link">
             Informativa privacy
           </a>
+          <span aria-hidden="true"> · </span>
+          <a href={`/v/${vendorId}/privacy#terms`}
+              className="vendor-footer-link"
+              data-testid="vendor-footer-terms-link">
+            Termini & condizioni
+          </a>
+          {vendor.organization?.privacy_policy_url && (
+            <>
+              <span aria-hidden="true"> · </span>
+              <a href={vendor.organization.privacy_policy_url}
+                  target="_blank" rel="noopener noreferrer"
+                  className="vendor-footer-link"
+                  data-testid="vendor-footer-policy-link">
+                Privacy policy estesa
+              </a>
+            </>
+          )}
           <span aria-hidden="true"> · </span>
           Powered by QRHub
         </p>

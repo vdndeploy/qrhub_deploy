@@ -484,6 +484,13 @@ class OrganizationUpdate(BaseModel):
     legal_address: Optional[str] = Field(None, max_length=400)
     privacy_contact_email: Optional[str] = Field(None, max_length=200)
     privacy_policy_url: Optional[str] = Field(None, max_length=500)
+    # Data profiling notice — editable per-org statement describing which third
+    # parties may profile visitors after they tap on social/WhatsApp/Maps links
+    # on the landing. Defaults to a reasonable Italian text that mentions Meta
+    # (WhatsApp/Instagram/Facebook), Google (Maps/Reviews) and TikTok.
+    data_profiling_text: Optional[str] = Field(None, max_length=4000)
+    # Generic terms-of-use editable by the org; rendered on the public privacy page.
+    terms_text: Optional[str] = Field(None, max_length=8000)
 
 
 class OrgUserCreate(BaseModel):
@@ -982,6 +989,8 @@ def _org_to_response(o: dict) -> dict:
         'legal_address': o.get('legal_address', '') or '',
         'privacy_contact_email': o.get('privacy_contact_email', '') or '',
         'privacy_policy_url': o.get('privacy_policy_url', '') or '',
+        'data_profiling_text': o.get('data_profiling_text', '') or '',
+        'terms_text': o.get('terms_text', '') or '',
         'created_at': o.get('created_at', '')
     }
 
@@ -1134,6 +1143,10 @@ async def update_organization(org_id: str, payload: OrganizationUpdate, user: di
         if purl and not purl.startswith(('http://', 'https://', '/')):
             purl = 'https://' + purl
         update['privacy_policy_url'] = purl[:500]
+    if payload.data_profiling_text is not None:
+        update['data_profiling_text'] = (payload.data_profiling_text or '').strip()[:4000]
+    if payload.terms_text is not None:
+        update['terms_text'] = (payload.terms_text or '').strip()[:8000]
     if payload.landing_headline is not None:
         update['landing_headline'] = (payload.landing_headline or '').strip()[:140]
 
@@ -1874,12 +1887,18 @@ async def get_vendor_privacy_info(vendor_id: str):
         {'id': vendor.get('organization_id')},
         {'_id': 0, 'name': 1, 'brand_name': 1, 'primary_color': 1, 'logo_url': 1,
          'legal_name': 1, 'vat_number': 1, 'legal_address': 1,
-         'privacy_contact_email': 1, 'privacy_policy_url': 1}
+         'privacy_contact_email': 1, 'privacy_policy_url': 1,
+         'data_profiling_text': 1, 'terms_text': 1}
     ) or {}
     # GDPR M-bonus — completeness flag for public "trust badge".
     required_fields = ('legal_name', 'vat_number', 'legal_address', 'privacy_contact_email')
     has_all_required = all((org.get(k) or '').strip() for k in required_fields)
     has_optional = bool((org.get('privacy_policy_url') or '').strip())
+    # Editable per-org statements rendered on the privacy page. If empty we
+    # don't fall back to a default here — the OrgSettings UI already shows the
+    # default text on the form so the org can save it explicitly.
+    profiling_text = (org.get('data_profiling_text') or '').strip()
+    terms_text = (org.get('terms_text') or '').strip()
     return {
         'vendor': {'id': vendor['id'], 'name': vendor.get('name', '')},
         'organization': {
@@ -1899,6 +1918,9 @@ async def get_vendor_privacy_info(vendor_id: str):
             'privacy_contact_email': org.get('privacy_contact_email', ''),
             'privacy_policy_url': org.get('privacy_policy_url', ''),
         },
+        # Editable org-owned sections. Frontend handles defaults visually.
+        'data_profiling_text': profiling_text,
+        'terms_text': terms_text,
         # QRHub acts as data processor on behalf of the controller above.
         'processor': {
             'name': 'QRHub',
@@ -2041,7 +2063,8 @@ async def get_vendor_public(vendor_id: str):
               'cookie_banner_enabled': 1, 'cookie_banner_text': 1, 'cookie_banner_link': 1,
               'landing_headline': 1, 'name': 1,
               'legal_name': 1, 'vat_number': 1, 'legal_address': 1,
-              'privacy_contact_email': 1, 'privacy_policy_url': 1}
+              'privacy_contact_email': 1, 'privacy_policy_url': 1,
+              'data_profiling_text': 1, 'terms_text': 1}
         )
         if org:
             required_fields = ('legal_name', 'vat_number', 'legal_address', 'privacy_contact_email')
@@ -2054,14 +2077,17 @@ async def get_vendor_public(vendor_id: str):
                 'logo_url': org.get('logo_url', ''),
                 'landing_headline': (org.get('landing_headline') or '').strip(),
                 'cookie_banner': {
-                    # Post-GDPR audit: banner is always-on for transparency (art. 13).
-                    # The flag is kept for backwards compat but no longer hides the banner;
-                    # it just toggles whether the org's custom text is used vs the default.
                     'enabled': True,
                     'use_custom_text': bool(org.get('cookie_banner_enabled', False)),
                     'text': org.get('cookie_banner_text', '') or '',
                     'link': org.get('cookie_banner_link', '') or ''
                 },
+                # Lightweight footer block — only the fields the landing renders.
+                'legal_name': (org.get('legal_name') or '').strip(),
+                'vat_number': (org.get('vat_number') or '').strip(),
+                'legal_address': (org.get('legal_address') or '').strip(),
+                'privacy_contact_email': (org.get('privacy_contact_email') or '').strip(),
+                'privacy_policy_url': (org.get('privacy_policy_url') or '').strip(),
                 'has_privacy_info': bool(
                     org.get('legal_name') or org.get('vat_number') or org.get('privacy_contact_email')
                 ),

@@ -118,10 +118,10 @@ const Overview = () => {
                   content={<SoftTooltip />}
                   cursor={{ fill: 'currentColor', fillOpacity: 0.04 }}
                 />
-                <Bar dataKey="Visite" radius={[10, 10, 10, 10]} maxBarSize={22} animationDuration={650}>
+                <Bar dataKey="Visite" radius={[10, 10, 10, 10]} maxBarSize={22} animationDuration={250}>
                   {chartData.map((_, i) => (<Cell key={`v-${i}`} fill={COLORS.views} />))}
                 </Bar>
-                <Bar dataKey="Click" radius={[10, 10, 10, 10]} maxBarSize={22} animationDuration={650}>
+                <Bar dataKey="Click" radius={[10, 10, 10, 10]} maxBarSize={22} animationDuration={250}>
                   {chartData.map((_, i) => (<Cell key={`c-${i}`} fill={COLORS.clicks} />))}
                 </Bar>
               </BarChart>
@@ -143,7 +143,7 @@ const StatCard = ({ icon, ring, iconBg, label, value, testid }) => (
     data-testid={testid}
   >
     {/* Soft glow halo for that gummy "NextUI" look */}
-    <div className={`pointer-events-none absolute -top-12 -right-12 w-44 h-44 rounded-full bg-gradient-to-br ${ring} blur-2xl`} aria-hidden="true" />
+    <div className={`pointer-events-none absolute -top-12 -right-12 w-44 h-44 rounded-full bg-gradient-to-br ${ring} blur-xl`} aria-hidden="true" />
     <div className="relative flex items-center gap-4">
       <div className={`p-3.5 rounded-2xl ${iconBg}`}>{icon}</div>
       <div>

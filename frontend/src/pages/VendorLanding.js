@@ -332,7 +332,7 @@ const VendorLanding = () => {
                 <MapPin className="h-6 w-6" />
               </a>
             )}
-            {vendor.store && (vendor.store.hours_text || vendor.store.name) && (
+            {vendor.store && vendor.store.name && (
               <button
                 type="button"
                 onClick={() => { setStoreOpen(true); trackClick('store_info'); }}

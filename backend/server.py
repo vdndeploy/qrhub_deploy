@@ -11,7 +11,7 @@ import logging
 import asyncio
 from pathlib import Path
 from pydantic import BaseModel, Field, EmailStr
-from typing import List, Optional
+from typing import List, Optional, Dict
 from datetime import datetime, timezone, timedelta
 from bson import ObjectId
 import jwt
@@ -398,6 +398,18 @@ class VendorProfileUpdate(BaseModel):
     profile_image_url: Optional[str] = Field('', max_length=600)
     profile_image_enabled: Optional[bool] = False
 
+class StoreHoursDay(BaseModel):
+    """Opening hours for a single day, Google-Business style.
+    `closed=True` means the shop is closed on this day (open/close are ignored).
+    `open` and `close` are 24h "HH:MM" strings; `break_start`/`break_end` are
+    optional and let us model a midday closure (e.g. Italian lunchtime)."""
+    closed: bool = False
+    open: Optional[str] = Field('', max_length=5)
+    close: Optional[str] = Field('', max_length=5)
+    break_start: Optional[str] = Field('', max_length=5)
+    break_end: Optional[str] = Field('', max_length=5)
+
+
 class StoreCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=200)
     whatsapp: Optional[str] = Field('', max_length=400)  # WA URL or wa.me link
@@ -408,6 +420,7 @@ class StoreCreate(BaseModel):
     google_review: Optional[str] = Field('', max_length=400)
     google_maps_url: Optional[str] = Field('', max_length=400)
     hours_text: Optional[str] = Field('', max_length=500)
+    hours: Optional[Dict[str, StoreHoursDay]] = None
     address: Optional[str] = Field('', max_length=300)
     phone: Optional[str] = Field('', max_length=40)
     post_title: Optional[str] = Field('', max_length=200)
@@ -427,6 +440,7 @@ class StoreResponse(BaseModel):
     google_review: str = ''
     google_maps_url: str = ''
     hours_text: str = ''
+    hours: Optional[Dict[str, StoreHoursDay]] = None
     address: str = ''
     phone: str = ''
     post_title: str = ''
@@ -1972,12 +1986,13 @@ async def get_vendor_public(vendor_id: str):
     if vendor.get('store_id'):
         store_doc = await db.stores.find_one(
             {'id': vendor['store_id']},
-            {'_id': 0, 'name': 1, 'hours_text': 1, 'address': 1, 'phone': 1, 'google_maps_url': 1}
+            {'_id': 0, 'name': 1, 'hours_text': 1, 'hours': 1, 'address': 1, 'phone': 1, 'google_maps_url': 1}
         )
         if store_doc:
             vendor['store'] = {
                 'name': store_doc.get('name', ''),
                 'hours_text': (store_doc.get('hours_text') or '').strip(),
+                'hours': store_doc.get('hours') or None,
                 'address': (store_doc.get('address') or '').strip(),
                 'phone': (store_doc.get('phone') or '').strip(),
                 'google_maps_url': store_doc.get('google_maps_url', ''),
@@ -2102,16 +2117,51 @@ async def reset_vendor_analytics(vendor_id: str, user: dict = Depends(get_curren
     """Wipe every analytics event for this vendor without touching the vendor itself.
     Use when the QR is being handed over to a new person and the previous owner's
     stats should not bleed into the new operator's dashboard."""
-    vendor = await db.vendors.find_one(_tenant_filter(user, {'id': vendor_id}), {'_id': 0, 'id': 1, 'name': 1})
+    vendor = await db.vendors.find_one(_tenant_filter(user, {'id': vendor_id}), {'_id': 0, 'id': 1, 'name': 1, 'organization_id': 1})
     if not vendor:
         raise HTTPException(status_code=404, detail='Vendor not found')
     result = await db.analytics.delete_many({'vendor_id': vendor_id})
+    deleted = int(result.deleted_count or 0)
+    # Audit trail — keep a tamper-evident record of who reset which vendor and how
+    # many events were wiped. Useful in case of disputes about "missing" data.
+    await db.audit_log.insert_one({
+        'id': str(uuid.uuid4()),
+        'timestamp': datetime.now(timezone.utc).isoformat(),
+        'action': 'vendor_analytics_reset',
+        'actor_email': user.get('email', ''),
+        'actor_role': user.get('role', ''),
+        'organization_id': vendor.get('organization_id', '') or user.get('organization_id', ''),
+        'target_type': 'vendor',
+        'target_id': vendor_id,
+        'target_label': vendor.get('name', ''),
+        'metadata': {'deleted_count': deleted},
+    })
     return {
         'message': 'Statistiche azzerate',
         'vendor_id': vendor_id,
         'vendor_name': vendor.get('name', ''),
-        'deleted_count': int(result.deleted_count or 0),
+        'deleted_count': deleted,
     }
+
+
+@api_router.get('/audit')
+async def list_audit_log(skip: int = 0, limit: int = 50, action: Optional[str] = None,
+                         user: dict = Depends(get_current_user)):
+    """Tenant-scoped audit log. Super admins see everything, org admins see only
+    entries for their organization."""
+    q: dict = {}
+    if action:
+        q['action'] = action
+    if not _is_super_admin(user):
+        org_id = (user.get('organization_id') or '').strip()
+        if not org_id:
+            return {'items': [], 'total': 0, 'skip': skip, 'limit': limit}
+        q['organization_id'] = org_id
+    limit = max(1, min(int(limit or 50), 200))
+    skip = max(0, int(skip or 0))
+    total = await db.audit_log.count_documents(q)
+    items = await db.audit_log.find(q, {'_id': 0}).sort('timestamp', -1).skip(skip).limit(limit).to_list(limit)
+    return {'items': items, 'total': total, 'skip': skip, 'limit': limit}
 
 @api_router.post('/vendors/{vendor_id}/credentials')
 async def create_vendor_credentials(vendor_id: str, creds: VendorCredentials, user: dict = Depends(get_current_user)):

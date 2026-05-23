@@ -36,6 +36,16 @@ Il progetto **QRHub** è una piattaforma multi-tenant open source (MIT) che perm
 - Open source MIT, no-profit
 
 
+### 2026-05-23 (sera) — Audit log + Structured opening hours + UX refresh
+
+- **Audit log**: nuovo `db.audit_log` con entries `{id, timestamp, action, actor_email, actor_role, organization_id, target_type, target_id, target_label, metadata}`. Endpoint `GET /api/audit` (tenant-scoped, super admin vede tutto). Nuova pagina `/dashboard/audit` (`pages/Audit.js`) con tabella e nav link (Shield icon). Il reset analytics vendor ora scrive entry nell'audit.
+- **Structured opening hours** (Google-Business style): nuovo `StoreHoursDay` model con `closed/open/close/break_start/break_end` per ogni giorno. Componente `<HoursEditor>` (`components/HoursEditor.js`) con 7 righe (Lun-Dom) e input `type=time`. Frontend genera automaticamente `hours_text` come fallback umano (es. "Lun-Ven: 09:00-13:00 / 15:00-19:30") tramite `formatHoursText()` con grouping di giorni consecutivi identici. Backend serve sia `hours` (structured) sia `hours_text` (string).
+- **AnalyticsDetailed ridisegnata**: KpiCard e Card con `rounded-3xl` + halo gradient blur, palette uniformata (lime `#D2FA46` + soft purple `#9B7BFF` + soft palette per pie charts), tooltip custom morbido condiviso (`SoftTooltip`), LineChart con `strokeWidth=2.5` e `activeDot`, BarChart con barre `radius=8` e `maxBarSize=14`, PieChart con `innerRadius=50` (donut) + `paddingAngle=3`. Niente più CartesianGrid o axis lines.
+- **Log Eventi Recenti collassabile**: wrapped in shadcn `Collapsible`, default chiuso, header con count + chevron, contenuto scrollable `max-h-[60vh]`. Riduce drasticamente l'altezza percepita della pagina.
+- **Landing store button**: il pulsante "Store" sulla landing ora compare ogni volta che il negozio ha un `name`, indipendentemente dagli orari (prima richiedeva almeno `hours_text` o `name`).
+- **Performance**: animazione Bar Recharts da 650ms → 250ms, halo `blur-2xl` → `blur-xl` (riduce GPU load sul tab switch).
+
+
 ### 2026-05-23 — Tenant isolation + Marketing landing + Store simplification + Dark theme
 
 - **Tenant-only landing enforcement** (`pages/VendorLanding.js`): le landing `/v/:vendorId` ora vengono servite ESCLUSIVAMENTE sul `canonical_host` configurato dall'org. Su `qrhub.it`, `qrhub-app.vercel.app` e qualunque altro host non-canonical viene mostrato uno schermo dedicato "Landing non disponibile su questo dominio". Test hosts (localhost, *.preview.emergentagent.com, *.emergent.host) continuano a renderizzare per QA.

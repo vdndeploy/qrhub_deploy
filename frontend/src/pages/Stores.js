@@ -2,13 +2,13 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { toast } from 'sonner';
 import { Plus, Edit, Trash2, Store as StoreIcon, Megaphone } from 'lucide-react';
 import PostsManager from '@/components/PostsManager';
+import HoursEditor, { formatHoursText, ensureHoursShape } from '@/components/HoursEditor';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -51,6 +51,7 @@ const Stores = () => {
         instagram: store.instagram || '', facebook: store.facebook || '', tiktok: store.tiktok || '',
         google_review: store.google_review || '', google_maps_url: store.google_maps_url || '',
         hours_text: store.hours_text || '',
+        hours: ensureHoursShape(store.hours),
       });
     } else {
       setEditingStore(null);
@@ -62,8 +63,14 @@ const Stores = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      // Preserve legacy post fields when updating (they'll be ignored after migration)
-      const payload = { ...formData, post_title: '', post_text: '', post_media_url: '', post_cta_text: '', post_whatsapp_message: '' };
+      // Derive a human-readable hours_text from the structured hours so the
+      // landing page (and any legacy consumer) always has a string fallback.
+      const generatedText = formatHoursText(formData.hours);
+      const payload = {
+        ...formData,
+        hours_text: generatedText || formData.hours_text || '',
+        post_title: '', post_text: '', post_media_url: '', post_cta_text: '', post_whatsapp_message: '',
+      };
       if (editingStore) {
         await axios.put(`${API}/stores/${editingStore.id}`, payload, { withCredentials: true });
         toast.success('Negozio aggiornato');
@@ -161,20 +168,10 @@ const Stores = () => {
             </div>
             <div className="border-t pt-4 space-y-3">
               <div className="text-sm font-semibold text-gray-700 dark:text-[#a8a8b0]">Scheda negozio (pulsante "Store" sulla landing)</div>
-              <div>
-                <Label>Orari di apertura</Label>
-                <Textarea
-                  placeholder={'Lun-Ven: 9:00-13:00 / 15:00-19:30\nSab: 9:00-13:00\nDom: Chiuso'}
-                  value={formData.hours_text || ''}
-                  onChange={(e) => setFormData({...formData, hours_text: e.target.value})}
-                  rows={4}
-                  maxLength={500}
-                  data-testid="store-hours-input"
-                />
-                <p className="text-[11px] text-gray-500 dark:text-[#6a6a72] mt-1">
-                  Formato libero, supporta più righe. Compare nel pulsante "Store" sulla landing del venditore insieme al nome del negozio. Le indicazioni stradali sono già disponibili tramite il pulsante "Mappa" (campo Google Maps qui sopra).
-                </p>
-              </div>
+              <HoursEditor
+                value={formData.hours}
+                onChange={(h) => setFormData({ ...formData, hours: h })}
+              />
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>Annulla</Button>
@@ -196,7 +193,7 @@ const Stores = () => {
 
 const empty = () => ({
   name: '', whatsapp: '', whatsapp_message: '', instagram: '', facebook: '', tiktok: '',
-  google_review: '', google_maps_url: '', hours_text: '',
+  google_review: '', google_maps_url: '', hours_text: '', hours: ensureHoursShape(null),
 });
 
 export default Stores;

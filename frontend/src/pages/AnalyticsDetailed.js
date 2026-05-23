@@ -3,8 +3,9 @@ import axios from 'axios';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { Eye, MousePointerClick, Smartphone, MapPin, Download, Filter } from 'lucide-react';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import { Eye, MousePointerClick, Smartphone, MapPin, Download, Filter, ChevronDown, ChevronUp } from 'lucide-react';
 import { toast } from 'sonner';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -13,9 +14,28 @@ const CLICK_LABELS = {
   whatsapp_click: 'WhatsApp', instagram_click: 'Instagram', facebook_click: 'Facebook',
   review_click: 'Recensione Google', tiktok_click: 'TikTok', maps_click: 'Google Maps', post_cta_click: 'CTA Post'
 };
-const CLICK_COLORS = ['#25D366', '#E1306C', '#1877F2', '#FBBC04', '#000000', '#D2FA46', '#4A2D8C'];
+// Soft palette matching the Overview chart aesthetic.
+const PALETTE = ['#D2FA46', '#9B7BFF', '#5DD4A0', '#FFB86B', '#FF7A8A', '#6EC1E4', '#C58FFF'];
 
 const PERIOD_LABELS = { '7d': 'Ultimi 7 giorni', '30d': 'Ultimi 30 giorni', month: 'Mese corrente' };
+
+// Shared soft tooltip used by every chart in this page — keeps the look consistent
+// with the Panoramica Globale dashboard.
+const SoftTooltip = ({ active, payload, label }) => {
+  if (!active || !payload || !payload.length) return null;
+  return (
+    <div className="rounded-2xl bg-white dark:bg-[#1a1a1c] border border-gray-200 dark:border-white/10 shadow-xl px-4 py-3 text-xs">
+      {label && <div className="font-semibold text-gray-900 dark:text-white mb-1.5">{label}</div>}
+      {payload.map((p, i) => (
+        <div key={i} className="flex items-center gap-2 text-gray-700 dark:text-[#a8a8b0]">
+          <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ background: p.color || p.payload?.fill }} />
+          <span>{p.name}</span>
+          <span className="ml-auto font-semibold text-gray-900 dark:text-white">{p.value}</span>
+        </div>
+      ))}
+    </div>
+  );
+};
 
 /**
  * Detailed analytics view used by both admin overview and vendor dashboard.
@@ -30,6 +50,7 @@ export default function AnalyticsDetailed({ mode = 'admin', vendors = [], defaul
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [logOpen, setLogOpen] = useState(false);
 
   const endpoint = mode === 'vendor' ? '/vendor/analytics/detailed' : '/analytics/detailed';
   const pdfEndpoint = mode === 'vendor' ? '/vendor/analytics/export/pdf' : '/analytics/export/pdf';
@@ -72,7 +93,7 @@ export default function AnalyticsDetailed({ mode = 'admin', vendors = [], defaul
     }
   };
 
-  if (loading && !data) return <div className="text-center py-12">Caricamento...</div>;
+  if (loading && !data) return <div className="text-center py-12 text-gray-500 dark:text-[#6a6a72]">Caricamento...</div>;
   if (!data) return null;
 
   const clickPie = Object.entries(data.click_breakdown || {})
@@ -83,11 +104,12 @@ export default function AnalyticsDetailed({ mode = 'admin', vendors = [], defaul
     .map(([k, v]) => ({ name: k.charAt(0).toUpperCase() + k.slice(1), value: v }));
 
   const hourly = (data.hourly_pattern || []).map((v, i) => ({ ora: `${i}h`, eventi: v }));
+  const eventLogCount = (data.event_log || []).length;
 
   return (
     <div className="space-y-6" data-testid="analytics-detailed">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">Analytics Dettagliata</h2>
+        <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-gray-900 dark:text-white">Analytics Dettagliata</h2>
         <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
           <Filter className="h-4 w-4 text-gray-500 dark:text-[#6a6a72] flex-shrink-0 hidden sm:block" />
           <Select value={period} onValueChange={setPeriod}>
@@ -107,31 +129,29 @@ export default function AnalyticsDetailed({ mode = 'admin', vendors = [], defaul
               </SelectContent>
             </Select>
           )}
-          <Button onClick={downloadPdf} disabled={downloading} className="bg-[#D2FA46] hover:bg-[#bce63d] text-[#0a0a0b] w-full sm:w-auto" data-testid="download-pdf-button">
+          <Button onClick={downloadPdf} disabled={downloading} className="bg-[#D2FA46] hover:bg-[#bce63d] text-[#0a0a0b] w-full sm:w-auto rounded-full" data-testid="download-pdf-button">
             <Download className="h-4 w-4 mr-2" />{downloading ? 'Generazione...' : 'Esporta PDF'}
           </Button>
         </div>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <KpiCard icon={<Eye className="h-5 w-5 text-[#4A2D8C]" />} bg="bg-purple-100" label="Visite" value={data.total_views} />
-        <KpiCard icon={<MousePointerClick className="h-5 w-5 text-[#D2FA46]" />} bg="bg-[#D2FA46]/15 dark:bg-[#D2FA46]/10" label="Click Totali" value={data.total_clicks} />
-        <KpiCard icon={<Smartphone className="h-5 w-5 text-green-600" />} bg="bg-green-100" label="Eventi" value={data.total_events} />
-        <KpiCard icon={<MapPin className="h-5 w-5 text-blue-600" />} bg="bg-blue-100" label="Città Uniche" value={(data.top_cities || []).length} />
+        <KpiCard icon={<Eye className="h-5 w-5 text-[#9B7BFF]" />} ring="from-[#9B7BFF]/20 to-[#9B7BFF]/0" iconBg="bg-[#9B7BFF]/15 dark:bg-[#9B7BFF]/10" label="Visite" value={data.total_views} />
+        <KpiCard icon={<MousePointerClick className="h-5 w-5 text-[#D2FA46]" />} ring="from-[#D2FA46]/20 to-[#D2FA46]/0" iconBg="bg-[#D2FA46]/15 dark:bg-[#D2FA46]/10" label="Click Totali" value={data.total_clicks} />
+        <KpiCard icon={<Smartphone className="h-5 w-5 text-emerald-500" />} ring="from-emerald-500/20 to-emerald-500/0" iconBg="bg-emerald-500/15 dark:bg-emerald-500/10" label="Eventi" value={data.total_events} />
+        <KpiCard icon={<MapPin className="h-5 w-5 text-sky-500" />} ring="from-sky-500/20 to-sky-500/0" iconBg="bg-sky-500/15 dark:bg-sky-500/10" label="Città Uniche" value={(data.top_cities || []).length} />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card title="Andamento Giornaliero">
           {data.timeline?.length > 0 ? (
             <ResponsiveContainer width="100%" height={260}>
-              <LineChart data={data.timeline}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="date" tick={{ fontSize: 11 }} />
-                <YAxis tick={{ fontSize: 11 }} />
-                <Tooltip />
-                <Legend />
-                <Line type="monotone" dataKey="views" name="Visite" stroke="#4A2D8C" strokeWidth={2} />
-                <Line type="monotone" dataKey="clicks" name="Click" stroke="#D2FA46" strokeWidth={2} />
+              <LineChart data={data.timeline} margin={{ top: 8, right: 12, left: -16, bottom: 0 }}>
+                <XAxis dataKey="date" tick={{ fontSize: 11, fill: 'currentColor' }} tickLine={false} axisLine={false} className="text-gray-500 dark:text-[#6a6a72]" />
+                <YAxis tick={{ fontSize: 11, fill: 'currentColor' }} tickLine={false} axisLine={false} width={32} className="text-gray-500 dark:text-[#6a6a72]" />
+                <Tooltip content={<SoftTooltip />} cursor={{ stroke: 'currentColor', strokeOpacity: 0.1 }} />
+                <Line type="monotone" dataKey="views" name="Visite" stroke="#9B7BFF" strokeWidth={2.5} dot={false} activeDot={{ r: 5, fill: '#9B7BFF' }} />
+                <Line type="monotone" dataKey="clicks" name="Click" stroke="#D2FA46" strokeWidth={2.5} dot={false} activeDot={{ r: 5, fill: '#D2FA46' }} />
               </LineChart>
             </ResponsiveContainer>
           ) : <Empty />}
@@ -141,11 +161,10 @@ export default function AnalyticsDetailed({ mode = 'admin', vendors = [], defaul
           {clickPie.length > 0 ? (
             <ResponsiveContainer width="100%" height={260}>
               <PieChart>
-                <Pie data={clickPie} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90} label>
-                  {clickPie.map((_, i) => <Cell key={i} fill={CLICK_COLORS[i % CLICK_COLORS.length]} />)}
+                <Pie data={clickPie} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={50} outerRadius={92} paddingAngle={3}>
+                  {clickPie.map((_, i) => <Cell key={i} fill={PALETTE[i % PALETTE.length]} stroke="transparent" />)}
                 </Pie>
-                <Tooltip />
-                <Legend />
+                <Tooltip content={<SoftTooltip />} />
               </PieChart>
             </ResponsiveContainer>
           ) : <Empty />}
@@ -153,12 +172,11 @@ export default function AnalyticsDetailed({ mode = 'admin', vendors = [], defaul
 
         <Card title="Pattern Orario (24h)">
           <ResponsiveContainer width="100%" height={260}>
-            <BarChart data={hourly}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="ora" tick={{ fontSize: 10 }} />
-              <YAxis tick={{ fontSize: 11 }} />
-              <Tooltip />
-              <Bar dataKey="eventi" fill="#D2FA46" />
+            <BarChart data={hourly} margin={{ top: 8, right: 12, left: -16, bottom: 0 }} barGap={4}>
+              <XAxis dataKey="ora" tick={{ fontSize: 10, fill: 'currentColor' }} tickLine={false} axisLine={false} interval={2} className="text-gray-500 dark:text-[#6a6a72]" />
+              <YAxis tick={{ fontSize: 11, fill: 'currentColor' }} tickLine={false} axisLine={false} width={32} className="text-gray-500 dark:text-[#6a6a72]" />
+              <Tooltip content={<SoftTooltip />} cursor={{ fill: 'currentColor', fillOpacity: 0.04 }} />
+              <Bar dataKey="eventi" fill="#D2FA46" radius={[8, 8, 8, 8]} maxBarSize={14} />
             </BarChart>
           </ResponsiveContainer>
         </Card>
@@ -167,11 +185,10 @@ export default function AnalyticsDetailed({ mode = 'admin', vendors = [], defaul
           {devicePie.length > 0 ? (
             <ResponsiveContainer width="100%" height={260}>
               <PieChart>
-                <Pie data={devicePie} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90} label>
-                  {devicePie.map((_, i) => <Cell key={i} fill={['#4A2D8C','#D2FA46','#25D366','#999'][i % 4]} />)}
+                <Pie data={devicePie} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={50} outerRadius={92} paddingAngle={3}>
+                  {devicePie.map((_, i) => <Cell key={i} fill={PALETTE[i % PALETTE.length]} stroke="transparent" />)}
                 </Pie>
-                <Tooltip />
-                <Legend />
+                <Tooltip content={<SoftTooltip />} />
               </PieChart>
             </ResponsiveContainer>
           ) : <Empty />}
@@ -199,55 +216,83 @@ export default function AnalyticsDetailed({ mode = 'admin', vendors = [], defaul
         ) : <Empty />}
       </Card>
 
-      <Card title={`Log Eventi Recenti (${(data.event_log || []).length})`}>
-        {data.event_log?.length > 0 ? (
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Data/Ora</TableHead>
-                  <TableHead>Evento</TableHead>
-                  <TableHead>Città</TableHead>
-                  <TableHead>Paese</TableHead>
-                  <TableHead>Dispositivo</TableHead>
-                  <TableHead>Browser</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {data.event_log.slice(0, 100).map((e, i) => (
-                  <TableRow key={i}>
-                    <TableCell className="text-xs whitespace-nowrap">{(e.timestamp || '').slice(0, 16).replace('T', ' ')}</TableCell>
-                    <TableCell className="text-xs">{CLICK_LABELS[e.event_type] || (e.event_type === 'page_view' ? 'Visita Pagina' : e.event_type)}</TableCell>
-                    <TableCell className="text-xs">{e.city || '-'}</TableCell>
-                    <TableCell className="text-xs">{e.country || '-'}</TableCell>
-                    <TableCell className="text-xs capitalize">{e.device || '-'}</TableCell>
-                    <TableCell className="text-xs">{e.browser || '-'}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        ) : <Empty />}
-      </Card>
+      {/* Event log: collapsed by default — it can grow very long and made the
+          page feel sluggish. Click to reveal. */}
+      <div className="relative overflow-hidden bg-white dark:bg-[#131316] rounded-3xl border border-gray-200 dark:border-white/10 shadow-sm">
+        <Collapsible open={logOpen} onOpenChange={setLogOpen}>
+          <CollapsibleTrigger asChild>
+            <button
+              type="button"
+              className="w-full flex items-center justify-between gap-3 px-5 py-4 text-left hover:bg-gray-50 dark:hover:bg-white/[0.02] transition-colors"
+              data-testid="event-log-toggle"
+            >
+              <div>
+                <h3 className="text-base font-semibold text-gray-900 dark:text-white">
+                  Log Eventi Recenti <span className="text-gray-500 dark:text-[#6a6a72] font-medium">({eventLogCount})</span>
+                </h3>
+                <p className="text-xs text-gray-500 dark:text-[#6a6a72] mt-0.5">
+                  {logOpen ? 'Clicca per nascondere' : 'Clicca per visualizzare gli ultimi eventi raccolti'}
+                </p>
+              </div>
+              {logOpen ? <ChevronUp className="h-5 w-5 text-gray-400 dark:text-[#5a5a62]" /> : <ChevronDown className="h-5 w-5 text-gray-400 dark:text-[#5a5a62]" />}
+            </button>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <div className="border-t border-gray-200 dark:border-white/10">
+              {eventLogCount > 0 ? (
+                <div className="overflow-x-auto max-h-[60vh] overflow-y-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Data/Ora</TableHead>
+                        <TableHead>Evento</TableHead>
+                        <TableHead>Città</TableHead>
+                        <TableHead>Paese</TableHead>
+                        <TableHead>Dispositivo</TableHead>
+                        <TableHead>Browser</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {data.event_log.slice(0, 100).map((e, i) => (
+                        <TableRow key={i}>
+                          <TableCell className="text-xs whitespace-nowrap">{(e.timestamp || '').slice(0, 16).replace('T', ' ')}</TableCell>
+                          <TableCell className="text-xs">{CLICK_LABELS[e.event_type] || (e.event_type === 'page_view' ? 'Visita Pagina' : e.event_type)}</TableCell>
+                          <TableCell className="text-xs">{e.city || '-'}</TableCell>
+                          <TableCell className="text-xs">{e.country || '-'}</TableCell>
+                          <TableCell className="text-xs capitalize">{e.device || '-'}</TableCell>
+                          <TableCell className="text-xs">{e.browser || '-'}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              ) : (
+                <div className="px-5 py-10"><Empty /></div>
+              )}
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
+      </div>
     </div>
   );
 }
 
-const KpiCard = ({ icon, bg, label, value }) => (
-  <div className="bg-white dark:bg-[#131316] rounded-lg border border-gray-200 dark:border-white/10 p-5">
-    <div className="flex items-center gap-3">
-      <div className={`p-2.5 rounded-lg ${bg}`}>{icon}</div>
+const KpiCard = ({ icon, ring, iconBg, label, value }) => (
+  <div className="relative overflow-hidden bg-white dark:bg-[#131316] rounded-3xl border border-gray-200 dark:border-white/10 p-5 shadow-sm transition-shadow hover:shadow-md">
+    <div className={`pointer-events-none absolute -top-12 -right-12 w-40 h-40 rounded-full bg-gradient-to-br ${ring} blur-xl`} aria-hidden="true" />
+    <div className="relative flex items-center gap-3">
+      <div className={`p-2.5 rounded-2xl ${iconBg}`}>{icon}</div>
       <div>
-        <p className="text-xs text-gray-600 dark:text-[#8a8a92] uppercase tracking-wider">{label}</p>
-        <p className="text-2xl font-black tracking-tight">{value || 0}</p>
+        <p className="text-[11px] text-gray-500 dark:text-[#6a6a72] uppercase tracking-widest font-semibold">{label}</p>
+        <p className="text-2xl font-black tracking-tight text-gray-900 dark:text-white">{value || 0}</p>
       </div>
     </div>
   </div>
 );
 
 const Card = ({ title, children }) => (
-  <div className="bg-white dark:bg-[#131316] rounded-lg border border-gray-200 dark:border-white/10 p-5">
-    <h3 className="text-base font-semibold mb-3 text-gray-900 dark:text-white">{title}</h3>
+  <div className="bg-white dark:bg-[#131316] rounded-3xl border border-gray-200 dark:border-white/10 p-5 sm:p-6 shadow-sm">
+    <h3 className="text-base font-semibold mb-4 text-gray-900 dark:text-white">{title}</h3>
     {children}
   </div>
 );

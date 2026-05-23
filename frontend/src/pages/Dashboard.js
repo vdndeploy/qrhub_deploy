@@ -13,7 +13,8 @@ import OrgSettings from './OrgSettings';
 import Legal from './Legal';
 import MyAccount from './MyAccount';
 import Dpa from './Dpa';
-import { LogOut, BarChart3, Users, Settings as SettingsIcon, Store, FolderOpen, Building2, Sliders, FileText, UserCircle, AlertTriangle, Sun, Moon } from 'lucide-react';
+import Audit from './Audit';
+import { LogOut, BarChart3, Users, Settings as SettingsIcon, Store, FolderOpen, Building2, Sliders, FileText, UserCircle, AlertTriangle, Sun, Moon, Shield } from 'lucide-react';
 import { useTheme } from '@/hooks/useTheme';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -205,6 +206,18 @@ const Dashboard = () => {
               <span className="sm:hidden ml-1 text-xs">Legale</span>
             </Button>
           </Link>
+          <Link to="/dashboard/audit" className="flex-shrink-0">
+            <Button
+              variant={isActive('/dashboard/audit') ? 'default' : 'ghost'}
+              size="sm"
+              className={isActive('/dashboard/audit') ? 'bg-[#D2FA46] hover:bg-[#bce63d] text-[#0a0a0b]' : ''}
+              data-testid="nav-audit"
+            >
+              <Shield className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Audit</span>
+              <span className="sm:hidden ml-1 text-xs">Audit</span>
+            </Button>
+          </Link>
           <Link to="/dashboard/account" className="flex-shrink-0">
             <Button
               variant={isActive('/dashboard/account') ? 'default' : 'ghost'}
@@ -231,6 +244,7 @@ const Dashboard = () => {
           <Route path="legal" element={<Legal />} />
           <Route path="account" element={<MyAccount />} />
           <Route path="dpa" element={<Dpa />} />
+          <Route path="audit" element={<Audit />} />
         </Routes>
       </div>
     </div>

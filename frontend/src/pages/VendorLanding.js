@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import axios from 'axios';
-import { MapPin, Share2 } from 'lucide-react';
+import { MapPin, Share2, Store as StoreIcon, Clock, Phone, X } from 'lucide-react';
 import PostsCarousel from '../components/PostsCarousel';
 import './VendorLanding.css';
 
@@ -64,6 +64,8 @@ const VendorLanding = () => {
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [showAndroidBanner, setShowAndroidBanner] = useState(false);
   const [showIosBanner, setShowIosBanner] = useState(false);
+  const [storeOpen, setStoreOpen] = useState(false);
+  const [blockedReason, setBlockedReason] = useState('');
 
   useEffect(() => {
     fetchVendor();
@@ -75,6 +77,43 @@ const VendorLanding = () => {
   const fetchVendor = async () => {
     try {
       const { data } = await axios.get(`${API}/vendors/${vendorId}`);
+
+      // Canonical-host enforcement: each vendor landing is published under the
+      // org's own verified custom domain. If we are currently on the platform
+      // admin domain (e.g. qrhub.it), redirect to the org's domain so users
+      // don't confuse the platform with the tenant's branded service.
+      // If we are on the org's domain (or on the Vercel default / Emergent
+      // preview) we proceed normally.
+      const canonical = (data.canonical_host || '').toLowerCase();
+      const host = window.location.hostname.toLowerCase();
+      const fallbackHosts = ['qrhub-app.vercel.app', 'localhost', '127.0.0.1'];
+      const isFallback = fallbackHosts.includes(host)
+        || host.endsWith('.preview.emergentagent.com')
+        || host.endsWith('.vercel.app')
+        || host.endsWith('.emergent.host');
+      if (canonical && host !== canonical && !isFallback) {
+        // Send the visitor to the right tenant domain
+        window.location.replace(`https://${canonical}${window.location.pathname}${window.location.search || ''}`);
+        return; // stop rendering
+      }
+      if (!canonical) {
+        // Vendor's org hasn't configured a custom domain. We deliberately do NOT
+        // serve the landing on the platform admin domain (qrhub.it) to keep
+        // the platform separate from tenant content. Show a polite message and
+        // bail out. On fallback/preview hosts we always render (for testing).
+        try {
+          const cfgResp = await axios.get(`${API}/platform/config`);
+          const primary = (cfgResp.data?.primary_domain || '').toLowerCase();
+          if (primary && host === primary) {
+            setBlockedReason(
+              'Questo è il dominio della piattaforma QRHub. Le landing dei venditori sono accessibili tramite i domini personalizzati delle rispettive organizzazioni.'
+            );
+            setLoading(false);
+            return;
+          }
+        } catch { /* ignore — fall through to render */ }
+      }
+
       setVendor(data);
       // Dynamic page title: "{Vendor Name} - {Brand}" so it shows nicely in browser tabs,
       // bookmarks, OS share sheets, and when the QR code is scanned.
@@ -154,6 +193,25 @@ const VendorLanding = () => {
   };
 
   if (loading) return <div className="vendor-loading"><div className="loading-spinner"></div></div>;
+  if (blockedReason) {
+    return (
+      <div className="vendor-error" style={{
+        textAlign: 'center', padding: '60px 24px', maxWidth: 520, margin: '0 auto',
+      }} data-testid="vendor-landing-blocked">
+        <div style={{
+          background: '#F96815', width: 60, height: 60, borderRadius: '50%',
+          margin: '0 auto 20px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          color: '#fff', fontSize: 30, fontWeight: 700,
+        }}>Q</div>
+        <h1 style={{ fontSize: 22, marginBottom: 12 }}>Landing non disponibile su questo dominio</h1>
+        <p style={{ color: '#555', fontSize: 14, lineHeight: 1.55 }}>{blockedReason}</p>
+        <a href="/" style={{
+          display: 'inline-block', marginTop: 24, padding: '10px 18px',
+          background: '#F96815', color: '#fff', borderRadius: 8, textDecoration: 'none', fontWeight: 600,
+        }}>Vai a QRHub</a>
+      </div>
+    );
+  }
   if (!vendor) return <div className="vendor-error"><h1>Venditore non trovato</h1></div>;
 
   return (
@@ -217,6 +275,18 @@ const VendorLanding = () => {
               <a href={vendor.google_maps_url} target="_blank" rel="noopener noreferrer" className="map-btn" onClick={() => trackClick('maps')}>
                 <MapPin className="h-6 w-6" />
               </a>
+            )}
+            {vendor.store && (vendor.store.hours_text || vendor.store.address || vendor.store.phone || vendor.store.name) && (
+              <button
+                type="button"
+                onClick={() => { setStoreOpen(true); trackClick('store_info'); }}
+                className="map-btn"
+                aria-label="Info negozio"
+                title="Info negozio"
+                data-testid="vendor-store-button"
+              >
+                <StoreIcon className="h-6 w-6" />
+              </button>
             )}
             <button
               type="button"
@@ -319,6 +389,99 @@ const VendorLanding = () => {
         banner={vendor.organization?.cookie_banner}
         primaryColor={vendor.organization?.primary_color}
       />
+
+      {storeOpen && vendor.store && (
+        <div
+          className="store-modal-backdrop"
+          onClick={() => setStoreOpen(false)}
+          data-testid="vendor-store-modal"
+          style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
+            display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+            zIndex: 1000, animation: 'fadeIn .2s ease-out',
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: '#fff', borderRadius: '20px 20px 0 0',
+              width: '100%', maxWidth: 480, padding: '20px 20px 32px',
+              boxShadow: '0 -8px 24px rgba(0,0,0,0.15)',
+              animation: 'slideUp .25s ease-out',
+            }}
+          >
+            <div style={{
+              width: 40, height: 4, background: '#ddd', borderRadius: 2,
+              margin: '0 auto 16px',
+            }} />
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              marginBottom: 16,
+            }}>
+              <h3 style={{
+                margin: 0, fontSize: 18, fontWeight: 700,
+                color: vendor.organization?.primary_color || '#F96815',
+                display: 'flex', alignItems: 'center', gap: 8,
+              }}>
+                <StoreIcon size={20} />
+                {vendor.store.name || 'Il tuo negozio'}
+              </h3>
+              <button onClick={() => setStoreOpen(false)} aria-label="Chiudi"
+                       style={{ background: 'transparent', border: 0, padding: 6, cursor: 'pointer', color: '#666' }}>
+                <X size={20} />
+              </button>
+            </div>
+
+            {vendor.store.address && (
+              <div style={{ marginBottom: 14, display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                <MapPin size={16} style={{ marginTop: 2, color: '#888', flexShrink: 0 }} />
+                <div style={{ fontSize: 14, color: '#222', lineHeight: 1.5 }}>
+                  {vendor.store.address}
+                </div>
+              </div>
+            )}
+            {vendor.store.phone && (
+              <div style={{ marginBottom: 14, display: 'flex', gap: 10, alignItems: 'center' }}>
+                <Phone size={16} style={{ color: '#888', flexShrink: 0 }} />
+                <a href={`tel:${vendor.store.phone.replace(/\s+/g, '')}`}
+                    onClick={() => trackClick('store_phone')}
+                    style={{ fontSize: 14, color: '#222', textDecoration: 'none', fontWeight: 500 }}
+                    data-testid="vendor-store-phone-link">
+                  {vendor.store.phone}
+                </a>
+              </div>
+            )}
+            {vendor.store.hours_text && (
+              <div style={{ marginBottom: 14, display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                <Clock size={16} style={{ marginTop: 2, color: '#888', flexShrink: 0 }} />
+                <div style={{
+                  fontSize: 13, color: '#222', lineHeight: 1.55, whiteSpace: 'pre-line',
+                }} data-testid="vendor-store-hours">
+                  {vendor.store.hours_text}
+                </div>
+              </div>
+            )}
+
+            {vendor.store.google_maps_url && (
+              <a
+                href={vendor.store.google_maps_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => trackClick('maps')}
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                  marginTop: 8, padding: '12px 16px', borderRadius: 10,
+                  background: vendor.organization?.primary_color || '#F96815',
+                  color: '#fff', textDecoration: 'none', fontWeight: 600, fontSize: 14,
+                }}
+              >
+                <MapPin size={16} />
+                Indicazioni stradali
+              </a>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

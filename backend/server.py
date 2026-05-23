@@ -407,6 +407,9 @@ class StoreCreate(BaseModel):
     tiktok: Optional[str] = Field('', max_length=400)
     google_review: Optional[str] = Field('', max_length=400)
     google_maps_url: Optional[str] = Field('', max_length=400)
+    hours_text: Optional[str] = Field('', max_length=500)
+    address: Optional[str] = Field('', max_length=300)
+    phone: Optional[str] = Field('', max_length=40)
     post_title: Optional[str] = Field('', max_length=200)
     post_text: Optional[str] = Field('', max_length=4000)
     post_media_url: Optional[str] = Field('', max_length=600)
@@ -423,6 +426,9 @@ class StoreResponse(BaseModel):
     tiktok: str = ''
     google_review: str = ''
     google_maps_url: str = ''
+    hours_text: str = ''
+    address: str = ''
+    phone: str = ''
     post_title: str = ''
     post_text: str = ''
     post_media_url: str = ''
@@ -1961,6 +1967,36 @@ async def get_vendor_public(vendor_id: str):
         raw = await db.posts.find({'store_id': vendor['store_id']}, {'_id': 0}).sort('position', 1).to_list(1000)
         posts = [_post_doc_to_response(p) for p in raw if _is_post_currently_active(p)]
     vendor['posts'] = posts
+
+    # Attach lightweight store info (used by the Store/info button on the landing).
+    if vendor.get('store_id'):
+        store_doc = await db.stores.find_one(
+            {'id': vendor['store_id']},
+            {'_id': 0, 'name': 1, 'hours_text': 1, 'address': 1, 'phone': 1, 'google_maps_url': 1}
+        )
+        if store_doc:
+            vendor['store'] = {
+                'name': store_doc.get('name', ''),
+                'hours_text': (store_doc.get('hours_text') or '').strip(),
+                'address': (store_doc.get('address') or '').strip(),
+                'phone': (store_doc.get('phone') or '').strip(),
+                'google_maps_url': store_doc.get('google_maps_url', ''),
+            }
+    # Attach the *canonical* hostname this landing should be served from.
+    # This is the first verified custom-domain the vendor's org owns. The frontend
+    # uses it to enforce: "landings only render on the org's own domain — not on
+    # the platform admin domain (qrhub.it) or random hosts."
+    canonical_host = ''
+    real_vendor = await db.vendors.find_one({'id': vendor['id']}, {'_id': 0, 'organization_id': 1})
+    if real_vendor and real_vendor.get('organization_id'):
+        cd = await db.vercel_domains.find_one(
+            {'organization_id': real_vendor['organization_id'], 'verified': True},
+            {'_id': 0, 'domain': 1},
+            sort=[('created_at_local', 1)]
+        )
+        if cd and cd.get('domain'):
+            canonical_host = cd['domain']
+    vendor['canonical_host'] = canonical_host
     # Strip multi-tenant internal field
     vendor.pop('organization_id', None)
     # Include organization branding (lightweight) — we already have the doc resolved above.

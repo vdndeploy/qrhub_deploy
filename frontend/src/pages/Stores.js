@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -48,7 +49,8 @@ const Stores = () => {
       setFormData({
         name: store.name, whatsapp: store.whatsapp || '', whatsapp_message: store.whatsapp_message || '',
         instagram: store.instagram || '', facebook: store.facebook || '', tiktok: store.tiktok || '',
-        google_review: store.google_review || '', google_maps_url: store.google_maps_url || ''
+        google_review: store.google_review || '', google_maps_url: store.google_maps_url || '',
+        hours_text: store.hours_text || '', address: store.address || '', phone: store.phone || '',
       });
     } else {
       setEditingStore(null);
@@ -157,6 +159,35 @@ const Stores = () => {
               <div><Label>Google Review</Label><Input placeholder="https://g.page/..." value={formData.google_review} onChange={(e) => setFormData({...formData, google_review: e.target.value})} /></div>
               <div className="sm:col-span-2"><Label>Google Maps (Navigazione)</Label><Input placeholder="https://maps.app.goo.gl/..." value={formData.google_maps_url} onChange={(e) => setFormData({...formData, google_maps_url: e.target.value})} /></div>
             </div>
+            <div className="border-t pt-4 space-y-3">
+              <div className="text-sm font-semibold text-gray-700">📍 Scheda negozio (pulsante "Store" sulla landing)</div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div><Label>Indirizzo</Label>
+                  <Input placeholder="Via Roma 1, 00100 Roma" value={formData.address || ''}
+                          onChange={(e) => setFormData({...formData, address: e.target.value})}
+                          maxLength={300}
+                          data-testid="store-address-input" /></div>
+                <div><Label>Telefono</Label>
+                  <Input placeholder="+39 06 1234567" value={formData.phone || ''}
+                          onChange={(e) => setFormData({...formData, phone: e.target.value})}
+                          maxLength={40}
+                          data-testid="store-phone-input" /></div>
+              </div>
+              <div>
+                <Label>Orari di apertura</Label>
+                <Textarea
+                  placeholder={'Lun-Ven: 9:00-13:00 / 15:00-19:30\nSab: 9:00-13:00\nDom: Chiuso'}
+                  value={formData.hours_text || ''}
+                  onChange={(e) => setFormData({...formData, hours_text: e.target.value})}
+                  rows={4}
+                  maxLength={500}
+                  data-testid="store-hours-input"
+                />
+                <p className="text-[11px] text-gray-500 mt-1">
+                  Formato libero, supporta più righe. Compare nel pulsante "Store" 📍 della landing del venditore.
+                </p>
+              </div>
+            </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>Annulla</Button>
               <Button type="submit" className="bg-[#F96815] hover:bg-[#e05a0f]">{editingStore ? 'Aggiorna' : 'Crea'}</Button>
@@ -177,7 +208,7 @@ const Stores = () => {
 
 const empty = () => ({
   name: '', whatsapp: '', whatsapp_message: '', instagram: '', facebook: '', tiktok: '',
-  google_review: '', google_maps_url: ''
+  google_review: '', google_maps_url: '', hours_text: '', address: '', phone: '',
 });
 
 export default Stores;

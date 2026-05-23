@@ -846,6 +846,10 @@ async def create_store(store: StoreCreate, user: dict = Depends(get_current_user
     if not _is_super_admin(user) and not user.get('organization_id'):
         raise HTTPException(status_code=403, detail='Nessuna organizzazione assegnata')
     store_id = str(ObjectId())
+    # Pydantic StoreHoursDay → plain dict for Mongo
+    hours_payload = None
+    if store.hours:
+        hours_payload = {k: (v.model_dump() if hasattr(v, 'model_dump') else dict(v)) for k, v in store.hours.items()}
     store_doc = {
         'id': store_id,
         'organization_id': user.get('organization_id'),
@@ -857,6 +861,10 @@ async def create_store(store: StoreCreate, user: dict = Depends(get_current_user
         'tiktok': store.tiktok or '',
         'google_review': store.google_review or '',
         'google_maps_url': store.google_maps_url or '',
+        'hours_text': store.hours_text or '',
+        'hours': hours_payload,
+        'address': store.address or '',
+        'phone': store.phone or '',
         'post_title': store.post_title or '',
         'post_text': store.post_text or '',
         'post_media_url': store.post_media_url or '',
@@ -875,7 +883,11 @@ async def update_store(store_id: str, store: StoreCreate, user: dict = Depends(g
     existing = await db.stores.find_one(_tenant_filter(user, {'id': store_id}), {'_id': 0})
     if not existing:
         raise HTTPException(status_code=404, detail='Store not found')
-    
+
+    hours_payload = None
+    if store.hours:
+        hours_payload = {k: (v.model_dump() if hasattr(v, 'model_dump') else dict(v)) for k, v in store.hours.items()}
+
     update_doc = {
         'name': store.name,
         'whatsapp': store.whatsapp or '',
@@ -885,6 +897,10 @@ async def update_store(store_id: str, store: StoreCreate, user: dict = Depends(g
         'tiktok': store.tiktok or '',
         'google_review': store.google_review or '',
         'google_maps_url': store.google_maps_url or '',
+        'hours_text': store.hours_text or '',
+        'hours': hours_payload,
+        'address': store.address or '',
+        'phone': store.phone or '',
         'post_title': store.post_title or '',
         'post_text': store.post_text or '',
         'post_media_url': store.post_media_url or '',

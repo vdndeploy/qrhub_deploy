@@ -36,7 +36,16 @@ Il progetto **QRHub** è una piattaforma multi-tenant open source (MIT) che perm
 - Open source MIT, no-profit
 
 
-### 2026-05-23 (sera) — Audit log + Structured opening hours + UX refresh
+### 2026-05-23 (notte) — Fix bug salva-orari + Open-now badge real-time
+
+- **Fix critico save orari** (`backend/server.py`): `create_store` e `update_store` mancavano dei campi `hours`, `hours_text`, `address`, `phone` nel `store_doc` → salvataggi senza effetto. Aggiunti tutti, con conversione `StoreHoursDay.model_dump()` → dict per Mongo. Test: PUT con structured hours su WINDTRE Castelnuovo del Garda → vendor risponde `hours.mon = {open:'09:00', close:'19:30', break_start:'13:00', break_end:'15:00'}`.
+- **HoursEditor ridisegnato** (`components/HoursEditor.js`): da grid stretto a 7 card per giorno (Lun-Dom), grid responsive 2 colonne desktop. Toggle Switch shadcn al posto di Checkbox (più moderno), input time con label sopra, pausa pranzo collassata con bottone "+ Aggiungi pausa pranzo" (default smart 13-15). Shortcut "Copia Lun → Mar-Ven" e "Tutti chiusi" come pill buttons.
+- **Open-now badge real-time** (`components/HoursEditor.js` `computeOpenStatus()`): pure function che dato `hours` strutturato e `now` ritorna `{status, label, detail}` con 4 stati: `open` (verde, pulse), `closing_soon` (≤30min, giallo), `opening_soon` (≤60min al primo open futuro, giallo), `closed` (rosso, con "Apre domani/lunedì alle X"). Considera anche la pausa pranzo. Tick ogni 60s.
+- **VendorLanding integrazione**: 
+  - Pulsante Store sulla landing mostra un puntino colorato (verde/giallo/rosso) in alto a destra dell'icona, leggibile a colpo d'occhio.
+  - Modal store apre con badge prominente "Aperto adesso · Chiude alle 13:00" e tabella settimanale 7 righe con giorno corrente in bold + "oggi" in colore.
+  - Fallback: se `hours` non disponibili ma `hours_text` esiste, mostra il testo libero.
+  - Keyframes `pulse` aggiunti a `VendorLanding.css`.
 
 - **Audit log**: nuovo `db.audit_log` con entries `{id, timestamp, action, actor_email, actor_role, organization_id, target_type, target_id, target_label, metadata}`. Endpoint `GET /api/audit` (tenant-scoped, super admin vede tutto). Nuova pagina `/dashboard/audit` (`pages/Audit.js`) con tabella e nav link (Shield icon). Il reset analytics vendor ora scrive entry nell'audit.
 - **Structured opening hours** (Google-Business style): nuovo `StoreHoursDay` model con `closed/open/close/break_start/break_end` per ogni giorno. Componente `<HoursEditor>` (`components/HoursEditor.js`) con 7 righe (Lun-Dom) e input `type=time`. Frontend genera automaticamente `hours_text` come fallback umano (es. "Lun-Ven: 09:00-13:00 / 15:00-19:30") tramite `formatHoursText()` con grouping di giorni consecutivi identici. Backend serve sia `hours` (structured) sia `hours_text` (string).

@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import axios from 'axios';
 import { MapPin, Share2, Store as StoreIcon, Clock, X } from 'lucide-react';
 import PostsCarousel from '../components/PostsCarousel';
+import { computeOpenStatus } from '../components/HoursEditor';
 import './VendorLanding.css';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -66,6 +67,12 @@ const VendorLanding = () => {
   const [showIosBanner, setShowIosBanner] = useState(false);
   const [storeOpen, setStoreOpen] = useState(false);
   const [blockedReason, setBlockedReason] = useState('');
+  // Tick every minute so the "open now" badge stays accurate without a refresh.
+  const [, setNowTick] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setNowTick((n) => n + 1), 60 * 1000);
+    return () => clearInterval(t);
+  }, []);
 
   useEffect(() => {
     fetchVendor();
@@ -332,18 +339,39 @@ const VendorLanding = () => {
                 <MapPin className="h-6 w-6" />
               </a>
             )}
-            {vendor.store && vendor.store.name && (
-              <button
-                type="button"
-                onClick={() => { setStoreOpen(true); trackClick('store_info'); }}
-                className="map-btn"
-                aria-label="Info negozio"
-                title="Info negozio"
-                data-testid="vendor-store-button"
-              >
-                <StoreIcon className="h-6 w-6" />
-              </button>
-            )}
+            {vendor.store && vendor.store.name && (() => {
+              const status = vendor.store.hours ? computeOpenStatus(vendor.store.hours) : null;
+              const dotColor = status?.status === 'open' ? '#22c55e'
+                              : status?.status === 'closing_soon' ? '#f59e0b'
+                              : status?.status === 'opening_soon' ? '#f59e0b'
+                              : status?.status === 'closed' ? '#ef4444'
+                              : null;
+              return (
+                <button
+                  type="button"
+                  onClick={() => { setStoreOpen(true); trackClick('store_info'); }}
+                  className="map-btn"
+                  aria-label="Info negozio"
+                  title={status ? `${status.label} · ${status.detail}` : 'Info negozio'}
+                  data-testid="vendor-store-button"
+                  style={{ position: 'relative' }}
+                >
+                  <StoreIcon className="h-6 w-6" />
+                  {dotColor && (
+                    <span
+                      data-testid="vendor-store-status-dot"
+                      style={{
+                        position: 'absolute', top: 4, right: 4,
+                        width: 10, height: 10, borderRadius: '50%',
+                        background: dotColor,
+                        border: '2px solid #fff',
+                        boxShadow: status.status === 'open' ? `0 0 0 2px ${dotColor}55` : 'none',
+                      }}
+                    />
+                  )}
+                </button>
+              );
+            })()}
             <button
               type="button"
               onClick={handleShare}
@@ -446,7 +474,39 @@ const VendorLanding = () => {
         primaryColor={vendor.organization?.primary_color}
       />
 
-      {storeOpen && vendor.store && (
+      {storeOpen && vendor.store && (() => {
+        const hours = vendor.store.hours || null;
+        const status = hours ? computeOpenStatus(hours) : null;
+        const statusColor = status?.status === 'open' ? '#16a34a'
+                          : status?.status === 'closing_soon' ? '#f59e0b'
+                          : status?.status === 'opening_soon' ? '#f59e0b'
+                          : '#ef4444';
+        const statusBg = status?.status === 'open' ? '#dcfce7'
+                       : status?.status === 'closing_soon' ? '#fef3c7'
+                       : status?.status === 'opening_soon' ? '#fef3c7'
+                       : '#fee2e2';
+        // Render structured hours as a 7-row schedule, highlighting today's row.
+        const dayLabels = [
+          { key: 'mon', label: 'Lun', full: 'Lunedì' },
+          { key: 'tue', label: 'Mar', full: 'Martedì' },
+          { key: 'wed', label: 'Mer', full: 'Mercoledì' },
+          { key: 'thu', label: 'Gio', full: 'Giovedì' },
+          { key: 'fri', label: 'Ven', full: 'Venerdì' },
+          { key: 'sat', label: 'Sab', full: 'Sabato' },
+          { key: 'sun', label: 'Dom', full: 'Domenica' },
+        ];
+        const dayOrder = ['sun','mon','tue','wed','thu','fri','sat'];
+        const todayKey = dayOrder[new Date().getDay()];
+        const formatDay = (d) => {
+          if (!d) return '—';
+          if (d.closed) return 'Chiuso';
+          if (!d.open || !d.close) return '—';
+          if (d.break_start && d.break_end) {
+            return `${d.open}-${d.break_start} / ${d.break_end}-${d.close}`;
+          }
+          return `${d.open}-${d.close}`;
+        };
+        return (
         <div
           className="store-modal-backdrop"
           onClick={() => setStoreOpen(false)}
@@ -464,6 +524,7 @@ const VendorLanding = () => {
               width: '100%', maxWidth: 480, padding: '20px 20px 32px',
               boxShadow: '0 -8px 24px rgba(0,0,0,0.15)',
               animation: 'slideUp .25s ease-out',
+              maxHeight: '85vh', overflowY: 'auto',
             }}
           >
             <div style={{
@@ -472,7 +533,7 @@ const VendorLanding = () => {
             }} />
             <div style={{
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              marginBottom: 16,
+              marginBottom: 12,
             }}>
               <h3 style={{
                 margin: 0, fontSize: 18, fontWeight: 700,
@@ -488,8 +549,50 @@ const VendorLanding = () => {
               </button>
             </div>
 
-            {vendor.store.hours_text && (
-              <div style={{ marginBottom: 4, display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+            {status && (
+              <div data-testid="vendor-store-status" style={{
+                display: 'inline-flex', alignItems: 'center', gap: 8,
+                padding: '6px 12px', borderRadius: 999,
+                background: statusBg, color: statusColor,
+                fontSize: 12, fontWeight: 700, marginBottom: 14,
+              }}>
+                <span style={{
+                  width: 8, height: 8, borderRadius: '50%',
+                  background: statusColor,
+                  boxShadow: status.status === 'open' ? `0 0 0 3px ${statusColor}33` : 'none',
+                  animation: status.status === 'open' ? 'pulse 2s ease-in-out infinite' : 'none',
+                }} />
+                {status.label}
+                {status.detail && (
+                  <span style={{ fontWeight: 500, opacity: 0.85, marginLeft: 4 }}>· {status.detail}</span>
+                )}
+              </div>
+            )}
+
+            {hours ? (
+              <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }} data-testid="vendor-store-hours-table">
+                <Clock size={16} style={{ marginTop: 4, color: '#888', flexShrink: 0 }} />
+                <div style={{ flex: 1 }}>
+                  {dayLabels.map((d) => {
+                    const isToday = d.key === todayKey;
+                    return (
+                      <div key={d.key} style={{
+                        display: 'flex', justifyContent: 'space-between',
+                        padding: '6px 0',
+                        borderBottom: '1px solid #f0f0f0',
+                        fontSize: 13.5,
+                        fontWeight: isToday ? 700 : 400,
+                        color: isToday ? '#111' : '#444',
+                      }} data-testid={`vendor-hours-row-${d.key}`}>
+                        <span>{d.full}{isToday && <span style={{ color: statusColor, marginLeft: 6, fontSize: 11 }}>· oggi</span>}</span>
+                        <span style={{ fontVariantNumeric: 'tabular-nums' }}>{formatDay(hours[d.key])}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : vendor.store.hours_text ? (
+              <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
                 <Clock size={16} style={{ marginTop: 2, color: '#888', flexShrink: 0 }} />
                 <div style={{
                   fontSize: 14, color: '#222', lineHeight: 1.55, whiteSpace: 'pre-line',
@@ -497,10 +600,15 @@ const VendorLanding = () => {
                   {vendor.store.hours_text}
                 </div>
               </div>
+            ) : (
+              <div style={{ fontSize: 13, color: '#888', textAlign: 'center', padding: '12px 0' }}>
+                Orari non disponibili
+              </div>
             )}
           </div>
         </div>
-      )}
+        );
+      })()}
     </div>
   );
 };

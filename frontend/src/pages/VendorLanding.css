@@ -5,6 +5,7 @@
 @keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
 #install-banner{position:fixed;top:0;left:0;right:0;background:linear-gradient(135deg,#F96815 0%,#4A2D8C 100%);z-index:9999;padding:16px;box-shadow:0 4px 12px rgba(0,0,0,.15);animation:slideDown .4s ease-out}
 @keyframes slideDown{from{transform:translateY(-100%);opacity:0}to{transform:translateY(0);opacity:1}}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 currentColor}50%{box-shadow:0 0 0 6px transparent}}
 .banner-inner{max-width:480px;margin:0 auto;display:flex;align-items:center;gap:12px}
 .banner-icon{width:40px;height:40px;background:rgba(255,255,255,.2);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .banner-icon svg{width:24px;height:24px}

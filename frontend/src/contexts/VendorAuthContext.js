@@ -16,8 +16,17 @@ export const VendorAuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Skip the vendor-auth probe on truly public pages (marketing landing,
+    // legal pages, vendor-facing landings). Everywhere else — including
+    // /vendor-login — we still probe so a vendor that already has a valid
+    // session gets auto-redirected to the dashboard instead of seeing the
+    // login form again.
     const path = window.location.pathname;
-    if (path === '/login' || path === '/vendor-login' || path.startsWith('/v/')) {
+    const isStrictlyPublic = (
+      path === '/' || path === '/terms' || path === '/privacy' || path === '/license'
+      || path.startsWith('/v/')
+    );
+    if (isStrictlyPublic) {
       setVendor(false);
       setLoading(false);
       return;

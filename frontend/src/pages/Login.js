@@ -1,18 +1,55 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
+import { Sparkles } from 'lucide-react';
 import LoginLegalFooter from '@/components/LoginLegalFooter';
+
+// Mailto helper for the "Richiedi accesso" badge — pre-fills subject + body so
+// prospects don't have to think about what to write.
+const REQUEST_MAIL = 'richiedi@qrhub.it';
+const REQUEST_SUBJECT = 'Richiesta accesso piattaforma QRHub';
+const REQUEST_BODY = `Salve,
+
+sono interessato all'utilizzo della piattaforma QRHub per la mia organizzazione.
+
+Potete fornirmi qualche informazione su:
+- come funziona la piattaforma e cosa offre
+- modalità di onboarding e configurazione del dominio
+- costi e modalità di collaborazione
+
+I miei riferimenti:
+- Nome / Ragione sociale:
+- Settore / Attività:
+- Numero approssimativo di venditori da gestire:
+- Sito web / Riferimenti:
+
+Resto in attesa di un riscontro, grazie!`;
+
+const buildRequestMailto = () => {
+  const subject = encodeURIComponent(REQUEST_SUBJECT);
+  const body = encodeURIComponent(REQUEST_BODY);
+  return `mailto:${REQUEST_MAIL}?subject=${subject}&body=${body}`;
+};
 
 const Login = () => {
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { login, user, loading: authLoading } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // Auto-redirect: if the user is already authenticated (cookie still valid)
+  // there's no point in re-asking for the password. Bounces straight to the
+  // dashboard so navigating Home → back to /login feels seamless.
+  useEffect(() => {
+    if (!authLoading && user && user.email) {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [authLoading, user, navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -94,6 +131,36 @@ const Login = () => {
             </Button>
           </form>
         </div>
+
+        {/* Onboarding CTA — prospects without credentials can request access
+            with a single tap. The mailto pre-fills subject + body so they
+            don't have to think about wording. */}
+        <a
+          href={buildRequestMailto()}
+          className="mt-5 group relative block rounded-2xl border border-[#D2FA46]/30 bg-[#D2FA46]/[0.06] hover:bg-[#D2FA46]/[0.12] dark:bg-[#D2FA46]/[0.04] dark:hover:bg-[#D2FA46]/[0.08] transition-all p-4 text-center overflow-hidden"
+          data-testid="login-request-access-cta"
+        >
+          <span
+            aria-hidden="true"
+            className="absolute -inset-px rounded-2xl pointer-events-none opacity-60 group-hover:opacity-100 transition-opacity"
+            style={{
+              background: 'radial-gradient(circle at 30% 0%, rgba(210,250,70,0.25), transparent 60%)',
+            }}
+          />
+          <div className="relative flex items-center justify-center gap-2 mb-1">
+            <Sparkles className="h-4 w-4 text-[#a8c930] dark:text-[#D2FA46]" />
+            <span className="text-[11px] font-bold uppercase tracking-widest text-[#a8c930] dark:text-[#D2FA46]">
+              Nuovo qui?
+            </span>
+          </div>
+          <p className="relative text-sm font-semibold text-gray-900 dark:text-white">
+            Richiedi l'accesso alla piattaforma
+          </p>
+          <p className="relative text-[12px] text-gray-600 dark:text-[#8a8a92] mt-0.5">
+            Ti rispondiamo entro 24 ore · richiedi@qrhub.it
+          </p>
+        </a>
+
         <LoginLegalFooter />
       </div>
     </div>

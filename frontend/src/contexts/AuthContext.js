@@ -15,15 +15,27 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // Decide whether the current pathname is a "fully public" page where we want
+  // to skip the auth probe entirely (avoids a 401 in the console for plain
+  // visitors that have never logged in). Login pages and vendor landings are
+  // public BUT we still want to know whether the user is logged in there:
+  //   - on /login we redirect already-authenticated admins to /dashboard
+  //   - on landings we keep navigation breadcrumbs working
+  // so we ALWAYS run checkAuth except on legal/marketing pages where it would
+  // be pure noise.
+  const path = typeof window !== 'undefined' ? window.location.pathname : '/';
+  const isStrictlyPublic = (
+    path === '/' || path === '/terms' || path === '/privacy' || path === '/license'
+  );
+
   useEffect(() => {
-    // Skip auth check on public routes to avoid noisy 401s
-    const path = window.location.pathname;
-    if (path === '/login' || path === '/vendor-login' || path.startsWith('/v/')) {
+    if (isStrictlyPublic) {
       setUser(false);
       setLoading(false);
       return;
     }
     checkAuth();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const checkAuth = async () => {

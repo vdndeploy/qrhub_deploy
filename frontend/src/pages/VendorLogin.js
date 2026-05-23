@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useVendorAuth } from '@/contexts/VendorAuthContext';
 import { Button } from '@/components/ui/button';
@@ -10,10 +10,17 @@ import LoginLegalFooter from '@/components/LoginLegalFooter';
 
 const VendorLogin = () => {
   const navigate = useNavigate();
-  const { login } = useVendorAuth();
+  const { login, vendor, loading: authLoading } = useVendorAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // Skip the login form if the vendor already holds a valid session cookie.
+  useEffect(() => {
+    if (!authLoading && vendor && vendor.email) {
+      navigate('/vendor-dashboard', { replace: true });
+    }
+  }, [authLoading, vendor, navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();

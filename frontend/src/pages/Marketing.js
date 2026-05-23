@@ -1,16 +1,22 @@
 import { Link } from 'react-router-dom';
 import {
   QrCode, Sparkles, Globe2, Shield, BarChart3,
-  Users, Smartphone, Layers, ArrowRight, Github,
+  Users, Smartphone, Layers, ArrowRight, Zap, Star,
 } from 'lucide-react';
 
 /**
  * Marketing landing for the platform root URL (qrhub.it).
  * Only rendered on the configured primary domain — see App.js routing logic.
  *
- * Tenant landings live elsewhere (`/v/:vendorId`), and DomainGuard ensures
- * that custom tenant domains redirect to the right place when a visitor
- * lands at "/" on a non-platform host.
+ * Tenant landings live elsewhere (`/v/:vendorId`) on each org's canonical
+ * domain. The DomainGuard makes sure visitors that hit the wrong host get
+ * routed to the right place.
+ *
+ * Palette: dark + lime neon (replaces the legacy orange).
+ *  - bg              #0a0a0b
+ *  - surface         #131316 / #1a1a1c
+ *  - lime accent     #D2FA46
+ *  - text muted      #8a8a92
  */
 const Marketing = () => {
   return (
@@ -19,140 +25,319 @@ const Marketing = () => {
         .marketing-root {
           font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
           background: #0a0a0b;
-          color: #fff;
+          color: #e6e6ea;
           min-height: 100vh;
           line-height: 1.5;
+          position: relative;
+          overflow-x: hidden;
         }
-        .marketing-root .grain::before {
+        /* Subtle dotted grid background — soft, never noisy */
+        .marketing-root::before {
           content: '';
           position: fixed; inset: 0; z-index: 0; pointer-events: none;
-          background-image: radial-gradient(rgba(255,255,255,.04) 1px, transparent 1px);
-          background-size: 3px 3px;
+          background-image:
+            linear-gradient(rgba(255,255,255,.025) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255,255,255,.025) 1px, transparent 1px);
+          background-size: 64px 64px;
+          mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 30%, transparent 70%);
+          -webkit-mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 30%, transparent 70%);
         }
-        .marketing-root .marketing-nav {
-          position: sticky; top: 0; z-index: 50;
-          backdrop-filter: blur(12px); background: rgba(10,10,11,.7);
-          border-bottom: 1px solid rgba(255,255,255,.06);
-          padding: 14px 24px; display: flex; align-items: center; justify-content: space-between;
+        /* Halo glow behind the hero */
+        .marketing-root::after {
+          content: '';
+          position: absolute; top: -200px; left: 50%;
+          width: 900px; height: 700px;
+          transform: translateX(-50%);
+          background: radial-gradient(circle at 50% 30%, rgba(210,250,70,.10), transparent 60%);
+          z-index: 0; pointer-events: none;
         }
-        .marketing-root .brand-pill {
+        .marketing-root > * { position: relative; z-index: 1; }
+
+        /* Nav pill */
+        .marketing-root .m-nav-wrap {
+          position: sticky; top: 16px; z-index: 50;
+          display: flex; justify-content: center;
+          padding: 16px 16px 0;
+        }
+        .marketing-root .m-nav {
+          display: flex; align-items: center; gap: 32px;
+          padding: 10px 10px 10px 22px;
+          background: rgba(17,17,20,.85);
+          backdrop-filter: blur(14px);
+          border: 1px solid rgba(255,255,255,.08);
+          border-radius: 999px;
+          box-shadow: 0 8px 32px rgba(0,0,0,.4);
+          max-width: 100%;
+        }
+        .marketing-root .m-brand {
           display: inline-flex; align-items: center; gap: 8px;
-          font-weight: 800; font-size: 18px; letter-spacing: -.02em;
+          color: #fff; font-weight: 700; font-size: 17px; letter-spacing: -.01em;
+          text-decoration: none;
         }
-        .marketing-root .brand-dot { width: 26px; height: 26px; border-radius: 8px; background: #F96815; display: inline-flex; align-items: center; justify-content: center; }
-        .marketing-root .nav-actions { display: flex; gap: 8px; }
-        .marketing-root .btn {
-          display: inline-flex; align-items: center; gap: 6px;
-          padding: 9px 16px; border-radius: 999px; font-size: 13px; font-weight: 600;
-          text-decoration: none; transition: transform .15s, background .15s, color .15s;
-          cursor: pointer; border: 0;
+        .marketing-root .m-brand-icon {
+          width: 24px; height: 24px; display: inline-flex;
+          align-items: center; justify-content: center;
+          color: #D2FA46;
         }
-        .marketing-root .btn-primary { background: #F96815; color: #fff; }
-        .marketing-root .btn-primary:hover { transform: translateY(-1px); background: #ff7a2e; }
-        .marketing-root .btn-secondary { background: #4A2D8C; color: #fff; }
-        .marketing-root .btn-secondary:hover { transform: translateY(-1px); background: #5d3aab; }
-        .marketing-root .btn-ghost { background: rgba(255,255,255,.06); color: #eee; border: 1px solid rgba(255,255,255,.1); }
-        .marketing-root .btn-ghost:hover { background: rgba(255,255,255,.12); }
-        .marketing-root .hero {
-          padding: 80px 24px 100px; max-width: 1100px; margin: 0 auto;
+        .marketing-root .m-nav-links {
+          display: flex; gap: 28px; font-size: 14px; color: #a8a8b0;
+        }
+        .marketing-root .m-nav-links a {
+          color: inherit; text-decoration: none; transition: color .15s;
+        }
+        .marketing-root .m-nav-links a:hover { color: #fff; }
+        @media (max-width: 760px) {
+          .marketing-root .m-nav-links { display: none; }
+          .marketing-root .m-nav { gap: 12px; }
+        }
+
+        /* Buttons */
+        .marketing-root .m-btn {
+          display: inline-flex; align-items: center; gap: 8px;
+          padding: 11px 20px; border-radius: 999px; font-size: 14px; font-weight: 600;
+          text-decoration: none; border: 0; cursor: pointer;
+          transition: transform .15s, background .15s, box-shadow .15s;
+        }
+        .marketing-root .m-btn-primary {
+          background: #D2FA46; color: #0a0a0b;
+          box-shadow: 0 0 0 1px rgba(210,250,70,.4), 0 6px 24px rgba(210,250,70,.2);
+        }
+        .marketing-root .m-btn-primary:hover {
+          background: #dcff5e; transform: translateY(-1px);
+          box-shadow: 0 0 0 1px rgba(210,250,70,.5), 0 10px 32px rgba(210,250,70,.32);
+        }
+        .marketing-root .m-btn-ghost {
+          background: rgba(255,255,255,.04); color: #e6e6ea;
+          border: 1px solid rgba(255,255,255,.1);
+        }
+        .marketing-root .m-btn-ghost:hover { background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.16); }
+
+        /* Hero */
+        .marketing-root .m-hero {
+          padding: 80px 24px 100px;
+          max-width: 980px; margin: 0 auto;
+          text-align: center;
           position: relative; z-index: 1;
           background: transparent;
-          text-align: left;
         }
-        .marketing-root .hero::before { content: none; }
-        .marketing-root .eyebrow { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 999px; font-size: 12px; background: rgba(249,104,21,.15); color: #ffae7e; border: 1px solid rgba(249,104,21,.3); font-weight: 600; }
-        .marketing-root h1.headline { font-size: clamp(38px, 6vw, 64px); line-height: 1.05; letter-spacing: -.03em; margin: 18px 0 18px; font-weight: 800; color: #fff; }
-        .marketing-root h1.headline em { color: #F96815; font-style: normal; }
-        .marketing-root .lede { font-size: 17px; color: #b8b8be; max-width: 600px; margin-bottom: 32px; }
-        .marketing-root .hero-ctas { display: flex; gap: 12px; flex-wrap: wrap; }
-        .marketing-root .hero-mock {
-          margin-top: 60px; max-width: 720px; height: 320px;
-          background: linear-gradient(135deg, #1a1a1f 0%, #2a1a10 100%);
-          border-radius: 18px; padding: 32px; box-shadow: 0 30px 60px rgba(249,104,21,.18), inset 0 1px 0 rgba(255,255,255,.06);
-          display: flex; align-items: center; justify-content: center; gap: 40px;
+        .marketing-root .m-hero::before { content: none; }
+        .marketing-root .m-eyebrow {
+          display: inline-flex; align-items: center; gap: 6px;
+          padding: 6px 14px; border-radius: 999px; font-size: 13px;
+          background: rgba(210,250,70,.08); color: #D2FA46;
+          border: 1px solid rgba(210,250,70,.25);
+          font-weight: 600;
+          margin-bottom: 24px;
         }
-        .marketing-root .qr-block {
-          width: 200px; height: 200px; background: #fff; border-radius: 12px;
-          display: flex; align-items: center; justify-content: center; color: #0a0a0b;
+        .marketing-root h1.m-headline {
+          font-size: clamp(40px, 6.5vw, 68px); line-height: 1.05;
+          letter-spacing: -.035em;
+          margin: 0 0 22px;
+          font-weight: 800;
+          color: #fff;
         }
-        .marketing-root .qr-block svg { width: 70%; height: 70%; }
-        .marketing-root .mock-info { color: #ddd; font-size: 14px; }
-        .marketing-root .mock-info .l { font-size: 11px; color: #999; text-transform: uppercase; letter-spacing: .12em; }
-        .marketing-root .mock-info .name { font-size: 22px; font-weight: 700; margin: 6px 0 14px; }
-        .marketing-root .pill { display: inline-block; background: rgba(255,255,255,.08); padding: 4px 10px; border-radius: 999px; font-size: 11px; margin-right: 4px; }
-        .marketing-root section.features { padding: 80px 24px; max-width: 1100px; margin: 0 auto; }
-        .marketing-root section.features h2 { font-size: clamp(28px, 4vw, 42px); letter-spacing: -.02em; font-weight: 800; margin-bottom: 14px; }
-        .marketing-root section.features .sub { color: #999; margin-bottom: 48px; max-width: 520px; }
-        .marketing-root .grid { display: grid; gap: 18px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
-        .marketing-root .card { padding: 24px; border-radius: 14px; background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.06); transition: border .2s, transform .2s; }
-        .marketing-root .card:hover { border-color: rgba(249,104,21,.3); transform: translateY(-2px); }
-        .marketing-root .card .ic { width: 36px; height: 36px; border-radius: 10px; background: rgba(249,104,21,.15); color: #F96815; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 12px; }
-        .marketing-root .card h3 { font-size: 16px; font-weight: 700; margin: 0 0 6px; color: #fff; }
-        .marketing-root .card p { font-size: 13px; color: #aaa; margin: 0; line-height: 1.5; }
-        .marketing-root section.access {
-          padding: 80px 24px; max-width: 1100px; margin: 0 auto;
-          display: grid; grid-template-columns: 1fr 1fr; gap: 24px;
+        .marketing-root h1.m-headline .muted {
+          color: #5a5a62; font-weight: 800;
+        }
+        .marketing-root .m-lede {
+          font-size: 17px; color: #8a8a92;
+          max-width: 580px; margin: 0 auto 40px;
+          line-height: 1.6;
+        }
+        .marketing-root .m-cta-wrap {
+          display: flex; flex-direction: column; align-items: center; gap: 10px;
+        }
+        .marketing-root .m-cta-note {
+          font-size: 13px; color: #6a6a72;
+        }
+        .marketing-root .m-rating {
+          margin-top: 28px;
+          display: inline-flex; align-items: center; gap: 10px;
+          color: #8a8a92; font-size: 13px;
+        }
+        .marketing-root .m-stars {
+          display: inline-flex; gap: 2px; color: #D2FA46;
+        }
+
+        /* QR mock card */
+        .marketing-root .m-mock {
+          margin: 60px auto 0;
+          max-width: 720px;
+          background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.01));
+          border: 1px solid rgba(255,255,255,.08);
+          border-radius: 22px;
+          padding: 36px;
+          display: flex; align-items: center; gap: 36px;
+          box-shadow: 0 40px 80px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.04);
+        }
+        .marketing-root .m-mock-qr {
+          width: 180px; height: 180px; flex-shrink: 0;
+          background: #fff; border-radius: 14px;
+          display: flex; align-items: center; justify-content: center;
+          color: #0a0a0b;
+          box-shadow: 0 12px 32px rgba(210,250,70,.15);
+        }
+        .marketing-root .m-mock-qr svg { width: 75%; height: 75%; }
+        .marketing-root .m-mock-info { text-align: left; min-width: 0; }
+        .marketing-root .m-mock-info .lbl {
+          font-size: 11px; color: #8a8a92; text-transform: uppercase;
+          letter-spacing: .14em; font-weight: 600; margin-bottom: 8px;
+        }
+        .marketing-root .m-mock-info .nm {
+          font-size: 22px; color: #fff; font-weight: 700; margin-bottom: 14px;
+          letter-spacing: -.01em;
+        }
+        .marketing-root .m-mock-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+        .marketing-root .m-tag {
+          padding: 4px 10px; border-radius: 999px; font-size: 12px;
+          background: rgba(210,250,70,.1); color: #D2FA46;
+          border: 1px solid rgba(210,250,70,.2);
         }
         @media (max-width: 700px) {
-          .marketing-root section.access { grid-template-columns: 1fr; }
-          .marketing-root .hero-mock { flex-direction: column; height: auto; padding: 24px; }
+          .marketing-root .m-mock { flex-direction: column; text-align: center; padding: 28px; gap: 24px; }
+          .marketing-root .m-mock-info { text-align: center; }
+          .marketing-root .m-mock-tags { justify-content: center; }
         }
-        .marketing-root .access-card {
-          padding: 32px; border-radius: 18px;
-          background: linear-gradient(180deg, rgba(249,104,21,.12), rgba(249,104,21,.02));
-          border: 1px solid rgba(249,104,21,.25);
-          display: flex; flex-direction: column; gap: 12px;
-          min-height: 220px;
+
+        /* Features section */
+        .marketing-root .m-features {
+          padding: 100px 24px 60px; max-width: 1100px; margin: 0 auto;
+          text-align: center;
         }
-        .marketing-root .access-card.vendor {
-          background: linear-gradient(180deg, rgba(74,45,140,.18), rgba(74,45,140,.02));
-          border-color: rgba(74,45,140,.35);
+        .marketing-root .m-section-eyebrow {
+          display: inline-flex; padding: 6px 14px; border-radius: 999px;
+          background: rgba(210,250,70,.08); color: #D2FA46;
+          border: 1px solid rgba(210,250,70,.22);
+          font-size: 13px; font-weight: 600; margin-bottom: 18px;
         }
-        .marketing-root .access-card h3 { font-size: 22px; font-weight: 800; letter-spacing: -.02em; margin: 0 0 4px; color: #fff; }
-        .marketing-root .access-card p { font-size: 14px; color: #b8b8be; margin: 0 0 auto; }
-        .marketing-root footer { padding: 32px 24px 60px; color: #777; font-size: 13px; max-width: 1100px; margin: 0 auto; border-top: 1px solid rgba(255,255,255,.06); display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+        .marketing-root .m-features h2 {
+          font-size: clamp(30px, 4.5vw, 46px);
+          letter-spacing: -.025em; font-weight: 800;
+          margin: 0 0 18px; color: #fff;
+        }
+        .marketing-root .m-features h2 .muted { color: #5a5a62; }
+        .marketing-root .m-features .m-sub {
+          color: #8a8a92; margin: 0 auto 56px; max-width: 520px; font-size: 16px;
+        }
+        .marketing-root .m-grid {
+          display: grid; gap: 20px;
+          grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        }
+        .marketing-root .m-card {
+          padding: 32px 28px; border-radius: 18px;
+          background: linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.005));
+          border: 1px solid rgba(255,255,255,.07);
+          text-align: left;
+          transition: border-color .2s, transform .2s;
+        }
+        .marketing-root .m-card:hover {
+          border-color: rgba(210,250,70,.25);
+          transform: translateY(-3px);
+        }
+        .marketing-root .m-card-icon {
+          width: 56px; height: 56px; border-radius: 14px;
+          background: radial-gradient(circle at 30% 30%, rgba(210,250,70,.2), rgba(210,250,70,.04));
+          color: #D2FA46;
+          display: inline-flex; align-items: center; justify-content: center;
+          margin-bottom: 20px;
+          border: 1px solid rgba(210,250,70,.15);
+        }
+        .marketing-root .m-card h3 { font-size: 18px; font-weight: 700; margin: 0 0 8px; color: #fff; letter-spacing: -.01em; }
+        .marketing-root .m-card p { font-size: 14px; color: #8a8a92; margin: 0; line-height: 1.6; }
+
+        /* Access cards */
+        .marketing-root .m-access {
+          padding: 60px 24px 100px; max-width: 1100px; margin: 0 auto;
+          display: grid; grid-template-columns: 1fr 1fr; gap: 20px;
+        }
+        @media (max-width: 760px) {
+          .marketing-root .m-access { grid-template-columns: 1fr; }
+        }
+        .marketing-root .m-access-card {
+          position: relative;
+          padding: 36px;
+          border-radius: 22px;
+          background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.01));
+          border: 1px solid rgba(255,255,255,.08);
+          display: flex; flex-direction: column; gap: 14px;
+          min-height: 240px;
+          overflow: hidden;
+        }
+        .marketing-root .m-access-card::before {
+          content: ''; position: absolute; top: -60px; right: -60px;
+          width: 200px; height: 200px;
+          background: radial-gradient(circle, rgba(210,250,70,.15), transparent 60%);
+          pointer-events: none;
+        }
+        .marketing-root .m-access-card h3 {
+          font-size: 24px; font-weight: 800; letter-spacing: -.02em;
+          margin: 0 0 6px; color: #fff;
+        }
+        .marketing-root .m-access-card p {
+          font-size: 14.5px; color: #a8a8b0; margin: 0 0 auto;
+          line-height: 1.6;
+        }
+
+        /* Footer */
+        .marketing-root .m-footer {
+          padding: 32px 24px 60px; color: #6a6a72; font-size: 13px;
+          max-width: 1100px; margin: 0 auto;
+          border-top: 1px solid rgba(255,255,255,.06);
+          display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px;
+        }
+        .marketing-root .m-footer a { color: inherit; text-decoration: none; transition: color .15s; }
+        .marketing-root .m-footer a:hover { color: #D2FA46; }
       `}</style>
-      <div className="grain" />
-      <nav className="marketing-nav">
-        <span className="brand-pill">
-          <span className="brand-dot"><QrCode size={16} color="#fff" /></span>
-          QRHub
-        </span>
-        <div className="nav-actions">
-          <Link to="/login" className="btn btn-primary" data-testid="nav-org-login">
-            <Users size={14} /> Organizzazioni
-          </Link>
-          <Link to="/vendor-login" className="btn btn-secondary" data-testid="nav-vendor-login">
-            Venditori <ArrowRight size={14} />
-          </Link>
-        </div>
-      </nav>
 
-      <section className="hero">
-        <span className="eyebrow"><Sparkles size={12} /> Piattaforma multi-tenant per landing QR</span>
-        <h1 className="headline">
-          Un solo QR code,<br />
-          una landing <em>brandizzata</em><br />
-          per ogni venditore.
+      <div className="m-nav-wrap">
+        <nav className="m-nav">
+          <Link to="/" className="m-brand">
+            <span className="m-brand-icon"><Zap size={20} strokeWidth={2.4} fill="#D2FA46" /></span>
+            QRHub
+          </Link>
+          <div className="m-nav-links">
+            <a href="#features">Funzionalità</a>
+            <a href="#access">Accesso</a>
+            <a href="https://github.com" target="_blank" rel="noreferrer">GitHub</a>
+          </div>
+          <Link to="/login" className="m-btn m-btn-primary" data-testid="nav-org-login">
+            Inizia ora <ArrowRight size={14} />
+          </Link>
+        </nav>
+      </div>
+
+      <section className="m-hero">
+        <span className="m-eyebrow"><Sparkles size={13} /> Piattaforma multi-tenant open-source</span>
+        <h1 className="m-headline">
+          Trasforma ogni QR <span className="muted">in una landing</span> brandizzata.
         </h1>
-        <p className="lede">
-          QRHub trasforma il QR sul biglietto da visita in una pagina di contatto
-          mobile-first con WhatsApp, recensioni Google, social e annunci dinamici —
-          tutto sotto il dominio della tua organizzazione.
+        <p className="m-lede">
+          QRHub porta WhatsApp, recensioni Google, social e annunci dinamici sotto
+          il dominio della tua organizzazione — un QR per ogni venditore, branding
+          per ogni cliente, analytics privacy-first.
         </p>
-        <div className="hero-ctas">
-          <Link to="/login" className="btn btn-primary" data-testid="hero-org-cta">
-            <Users size={14} /> Accedi come Organizzazione
+
+        <div className="m-cta-wrap">
+          <Link to="/login" className="m-btn m-btn-primary" data-testid="hero-org-cta">
+            Accedi al pannello <ArrowRight size={14} />
           </Link>
-          <Link to="/vendor-login" className="btn btn-secondary" data-testid="hero-vendor-cta">
-            <Smartphone size={14} /> Accedi come Venditore
-          </Link>
+          <span className="m-cta-note">Multi-tenant nativo · GDPR ready · Open source MIT</span>
         </div>
 
-        <div className="hero-mock" aria-hidden="true">
-          <div className="qr-block">
+        <div className="m-rating">
+          <span className="m-stars">
+            <Star size={14} fill="#D2FA46" strokeWidth={0} />
+            <Star size={14} fill="#D2FA46" strokeWidth={0} />
+            <Star size={14} fill="#D2FA46" strokeWidth={0} />
+            <Star size={14} fill="#D2FA46" strokeWidth={0} />
+            <Star size={14} fill="#D2FA46" strokeWidth={0} />
+          </span>
+          Costruito per agenzie multi-negozio
+        </div>
+
+        <div className="m-mock" aria-hidden="true">
+          <div className="m-mock-qr">
             <svg viewBox="0 0 100 100" fill="currentColor">
-              {/* simplified QR pattern */}
               <rect x="0" y="0" width="30" height="30" />
               <rect x="6" y="6" width="18" height="18" fill="#fff" />
               <rect x="12" y="12" width="6" height="6" />
@@ -172,31 +357,37 @@ const Marketing = () => {
               <rect x="60" y="80" width="6" height="6" />
             </svg>
           </div>
-          <div className="mock-info">
-            <div className="l">Landing del venditore</div>
-            <div className="name">Marco · La tua agenzia</div>
-            <span className="pill">WhatsApp</span>
-            <span className="pill">Recensioni</span>
-            <span className="pill">Social</span>
-            <span className="pill">Mappa</span>
+          <div className="m-mock-info">
+            <div className="lbl">Landing del venditore</div>
+            <div className="nm">Marco · La tua agenzia</div>
+            <div className="m-mock-tags">
+              <span className="m-tag">WhatsApp</span>
+              <span className="m-tag">Recensioni</span>
+              <span className="m-tag">Social</span>
+              <span className="m-tag">Mappa</span>
+              <span className="m-tag">Annunci</span>
+            </div>
           </div>
         </div>
       </section>
 
-      <section className="features">
-        <h2>Costruita per agenzie multi-negozio.</h2>
-        <p className="sub">Ogni organizzazione gestisce i propri venditori, dominio personalizzato, branding e annunci — in totale isolamento dagli altri tenant.</p>
-        <div className="grid">
+      <section id="features" className="m-features">
+        <span className="m-section-eyebrow">Perché scegliere QRHub?</span>
+        <h2>Tutto quello che serve <span className="muted">per gestire</span> più clienti.</h2>
+        <p className="m-sub">
+          Ogni organizzazione gestisce i propri venditori, dominio personalizzato, branding e annunci — in totale isolamento dagli altri tenant.
+        </p>
+        <div className="m-grid">
           {[
-            { ic: <Globe2 size={18} />, t: 'Dominio personalizzato', d: 'Connetti app.tuaazienda.com per servire le landing sotto il tuo brand. SSL automatico via Vercel.' },
-            { ic: <Layers size={18} />, t: 'Annunci a carosello', d: 'Crea post promozionali con immagine, titolo e CTA WhatsApp. Stessi annunci, tutti i venditori del negozio.' },
-            { ic: <BarChart3 size={18} />, t: 'Analytics privacy-first', d: 'Visite, click WhatsApp, recensioni, dispositivo, città. Zero PII, IP anonimizzati, retention 365gg.' },
-            { ic: <Shield size={18} />, t: 'GDPR compliant', d: 'DPA digitale, cookie banner per org, export dati, cancellazione account in 1 click.' },
-            { ic: <QrCode size={18} />, t: 'QR ad alta densità', d: 'Generazione PNG ad alta risoluzione (error correction H) — leggibile anche con stampa rovinata.' },
-            { ic: <Users size={18} />, t: 'Multi-tenant nativo', d: 'Ogni org vede solo i propri venditori, negozi, file Cloudinary e analytics.' },
+            { ic: <Globe2 size={22} />, t: 'Dominio personalizzato', d: 'Connetti app.tuaazienda.com per servire le landing sotto il tuo brand. SSL automatico via Vercel.' },
+            { ic: <Layers size={22} />, t: 'Annunci a carosello', d: 'Crea post promozionali con immagine, titolo e CTA WhatsApp. Stessi annunci, tutti i venditori del negozio.' },
+            { ic: <BarChart3 size={22} />, t: 'Analytics privacy-first', d: 'Visite, click WhatsApp, recensioni, dispositivo, città. Zero PII, IP anonimizzati, retention 365gg.' },
+            { ic: <Shield size={22} />, t: 'GDPR compliant', d: 'DPA digitale, cookie banner per org, export dati, cancellazione account in 1 click.' },
+            { ic: <QrCode size={22} />, t: 'QR ad alta densità', d: 'Generazione PNG ad alta risoluzione (error correction H) — leggibile anche con stampa rovinata.' },
+            { ic: <Users size={22} />, t: 'Multi-tenant nativo', d: 'Ogni org vede solo i propri venditori, negozi, file Cloudinary e analytics — isolamento per organization_id.' },
           ].map((f, i) => (
-            <div key={i} className="card">
-              <div className="ic">{f.ic}</div>
+            <div key={i} className="m-card">
+              <div className="m-card-icon">{f.ic}</div>
               <h3>{f.t}</h3>
               <p>{f.d}</p>
             </div>
@@ -204,29 +395,30 @@ const Marketing = () => {
         </div>
       </section>
 
-      <section className="access">
-        <div className="access-card">
+      <section id="access" className="m-access">
+        <div className="m-access-card">
           <h3>Sei un'organizzazione?</h3>
           <p>Gestisci negozi, venditori, dominio personalizzato e analytics da un'unica dashboard. Ogni venditore riceve un QR code univoco e una landing brandizzata.</p>
-          <Link to="/login" className="btn btn-primary" style={{ alignSelf: 'flex-start', marginTop: 12 }}
+          <Link to="/login" className="m-btn m-btn-primary" style={{ alignSelf: 'flex-start', marginTop: 16 }}
                  data-testid="access-org-cta">
             Accedi al pannello <ArrowRight size={14} />
           </Link>
         </div>
-        <div className="access-card vendor">
+        <div className="m-access-card">
           <h3>Sei un venditore?</h3>
           <p>Personalizza la tua bio, foto profilo, scarica il tuo QR code e monitora le visite e i click WhatsApp del tuo profilo pubblico.</p>
-          <Link to="/vendor-login" className="btn btn-secondary" style={{ alignSelf: 'flex-start', marginTop: 12 }}
+          <Link to="/vendor-login" className="m-btn m-btn-ghost" style={{ alignSelf: 'flex-start', marginTop: 16 }}
                  data-testid="access-vendor-cta">
-            Accedi al tuo profilo <ArrowRight size={14} />
+            <Smartphone size={14} /> Accedi al tuo profilo
           </Link>
         </div>
       </section>
 
-      <footer>
+      <footer className="m-footer">
         <span>© {new Date().getFullYear()} QRHub — Piattaforma multi-tenant per landing QR.</span>
-        <span style={{ display: 'inline-flex', gap: 12, alignItems: 'center' }}>
-          <a href="https://github.com" target="_blank" rel="noreferrer" style={{ color: '#999', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}><Github size={14} /> GitHub</a>
+        <span style={{ display: 'inline-flex', gap: 16 }}>
+          <a href="https://github.com" target="_blank" rel="noreferrer">GitHub</a>
+          <a href="/login">Accesso</a>
         </span>
       </footer>
     </div>

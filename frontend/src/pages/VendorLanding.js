@@ -198,8 +198,8 @@ const VendorLanding = () => {
     return (
       <div data-testid="vendor-landing-blocked" style={{
         minHeight: '100vh',
-        background: 'radial-gradient(circle at 20% 0%, rgba(249,104,21,0.12), transparent 50%), radial-gradient(circle at 80% 100%, rgba(74,45,140,0.1), transparent 55%), #0a0a0b',
-        color: '#fff',
+        background: 'radial-gradient(ellipse 60% 50% at 50% 0%, rgba(210,250,70,0.10), transparent 70%), #0a0a0b',
+        color: '#e6e6ea',
         fontFamily: 'Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         padding: '40px 24px',
@@ -208,11 +208,12 @@ const VendorLanding = () => {
           <div style={{
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
             width: 64, height: 64, borderRadius: 18,
-            background: 'linear-gradient(135deg, #F96815, #ff8a3c)',
-            boxShadow: '0 10px 30px rgba(249,104,21,0.35)',
+            background: 'radial-gradient(circle at 30% 30%, rgba(210,250,70,0.25), rgba(210,250,70,0.05))',
+            border: '1px solid rgba(210,250,70,0.25)',
+            color: '#D2FA46',
             marginBottom: 24,
           }}>
-            <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+            <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
               <rect x="3" y="3" width="7" height="7" rx="1.2"/>
               <rect x="14" y="3" width="7" height="7" rx="1.2"/>
               <rect x="3" y="14" width="7" height="7" rx="1.2"/>
@@ -223,31 +224,31 @@ const VendorLanding = () => {
           </div>
           <div style={{
             fontSize: 11, letterSpacing: '0.14em', textTransform: 'uppercase',
-            color: '#ffae7e', marginBottom: 10, fontWeight: 600,
+            color: '#D2FA46', marginBottom: 10, fontWeight: 600,
           }}>
             Pagina riservata
           </div>
           <h1 style={{
             fontSize: 28, fontWeight: 800, letterSpacing: '-0.02em',
-            margin: '0 0 14px', lineHeight: 1.15,
+            margin: '0 0 14px', lineHeight: 1.15, color: '#fff',
           }}>
             Landing non disponibile su questo dominio
           </h1>
           <p style={{
-            color: '#b8b8be', fontSize: 15, lineHeight: 1.6, margin: '0 0 32px',
+            color: '#8a8a92', fontSize: 15, lineHeight: 1.6, margin: '0 0 32px',
           }}>
             {blockedReason}
           </p>
           <a href="/" style={{
             display: 'inline-flex', alignItems: 'center', gap: 8,
             padding: '12px 22px', borderRadius: 999,
-            background: '#F96815', color: '#fff',
+            background: '#D2FA46', color: '#0a0a0b',
             textDecoration: 'none', fontWeight: 600, fontSize: 14,
-            boxShadow: '0 8px 20px rgba(249,104,21,0.35)',
+            boxShadow: '0 0 0 1px rgba(210,250,70,0.4), 0 8px 24px rgba(210,250,70,0.22)',
             transition: 'transform .15s, background .15s',
           }}
-          onMouseEnter={(e) => { e.currentTarget.style.background = '#ff7a2e'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = '#F96815'; e.currentTarget.style.transform = 'translateY(0)'; }}
+          onMouseEnter={(e) => { e.currentTarget.style.background = '#dcff5e'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = '#D2FA46'; e.currentTarget.style.transform = 'translateY(0)'; }}
           data-testid="vendor-blocked-cta">
             Scopri QRHub
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
@@ -258,7 +259,7 @@ const VendorLanding = () => {
           <div style={{
             marginTop: 40, paddingTop: 24,
             borderTop: '1px solid rgba(255,255,255,0.06)',
-            fontSize: 12, color: '#666',
+            fontSize: 12, color: '#6a6a72',
           }}>
             QRHub è una piattaforma multi-tenant.<br />
             Le landing dei venditori vengono pubblicate esclusivamente sui domini delle rispettive organizzazioni.

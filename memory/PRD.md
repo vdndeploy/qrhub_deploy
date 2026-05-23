@@ -36,6 +36,17 @@ Il progetto **QRHub** è una piattaforma multi-tenant open source (MIT) che perm
 - Open source MIT, no-profit
 
 
+### 2026-05-23 (notte) — Anteprima landing per admin
+
+- **Anteprima landing senza dominio custom** (`pages/VendorLanding.js` + `pages/Vendors.js`):
+  - Nuovo pulsante **Eye azzurro** in ogni riga della tabella Venditori (`data-testid="preview-landing-{id}"`) che apre `/v/{vendor_id}?preview=1` in nuova scheda.
+  - `VendorLanding` rileva `?preview=1` → chiama `/api/auth/me` → se l'utente è `super_admin` o `org_admin` della stessa org del vendor, bypassa il check `canonical_host` e renderizza la landing anche su `qrhub.it` / `qrhub-app.vercel.app` / qualunque altro host.
+  - Banner sticky lime in alto: "**ANTEPRIMA** · Stai vedendo questa landing come admin. I visitatori normali la vedono solo sul dominio dell'organizzazione." + bottone "← Torna al pannello".
+  - `document.title` prefissato con `[Anteprima]` per evitare confusione tra tab.
+  - Sicurezza: se l'utente non è autenticato come admin compatibile, fallback alla logica di blocco normale (nessuna esposizione delle landing fuori dal canonical host).
+  - Risolve il problema: admin che testa nuove landing prima che l'org abbia configurato il proprio dominio DNS.
+
+
 ### 2026-05-23 (notte) — Fix bug salva-orari + Open-now badge real-time
 
 - **Fix critico save orari** (`backend/server.py`): `create_store` e `update_store` mancavano dei campi `hours`, `hours_text`, `address`, `phone` nel `store_doc` → salvataggi senza effetto. Aggiunti tutti, con conversione `StoreHoursDay.model_dump()` → dict per Mongo. Test: PUT con structured hours su WINDTRE Castelnuovo del Garda → vendor risponde `hours.mon = {open:'09:00', close:'19:30', break_start:'13:00', break_end:'15:00'}`.

@@ -300,6 +300,15 @@ const Vendors = () => {
                       <Button
                         variant="outline"
                         size="sm"
+                        onClick={() => window.open(`${window.location.origin}/v/${vendor.id}?preview=1`, '_blank', 'noopener')}
+                        data-testid={`preview-landing-${vendor.id}`}
+                        title="Anteprima landing (bypass dominio personalizzato)"
+                      >
+                        <Eye className="h-4 w-4 text-sky-500" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
                         onClick={() => handlePreviewQR(vendor)}
                         data-testid={`preview-qr-${vendor.id}`}
                         title="Anteprima QR Code"

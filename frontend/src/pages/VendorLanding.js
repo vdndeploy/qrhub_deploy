@@ -67,6 +67,7 @@ const VendorLanding = () => {
   const [showIosBanner, setShowIosBanner] = useState(false);
   const [storeOpen, setStoreOpen] = useState(false);
   const [blockedReason, setBlockedReason] = useState('');
+  const [previewMode, setPreviewMode] = useState(false);
   // Tick every minute so the "open now" badge stays accurate without a refresh.
   const [, setNowTick] = useState(0);
   useEffect(() => {
@@ -84,6 +85,31 @@ const VendorLanding = () => {
   const fetchVendor = async () => {
     try {
       const { data } = await axios.get(`${API}/vendors/${vendorId}`);
+
+      // Admin preview mode: when the URL contains `?preview=1` we try to
+      // verify the visitor is an authenticated admin of the same org (or
+      // super_admin) and, if so, render the landing on the platform domain
+      // without any redirect. This lets the admin QA every vendor landing
+      // even before the org has wired up its custom domain.
+      const params = new URLSearchParams(window.location.search);
+      const wantsPreview = params.get('preview') === '1';
+      if (wantsPreview) {
+        try {
+          const me = await axios.get(`${API}/auth/me`, { withCredentials: true });
+          const meData = me.data || {};
+          const isSuper = meData.role === 'super_admin';
+          const sameOrg = meData.organization_id && data.organization_id
+            && meData.organization_id === data.organization_id;
+          if (isSuper || sameOrg) {
+            setPreviewMode(true);
+            setVendor(data);
+            const brand = data?.organization?.brand_name || data?.organization?.name || 'QRHub';
+            if (data?.name) document.title = `[Anteprima] ${data.name} · ${brand}`;
+            setLoading(false);
+            return;
+          }
+        } catch { /* not logged in — fall through to normal host enforcement */ }
+      }
 
       // Canonical-host enforcement: each vendor landing is published under the
       // org's own verified custom domain. Any other host (qrhub.it platform
@@ -122,9 +148,10 @@ const VendorLanding = () => {
 
       // No canonical_host configured for this vendor's org. We deliberately
       // refuse to serve the landing anywhere except local/preview to keep the
-      // platform separate from tenant content.
+      // platform separate from tenant content. We point the admin at the
+      // preview workflow so they can still see what their landing looks like.
       setBlockedReason(
-        "L'organizzazione non ha ancora configurato un dominio personalizzato per pubblicare le proprie landing."
+        "L'organizzazione non ha ancora configurato un dominio personalizzato per pubblicare le proprie landing. Gli admin possono visualizzare un'anteprima dalla sezione Venditori del pannello."
       );
       setLoading(false);
     } catch (e) {
@@ -279,6 +306,46 @@ const VendorLanding = () => {
 
   return (
     <div className="vendor-landing">
+      {previewMode && (
+        <div
+          data-testid="vendor-preview-banner"
+          style={{
+            position: 'sticky', top: 0, zIndex: 10000,
+            background: 'linear-gradient(90deg, #D2FA46, #bce63d)',
+            color: '#0a0a0b',
+            padding: '10px 16px',
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            gap: 12, flexWrap: 'wrap',
+            fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
+            boxShadow: '0 2px 12px rgba(0,0,0,0.15)',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+            <span style={{
+              fontSize: 10, fontWeight: 800, letterSpacing: '0.12em',
+              background: '#0a0a0b', color: '#D2FA46',
+              padding: '3px 8px', borderRadius: 999,
+              textTransform: 'uppercase', flexShrink: 0,
+            }}>Anteprima</span>
+            <span style={{ fontSize: 13, fontWeight: 600 }}>
+              Stai vedendo questa landing come admin. I visitatori normali la vedono solo sul dominio dell'organizzazione.
+            </span>
+          </div>
+          <a
+            href="/dashboard/vendors"
+            style={{
+              fontSize: 12, fontWeight: 700,
+              color: '#0a0a0b', textDecoration: 'none',
+              background: 'rgba(0,0,0,0.12)',
+              padding: '6px 12px', borderRadius: 999,
+              flexShrink: 0,
+            }}
+            data-testid="vendor-preview-back"
+          >
+            ← Torna al pannello
+          </a>
+        </div>
+      )}
       {showAndroidBanner && (
         <div id="install-banner">
           <div className="banner-inner">

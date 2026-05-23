@@ -109,32 +109,34 @@ async def upload_file(file: UploadFile = File(...), folder: str = Form('uploads'
 @router.get('/files')
 async def list_files(skip: int = 0, limit: int = 24, folder: Optional[str] = None,
                      orphans_only: bool = False, user: dict = Depends(get_current_user)):
-    """List uploaded files (admin file manager). Marks orphans = files not referenced by any post."""
+    """List uploaded files (admin file manager). Marks orphans = files not referenced by any post,
+    by a vendor profile image, or by an organization logo. The `folder` filter matches the
+    short `kind` (uploads|posts) — the stored `folder` value is composite (org_<id>/<kind>)."""
     q = _tenant_filter(user)
-    if folder:
+    if folder in ('uploads', 'posts'):
+        q['kind'] = folder
+    elif folder:
         q['folder'] = folder
-    
+
     total = await db.files.count_documents(q)
     files = await db.files.find(q, {'_id': 0}).sort('created_at', -1).skip(skip).limit(limit).to_list(limit)
-    
-    # Determine in-use public_ids from posts
-    in_use_set = set()
-    async for p in db.posts.find({}, {'_id': 0, 'media_public_id': 1}):
-        if p.get('media_public_id'):
-            in_use_set.add(p['media_public_id'])
-    # Also include legacy store post media
-    async for s in db.stores.find({'post_media_url': {'$ne': ''}}, {'_id': 0, 'post_media_url': 1, 'post_media_public_id': 1}):
-        if s.get('post_media_public_id'):
-            in_use_set.add(s['post_media_public_id'])
-    
+
+    # Determine in-use public_ids + urls. We MUST mirror /api/media's logic here:
+    # vendor profile photos and org logos are tracked by URL (not public_id), so a
+    # file that's referenced as a vendor picture or as the org logo must be marked
+    # in_use to avoid accidental deletion from the orphan list.
+    in_use_pid, in_use_url = await _compute_in_use_sets()
+
     enriched = []
     for f in files:
-        f['in_use'] = f.get('public_id', '') in in_use_set
+        pid = f.get('public_id', '')
+        url = f.get('url', '')
+        f['in_use'] = (pid in in_use_pid) or (url in in_use_url)
         enriched.append(f)
-    
+
     if orphans_only:
         enriched = [f for f in enriched if not f['in_use']]
-    
+
     return {'files': enriched, 'total': total, 'skip': skip, 'limit': limit}
 
 
@@ -143,7 +145,16 @@ async def delete_file(public_id: str, user: dict = Depends(get_current_user)):
     f = await db.files.find_one(_tenant_filter(user, {'public_id': public_id}), {'_id': 0})
     if not f:
         raise HTTPException(status_code=404, detail='File non trovato')
-    
+
+    # Refuse to delete a file that's currently the profile picture of a vendor
+    # or the logo of an org — that would visually break landing pages.
+    _, in_use_url = await _compute_in_use_sets()
+    if f.get('url') and f['url'] in in_use_url:
+        raise HTTPException(
+            status_code=409,
+            detail='File in uso come foto profilo o logo organizzazione. Rimuovi prima il riferimento.'
+        )
+
     if CLOUDINARY_ENABLED:
         try:
             cloudinary.uploader.destroy(public_id, resource_type=f.get('resource_type', 'image'), invalidate=True)
@@ -155,7 +166,7 @@ async def delete_file(public_id: str, user: dict = Depends(get_current_user)):
             (UPLOAD_DIR / public_id).unlink(missing_ok=True)
         except Exception:
             pass
-    
+
     await db.files.delete_one({'public_id': public_id})
     # Detach from any posts that referenced this
     await db.posts.update_many(
@@ -171,6 +182,11 @@ class BulkDeleteRequest(BaseModel):
 
 @router.post('/files/bulk-delete')
 async def bulk_delete_files(req: BulkDeleteRequest, user: dict = Depends(get_current_user)):
+    """Bulk delete files. Refuses to delete files that are currently used as a
+    vendor profile picture or an organization logo — those would visually break
+    landing pages. The frontend orphan filter already hides them, this is a
+    server-side safety net."""
+    in_use_pid, in_use_url = await _compute_in_use_sets()
     deleted = 0
     failed = []
     for pid in req.public_ids:
@@ -178,6 +194,13 @@ async def bulk_delete_files(req: BulkDeleteRequest, user: dict = Depends(get_cur
             f = await db.files.find_one(_tenant_filter(user, {'public_id': pid}), {'_id': 0})
             if not f:
                 failed.append({'public_id': pid, 'reason': 'not_found'})
+                continue
+            url = f.get('url', '')
+            # Hard-block if the file is referenced as a vendor photo or an org logo.
+            # Posts still get auto-detached below for backwards compatibility with
+            # the legacy admin "free up post media" flow.
+            if url and url in in_use_url:
+                failed.append({'public_id': pid, 'reason': 'in_use_protected'})
                 continue
             if CLOUDINARY_ENABLED:
                 try:

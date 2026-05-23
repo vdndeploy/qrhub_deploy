@@ -2097,6 +2097,22 @@ async def delete_vendor(vendor_id: str, user: dict = Depends(get_current_user)):
     await db.analytics.delete_many({'vendor_id': vendor_id})
     return {'message': 'Vendor deleted'}
 
+@api_router.post('/vendors/{vendor_id}/analytics/reset')
+async def reset_vendor_analytics(vendor_id: str, user: dict = Depends(get_current_user)):
+    """Wipe every analytics event for this vendor without touching the vendor itself.
+    Use when the QR is being handed over to a new person and the previous owner's
+    stats should not bleed into the new operator's dashboard."""
+    vendor = await db.vendors.find_one(_tenant_filter(user, {'id': vendor_id}), {'_id': 0, 'id': 1, 'name': 1})
+    if not vendor:
+        raise HTTPException(status_code=404, detail='Vendor not found')
+    result = await db.analytics.delete_many({'vendor_id': vendor_id})
+    return {
+        'message': 'Statistiche azzerate',
+        'vendor_id': vendor_id,
+        'vendor_name': vendor.get('name', ''),
+        'deleted_count': int(result.deleted_count or 0),
+    }
+
 @api_router.post('/vendors/{vendor_id}/credentials')
 async def create_vendor_credentials(vendor_id: str, creds: VendorCredentials, user: dict = Depends(get_current_user)):
     vendor = await db.vendors.find_one(_tenant_filter(user, {'id': vendor_id}), {'_id': 0})

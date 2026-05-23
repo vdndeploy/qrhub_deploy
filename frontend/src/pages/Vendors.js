@@ -28,7 +28,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Plus, Edit, Trash2, QrCode, Eye, Key, Download, ExternalLink, Copy } from 'lucide-react';
+import { Plus, Edit, Trash2, QrCode, Eye, Key, Download, ExternalLink, Copy, RotateCcw } from 'lucide-react';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -135,6 +135,22 @@ const Vendors = () => {
       fetchVendors();
     } catch (e) {
       toast.error('Errore nell\'eliminazione');
+    }
+  };
+
+  const handleResetAnalytics = async (vendor) => {
+    const msg = `Azzerare tutte le statistiche di "${vendor.name}"?\n\nUtile quando si passa il QR a un nuovo venditore: cancella visite, click e analytics storiche senza eliminare il venditore stesso.\n\nL'operazione è irreversibile.`;
+    if (!window.confirm(msg)) return;
+    try {
+      const { data } = await axios.post(
+        `${API}/vendors/${vendor.id}/analytics/reset`,
+        {},
+        { withCredentials: true }
+      );
+      toast.success(`Statistiche azzerate (${data.deleted_count} eventi cancellati)`);
+      fetchVendors();
+    } catch (e) {
+      toast.error(e.response?.data?.detail || 'Errore azzeramento statistiche');
     }
   };
 
@@ -297,6 +313,15 @@ const Vendors = () => {
                         data-testid={`edit-vendor-${vendor.id}`}
                       >
                         <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleResetAnalytics(vendor)}
+                        data-testid={`reset-analytics-${vendor.id}`}
+                        title="Azzera statistiche venditore (utile se il QR viene riassegnato)"
+                      >
+                        <RotateCcw className="h-4 w-4 text-amber-500" />
                       </Button>
                       <Button
                         variant="outline"

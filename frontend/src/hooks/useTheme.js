@@ -17,6 +17,12 @@ const readInitial = () => {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved === 'light' || saved === 'dark') return saved;
   } catch { /* ignore */ }
+  // No saved preference yet — respect the OS-level setting on first visit.
+  try {
+    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
+      return 'light';
+    }
+  } catch { /* ignore */ }
   return 'dark';
 };
 

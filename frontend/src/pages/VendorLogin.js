@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { User } from 'lucide-react';
+import LoginLegalFooter from '@/components/LoginLegalFooter';
 
 const VendorLogin = () => {
   const navigate = useNavigate();
@@ -85,6 +86,7 @@ const VendorLogin = () => {
             </Button>
           </form>
         </div>
+        <LoginLegalFooter />
       </div>
     </div>
   );

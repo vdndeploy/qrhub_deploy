@@ -300,9 +300,20 @@ const Vendors = () => {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => window.open(`${window.location.origin}/v/${vendor.id}?preview=1`, '_blank', 'noopener')}
+                        onClick={async () => {
+                          try {
+                            const { data } = await axios.post(
+                              `${API}/vendors/${vendor.id}/preview-token`,
+                              {},
+                              { withCredentials: true }
+                            );
+                            window.open(`${window.location.origin}/v/${vendor.id}?preview=${encodeURIComponent(data.token)}`, '_blank', 'noopener');
+                          } catch (e) {
+                            toast.error(e.response?.data?.detail || 'Impossibile generare token anteprima');
+                          }
+                        }}
                         data-testid={`preview-landing-${vendor.id}`}
-                        title="Anteprima landing (bypass dominio personalizzato)"
+                        title="Anteprima landing (valida 30 minuti)"
                       >
                         <Eye className="h-4 w-4 text-sky-500" />
                       </Button>

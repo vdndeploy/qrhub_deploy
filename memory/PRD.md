@@ -36,6 +36,19 @@ Il progetto **QRHub** è una piattaforma multi-tenant open source (MIT) che perm
 - Open source MIT, no-profit
 
 
+### 2026-05-23 (notte) — Preview token firmato + Footer legale Login
+
+- **Fix critico preview** (`backend/server.py` + `pages/Vendors.js` + `pages/VendorLanding.js`):
+  - Sostituito il check `?preview=1` + `/api/auth/me` cross-domain (instabile: i cookie HttpOnly tra `qrhub.it` ↔ `qrhub.fly.dev` non sempre arrivavano, causando il flash di "blocked screen") con un **token JWT firmato** lato server.
+  - Nuovo endpoint `POST /api/vendors/{id}/preview-token` (admin auth) → ritorna `{token, expires_in: 1800}` (30 min). Scope `vendor_preview`, payload `{vendor_id, admin_email, exp}`.
+  - Nuovo endpoint pubblico `GET /api/preview/check?token=&vendor_id=` per validare firma + scadenza + match vendor_id (HTTP 401 in tutti i casi di mismatch).
+  - `Vendors.js`: click sul pulsante Eye → POST preview-token → `window.open(/v/{id}?preview={JWT})`.
+  - `VendorLanding.js`: rileva qualunque `?preview=<token>` non vuoto → GET /api/preview/check; se valido, `setPreviewMode(true)` e renderizza landing senza dipendere da cookie cross-domain.
+  - Deployato su Fly (`qrhub.fly.dev`) con rolling strategy senza downtime.
+
+- **Footer legale sulle pagine login** (`components/LoginLegalFooter.js` + `Login.js` + `VendorLogin.js`): mini footer minimale con Termini · Privacy · Licenza + copyright. Visibile anche a chi non passa dal marketing landing (`/`).
+
+
 ### 2026-05-23 (notte) — Pagine legali pubbliche su qrhub.it
 
 - **3 nuove route pubbliche** sotto qrhub.it (frontend only, niente backend):

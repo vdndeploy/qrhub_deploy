@@ -86,29 +86,30 @@ const VendorLanding = () => {
     try {
       const { data } = await axios.get(`${API}/vendors/${vendorId}`);
 
-      // Admin preview mode: when the URL contains `?preview=1` we try to
-      // verify the visitor is an authenticated admin of the same org (or
-      // super_admin) and, if so, render the landing on the platform domain
-      // without any redirect. This lets the admin QA every vendor landing
-      // even before the org has wired up its custom domain.
+      // Admin preview mode: when the URL carries a signed `?preview={token}`
+      // we verify the token against the backend (public endpoint, no cookies
+      // involved → works even across qrhub.it ↔ qrhub.fly.dev domains).
+      // Tokens are minted by the admin panel via /api/vendors/:id/preview-token
+      // and last 30 minutes.
       const params = new URLSearchParams(window.location.search);
-      const wantsPreview = params.get('preview') === '1';
-      if (wantsPreview) {
+      const previewToken = params.get('preview') || '';
+      if (previewToken) {
         try {
-          const me = await axios.get(`${API}/auth/me`, { withCredentials: true });
-          const meData = me.data || {};
-          const isSuper = meData.role === 'super_admin';
-          const sameOrg = meData.organization_id && data.organization_id
-            && meData.organization_id === data.organization_id;
-          if (isSuper || sameOrg) {
-            setPreviewMode(true);
-            setVendor(data);
-            const brand = data?.organization?.brand_name || data?.organization?.name || 'QRHub';
-            if (data?.name) document.title = `[Anteprima] ${data.name} · ${brand}`;
-            setLoading(false);
-            return;
-          }
-        } catch { /* not logged in — fall through to normal host enforcement */ }
+          await axios.get(`${API}/preview/check`, {
+            params: { token: previewToken, vendor_id: vendorId },
+          });
+          // Valid signed preview token — render the landing on whichever host.
+          setPreviewMode(true);
+          setVendor(data);
+          const brand = data?.organization?.brand_name || data?.organization?.name || 'QRHub';
+          if (data?.name) document.title = `[Anteprima] ${data.name} · ${brand}`;
+          setLoading(false);
+          return;
+        } catch {
+          // Token invalid or expired — fall through to the normal host
+          // enforcement so visitors don't get to see the landing on the wrong
+          // host just by trying random tokens.
+        }
       }
 
       // Canonical-host enforcement: each vendor landing is published under the
@@ -165,7 +166,7 @@ const VendorLanding = () => {
   // Reading the URL each call keeps it correct even before React state settles.
   const isPreviewSession = () => {
     try {
-      return new URLSearchParams(window.location.search).get('preview') === '1';
+      return (new URLSearchParams(window.location.search).get('preview') || '') !== '';
     } catch { return false; }
   };
 

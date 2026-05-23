@@ -2160,6 +2160,45 @@ async def reset_vendor_analytics(vendor_id: str, user: dict = Depends(get_curren
     }
 
 
+@api_router.post('/vendors/{vendor_id}/preview-token')
+async def generate_vendor_preview_token(vendor_id: str, user: dict = Depends(get_current_user)):
+    """Admin-only: produce a short-lived signed token that lets the holder load
+    the vendor landing on any host (qrhub.it, vercel default, etc.) bypassing
+    the canonical-host enforcement. The token avoids the cross-domain cookie
+    headache that affects /api/auth/me when called from qrhub.it to qrhub.fly.dev."""
+    vendor = await db.vendors.find_one(
+        _tenant_filter(user, {'id': vendor_id}),
+        {'_id': 0, 'id': 1, 'name': 1, 'organization_id': 1}
+    )
+    if not vendor:
+        raise HTTPException(status_code=404, detail='Vendor not found')
+    payload = {
+        'scope': 'vendor_preview',
+        'vendor_id': vendor_id,
+        'admin_email': user.get('email', ''),
+        'exp': datetime.now(timezone.utc) + timedelta(minutes=30),
+    }
+    token = jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+    return {'token': token, 'expires_in': 1800}
+
+
+@api_router.get('/preview/check')
+async def check_preview_token(token: str, vendor_id: str):
+    """Public endpoint used by the landing to verify a preview token signature
+    and expiry. Returns 200 if valid for the given vendor_id, 401 otherwise."""
+    try:
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail='Preview token scaduto')
+    except Exception:
+        raise HTTPException(status_code=401, detail='Preview token non valido')
+    if payload.get('scope') != 'vendor_preview':
+        raise HTTPException(status_code=401, detail='Preview token non valido')
+    if payload.get('vendor_id') != vendor_id:
+        raise HTTPException(status_code=401, detail='Preview token non valido per questo venditore')
+    return {'valid': True, 'admin_email': payload.get('admin_email', '')}
+
+
 @api_router.get('/audit')
 async def list_audit_log(skip: int = 0, limit: int = 50, action: Optional[str] = None,
                          user: dict = Depends(get_current_user)):

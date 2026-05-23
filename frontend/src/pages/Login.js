@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
+import LoginLegalFooter from '@/components/LoginLegalFooter';
 
 const Login = () => {
   const navigate = useNavigate();
@@ -93,6 +94,7 @@ const Login = () => {
             </Button>
           </form>
         </div>
+        <LoginLegalFooter />
       </div>
     </div>
   );

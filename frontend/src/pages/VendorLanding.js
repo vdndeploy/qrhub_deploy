@@ -161,13 +161,23 @@ const VendorLanding = () => {
     }
   };
 
+  // Quick helper — admin preview sessions never write analytics events.
+  // Reading the URL each call keeps it correct even before React state settles.
+  const isPreviewSession = () => {
+    try {
+      return new URLSearchParams(window.location.search).get('preview') === '1';
+    } catch { return false; }
+  };
+
   const trackPageView = async () => {
+    if (isPreviewSession()) return;
     try {
       await axios.post(`${API}/analytics`, { vendor_id: vendorId, event_type: 'page_view' });
     } catch (e) {}
   };
 
   const trackClick = async (type) => {
+    if (isPreviewSession()) return;
     try {
       await axios.post(`${API}/analytics`, { vendor_id: vendorId, event_type: `${type}_click` });
     } catch (e) {}

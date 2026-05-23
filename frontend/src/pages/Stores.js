@@ -50,7 +50,7 @@ const Stores = () => {
         name: store.name, whatsapp: store.whatsapp || '', whatsapp_message: store.whatsapp_message || '',
         instagram: store.instagram || '', facebook: store.facebook || '', tiktok: store.tiktok || '',
         google_review: store.google_review || '', google_maps_url: store.google_maps_url || '',
-        hours_text: store.hours_text || '', address: store.address || '', phone: store.phone || '',
+        hours_text: store.hours_text || '',
       });
     } else {
       setEditingStore(null);
@@ -160,19 +160,7 @@ const Stores = () => {
               <div className="sm:col-span-2"><Label>Google Maps (Navigazione)</Label><Input placeholder="https://maps.app.goo.gl/..." value={formData.google_maps_url} onChange={(e) => setFormData({...formData, google_maps_url: e.target.value})} /></div>
             </div>
             <div className="border-t pt-4 space-y-3">
-              <div className="text-sm font-semibold text-gray-700">📍 Scheda negozio (pulsante "Store" sulla landing)</div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div><Label>Indirizzo</Label>
-                  <Input placeholder="Via Roma 1, 00100 Roma" value={formData.address || ''}
-                          onChange={(e) => setFormData({...formData, address: e.target.value})}
-                          maxLength={300}
-                          data-testid="store-address-input" /></div>
-                <div><Label>Telefono</Label>
-                  <Input placeholder="+39 06 1234567" value={formData.phone || ''}
-                          onChange={(e) => setFormData({...formData, phone: e.target.value})}
-                          maxLength={40}
-                          data-testid="store-phone-input" /></div>
-              </div>
+              <div className="text-sm font-semibold text-gray-700">Scheda negozio (pulsante "Store" sulla landing)</div>
               <div>
                 <Label>Orari di apertura</Label>
                 <Textarea
@@ -184,7 +172,7 @@ const Stores = () => {
                   data-testid="store-hours-input"
                 />
                 <p className="text-[11px] text-gray-500 mt-1">
-                  Formato libero, supporta più righe. Compare nel pulsante "Store" 📍 della landing del venditore.
+                  Formato libero, supporta più righe. Compare nel pulsante "Store" sulla landing del venditore insieme al nome del negozio. Le indicazioni stradali sono già disponibili tramite il pulsante "Mappa" (campo Google Maps qui sopra).
                 </p>
               </div>
             </div>
@@ -208,7 +196,7 @@ const Stores = () => {
 
 const empty = () => ({
   name: '', whatsapp: '', whatsapp_message: '', instagram: '', facebook: '', tiktok: '',
-  google_review: '', google_maps_url: '', hours_text: '', address: '', phone: '',
+  google_review: '', google_maps_url: '', hours_text: '',
 });
 
 export default Stores;

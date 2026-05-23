@@ -1,9 +1,10 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { Toaster } from '@/components/ui/sonner';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { VendorAuthProvider } from '@/contexts/VendorAuthContext';
 import Login from '@/pages/Login';
 import Dashboard from '@/pages/Dashboard';
+import Marketing from '@/pages/Marketing';
 import VendorLanding from '@/pages/VendorLanding';
 import VendorLogin from '@/pages/VendorLogin';
 import VendorDashboard from '@/pages/VendorDashboard';
@@ -40,7 +41,7 @@ function App() {
                   </ProtectedVendorRoute>
                 }
               />
-              <Route path="/" element={<Navigate to="/dashboard" replace />} />
+              <Route path="/" element={<Marketing />} />
             </Routes>
           </DomainGuard>
           <Toaster />

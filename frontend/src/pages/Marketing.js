@@ -23,89 +23,94 @@ const Marketing = () => {
           min-height: 100vh;
           line-height: 1.5;
         }
-        .grain::before {
+        .marketing-root .grain::before {
           content: '';
           position: fixed; inset: 0; z-index: 0; pointer-events: none;
           background-image: radial-gradient(rgba(255,255,255,.04) 1px, transparent 1px);
           background-size: 3px 3px;
         }
-        .marketing-nav {
+        .marketing-root .marketing-nav {
           position: sticky; top: 0; z-index: 50;
           backdrop-filter: blur(12px); background: rgba(10,10,11,.7);
           border-bottom: 1px solid rgba(255,255,255,.06);
           padding: 14px 24px; display: flex; align-items: center; justify-content: space-between;
         }
-        .brand-pill {
+        .marketing-root .brand-pill {
           display: inline-flex; align-items: center; gap: 8px;
           font-weight: 800; font-size: 18px; letter-spacing: -.02em;
         }
-        .brand-dot { width: 26px; height: 26px; border-radius: 8px; background: #F96815; display: inline-flex; align-items: center; justify-content: center; }
-        .nav-actions { display: flex; gap: 8px; }
-        .btn {
+        .marketing-root .brand-dot { width: 26px; height: 26px; border-radius: 8px; background: #F96815; display: inline-flex; align-items: center; justify-content: center; }
+        .marketing-root .nav-actions { display: flex; gap: 8px; }
+        .marketing-root .btn {
           display: inline-flex; align-items: center; gap: 6px;
           padding: 9px 16px; border-radius: 999px; font-size: 13px; font-weight: 600;
           text-decoration: none; transition: transform .15s, background .15s, color .15s;
           cursor: pointer; border: 0;
         }
-        .btn-primary { background: #F96815; color: #fff; }
-        .btn-primary:hover { transform: translateY(-1px); background: #ff7a2e; }
-        .btn-ghost { background: rgba(255,255,255,.06); color: #eee; border: 1px solid rgba(255,255,255,.1); }
-        .btn-ghost:hover { background: rgba(255,255,255,.12); }
-        .hero {
+        .marketing-root .btn-primary { background: #F96815; color: #fff; }
+        .marketing-root .btn-primary:hover { transform: translateY(-1px); background: #ff7a2e; }
+        .marketing-root .btn-secondary { background: #4A2D8C; color: #fff; }
+        .marketing-root .btn-secondary:hover { transform: translateY(-1px); background: #5d3aab; }
+        .marketing-root .btn-ghost { background: rgba(255,255,255,.06); color: #eee; border: 1px solid rgba(255,255,255,.1); }
+        .marketing-root .btn-ghost:hover { background: rgba(255,255,255,.12); }
+        .marketing-root .hero {
           padding: 80px 24px 100px; max-width: 1100px; margin: 0 auto;
           position: relative; z-index: 1;
+          background: transparent;
+          text-align: left;
         }
-        .eyebrow { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 999px; font-size: 12px; background: rgba(249,104,21,.15); color: #ffae7e; border: 1px solid rgba(249,104,21,.3); font-weight: 600; }
-        h1.headline { font-size: clamp(38px, 6vw, 64px); line-height: 1.05; letter-spacing: -.03em; margin: 18px 0 18px; font-weight: 800; }
-        h1.headline em { color: #F96815; font-style: normal; }
-        .lede { font-size: 17px; color: #b8b8be; max-width: 600px; margin-bottom: 32px; }
-        .hero-ctas { display: flex; gap: 12px; flex-wrap: wrap; }
-        .hero-mock {
+        .marketing-root .hero::before { content: none; }
+        .marketing-root .eyebrow { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 999px; font-size: 12px; background: rgba(249,104,21,.15); color: #ffae7e; border: 1px solid rgba(249,104,21,.3); font-weight: 600; }
+        .marketing-root h1.headline { font-size: clamp(38px, 6vw, 64px); line-height: 1.05; letter-spacing: -.03em; margin: 18px 0 18px; font-weight: 800; color: #fff; }
+        .marketing-root h1.headline em { color: #F96815; font-style: normal; }
+        .marketing-root .lede { font-size: 17px; color: #b8b8be; max-width: 600px; margin-bottom: 32px; }
+        .marketing-root .hero-ctas { display: flex; gap: 12px; flex-wrap: wrap; }
+        .marketing-root .hero-mock {
           margin-top: 60px; max-width: 720px; height: 320px;
           background: linear-gradient(135deg, #1a1a1f 0%, #2a1a10 100%);
           border-radius: 18px; padding: 32px; box-shadow: 0 30px 60px rgba(249,104,21,.18), inset 0 1px 0 rgba(255,255,255,.06);
           display: flex; align-items: center; justify-content: center; gap: 40px;
         }
-        .qr-block {
+        .marketing-root .qr-block {
           width: 200px; height: 200px; background: #fff; border-radius: 12px;
           display: flex; align-items: center; justify-content: center; color: #0a0a0b;
         }
-        .qr-block svg { width: 70%; height: 70%; }
-        .mock-info { color: #ddd; font-size: 14px; }
-        .mock-info .l { font-size: 11px; color: #999; text-transform: uppercase; letter-spacing: .12em; }
-        .mock-info .name { font-size: 22px; font-weight: 700; margin: 6px 0 14px; }
-        .pill { display: inline-block; background: rgba(255,255,255,.08); padding: 4px 10px; border-radius: 999px; font-size: 11px; margin-right: 4px; }
-        section.features { padding: 80px 24px; max-width: 1100px; margin: 0 auto; }
-        section.features h2 { font-size: clamp(28px, 4vw, 42px); letter-spacing: -.02em; font-weight: 800; margin-bottom: 14px; }
-        section.features .sub { color: #999; margin-bottom: 48px; max-width: 520px; }
-        .grid { display: grid; gap: 18px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
-        .card { padding: 24px; border-radius: 14px; background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.06); transition: border .2s, transform .2s; }
-        .card:hover { border-color: rgba(249,104,21,.3); transform: translateY(-2px); }
-        .card .ic { width: 36px; height: 36px; border-radius: 10px; background: rgba(249,104,21,.15); color: #F96815; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 12px; }
-        .card h3 { font-size: 16px; font-weight: 700; margin: 0 0 6px; }
-        .card p { font-size: 13px; color: #aaa; margin: 0; line-height: 1.5; }
-        section.access {
+        .marketing-root .qr-block svg { width: 70%; height: 70%; }
+        .marketing-root .mock-info { color: #ddd; font-size: 14px; }
+        .marketing-root .mock-info .l { font-size: 11px; color: #999; text-transform: uppercase; letter-spacing: .12em; }
+        .marketing-root .mock-info .name { font-size: 22px; font-weight: 700; margin: 6px 0 14px; }
+        .marketing-root .pill { display: inline-block; background: rgba(255,255,255,.08); padding: 4px 10px; border-radius: 999px; font-size: 11px; margin-right: 4px; }
+        .marketing-root section.features { padding: 80px 24px; max-width: 1100px; margin: 0 auto; }
+        .marketing-root section.features h2 { font-size: clamp(28px, 4vw, 42px); letter-spacing: -.02em; font-weight: 800; margin-bottom: 14px; }
+        .marketing-root section.features .sub { color: #999; margin-bottom: 48px; max-width: 520px; }
+        .marketing-root .grid { display: grid; gap: 18px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+        .marketing-root .card { padding: 24px; border-radius: 14px; background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.06); transition: border .2s, transform .2s; }
+        .marketing-root .card:hover { border-color: rgba(249,104,21,.3); transform: translateY(-2px); }
+        .marketing-root .card .ic { width: 36px; height: 36px; border-radius: 10px; background: rgba(249,104,21,.15); color: #F96815; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 12px; }
+        .marketing-root .card h3 { font-size: 16px; font-weight: 700; margin: 0 0 6px; color: #fff; }
+        .marketing-root .card p { font-size: 13px; color: #aaa; margin: 0; line-height: 1.5; }
+        .marketing-root section.access {
           padding: 80px 24px; max-width: 1100px; margin: 0 auto;
           display: grid; grid-template-columns: 1fr 1fr; gap: 24px;
         }
         @media (max-width: 700px) {
-          section.access { grid-template-columns: 1fr; }
-          .hero-mock { flex-direction: column; height: auto; padding: 24px; }
+          .marketing-root section.access { grid-template-columns: 1fr; }
+          .marketing-root .hero-mock { flex-direction: column; height: auto; padding: 24px; }
         }
-        .access-card {
+        .marketing-root .access-card {
           padding: 32px; border-radius: 18px;
           background: linear-gradient(180deg, rgba(249,104,21,.12), rgba(249,104,21,.02));
           border: 1px solid rgba(249,104,21,.25);
           display: flex; flex-direction: column; gap: 12px;
           min-height: 220px;
         }
-        .access-card.vendor {
-          background: linear-gradient(180deg, rgba(80,150,255,.12), rgba(80,150,255,.02));
-          border-color: rgba(80,150,255,.25);
+        .marketing-root .access-card.vendor {
+          background: linear-gradient(180deg, rgba(74,45,140,.18), rgba(74,45,140,.02));
+          border-color: rgba(74,45,140,.35);
         }
-        .access-card h3 { font-size: 22px; font-weight: 800; letter-spacing: -.02em; margin: 0 0 4px; }
-        .access-card p { font-size: 14px; color: #b8b8be; margin: 0 0 auto; }
-        footer { padding: 32px 24px 60px; color: #777; font-size: 13px; max-width: 1100px; margin: 0 auto; border-top: 1px solid rgba(255,255,255,.06); display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+        .marketing-root .access-card h3 { font-size: 22px; font-weight: 800; letter-spacing: -.02em; margin: 0 0 4px; color: #fff; }
+        .marketing-root .access-card p { font-size: 14px; color: #b8b8be; margin: 0 0 auto; }
+        .marketing-root footer { padding: 32px 24px 60px; color: #777; font-size: 13px; max-width: 1100px; margin: 0 auto; border-top: 1px solid rgba(255,255,255,.06); display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
       `}</style>
       <div className="grain" />
       <nav className="marketing-nav">
@@ -114,10 +119,10 @@ const Marketing = () => {
           QRHub
         </span>
         <div className="nav-actions">
-          <Link to="/login" className="btn btn-ghost" data-testid="nav-org-login">
+          <Link to="/login" className="btn btn-primary" data-testid="nav-org-login">
             <Users size={14} /> Organizzazioni
           </Link>
-          <Link to="/vendor-login" className="btn btn-primary" data-testid="nav-vendor-login">
+          <Link to="/vendor-login" className="btn btn-secondary" data-testid="nav-vendor-login">
             Venditori <ArrowRight size={14} />
           </Link>
         </div>
@@ -139,7 +144,7 @@ const Marketing = () => {
           <Link to="/login" className="btn btn-primary" data-testid="hero-org-cta">
             <Users size={14} /> Accedi come Organizzazione
           </Link>
-          <Link to="/vendor-login" className="btn btn-ghost" data-testid="hero-vendor-cta">
+          <Link to="/vendor-login" className="btn btn-secondary" data-testid="hero-vendor-cta">
             <Smartphone size={14} /> Accedi come Venditore
           </Link>
         </div>
@@ -211,7 +216,7 @@ const Marketing = () => {
         <div className="access-card vendor">
           <h3>Sei un venditore?</h3>
           <p>Personalizza la tua bio, foto profilo, scarica il tuo QR code e monitora le visite e i click WhatsApp del tuo profilo pubblico.</p>
-          <Link to="/vendor-login" className="btn btn-primary" style={{ alignSelf: 'flex-start', marginTop: 12 }}
+          <Link to="/vendor-login" className="btn btn-secondary" style={{ alignSelf: 'flex-start', marginTop: 12 }}
                  data-testid="access-vendor-cta">
             Accedi al tuo profilo <ArrowRight size={14} />
           </Link>

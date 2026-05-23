@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import axios from 'axios';
-import { MapPin, Share2, Store as StoreIcon, Clock, Phone, X } from 'lucide-react';
+import { MapPin, Share2, Store as StoreIcon, Clock, X } from 'lucide-react';
 import PostsCarousel from '../components/PostsCarousel';
 import './VendorLanding.css';
 
@@ -79,46 +79,47 @@ const VendorLanding = () => {
       const { data } = await axios.get(`${API}/vendors/${vendorId}`);
 
       // Canonical-host enforcement: each vendor landing is published under the
-      // org's own verified custom domain. If we are currently on the platform
-      // admin domain (e.g. qrhub.it), redirect to the org's domain so users
-      // don't confuse the platform with the tenant's branded service.
-      // If we are on the org's domain (or on the Vercel default / Emergent
-      // preview) we proceed normally.
+      // org's own verified custom domain. Any other host (qrhub.it platform
+      // domain, qrhub-app.vercel.app default, etc.) must NOT serve the landing
+      // so the open-source platform is never confused with a tenant's branded
+      // service. The only exception are local/preview testing hosts.
       const canonical = (data.canonical_host || '').toLowerCase();
       const host = window.location.hostname.toLowerCase();
-      const fallbackHosts = ['qrhub-app.vercel.app', 'localhost', '127.0.0.1'];
-      const isFallback = fallbackHosts.includes(host)
+      const isTestHost = host === 'localhost'
+        || host === '127.0.0.1'
         || host.endsWith('.preview.emergentagent.com')
-        || host.endsWith('.vercel.app')
         || host.endsWith('.emergent.host');
-      if (canonical && host !== canonical && !isFallback) {
-        // Send the visitor to the right tenant domain
-        window.location.replace(`https://${canonical}${window.location.pathname}${window.location.search || ''}`);
-        return; // stop rendering
-      }
-      if (!canonical) {
-        // Vendor's org hasn't configured a custom domain. We deliberately do NOT
-        // serve the landing on the platform admin domain (qrhub.it) to keep
-        // the platform separate from tenant content. Show a polite message and
-        // bail out. On fallback/preview hosts we always render (for testing).
-        try {
-          const cfgResp = await axios.get(`${API}/platform/config`);
-          const primary = (cfgResp.data?.primary_domain || '').toLowerCase();
-          if (primary && host === primary) {
-            setBlockedReason(
-              'Questo è il dominio della piattaforma QRHub. Le landing dei venditori sono accessibili tramite i domini personalizzati delle rispettive organizzazioni.'
-            );
-            setLoading(false);
-            return;
-          }
-        } catch { /* ignore — fall through to render */ }
+
+      if (isTestHost) {
+        // Local/preview testing: always render so we can QA the landing.
+        setVendor(data);
+        const brand = data?.organization?.brand_name || data?.organization?.name || 'QRHub';
+        if (data?.name) document.title = `${data.name} · ${brand}`;
+        return;
       }
 
-      setVendor(data);
-      // Dynamic page title: "{Vendor Name} - {Brand}" so it shows nicely in browser tabs,
-      // bookmarks, OS share sheets, and when the QR code is scanned.
-      const brand = data?.organization?.brand_name || data?.organization?.name || 'QRHub';
-      if (data?.name) document.title = `${data.name} · ${brand}`;
+      if (canonical && host === canonical) {
+        // Correct tenant domain — render the landing.
+        setVendor(data);
+        const brand = data?.organization?.brand_name || data?.organization?.name || 'QRHub';
+        if (data?.name) document.title = `${data.name} · ${brand}`;
+        return;
+      }
+
+      if (canonical && host !== canonical) {
+        // Visitor reached the landing on the wrong host (qrhub.it,
+        // qrhub-app.vercel.app, etc.). Redirect to the org's canonical domain.
+        window.location.replace(`https://${canonical}${window.location.pathname}${window.location.search || ''}`);
+        return;
+      }
+
+      // No canonical_host configured for this vendor's org. We deliberately
+      // refuse to serve the landing anywhere except local/preview to keep the
+      // platform separate from tenant content.
+      setBlockedReason(
+        "L'organizzazione non ha ancora configurato un dominio personalizzato per pubblicare le proprie landing."
+      );
+      setLoading(false);
     } catch (e) {
       console.error('Vendor not found');
     } finally {
@@ -195,20 +196,74 @@ const VendorLanding = () => {
   if (loading) return <div className="vendor-loading"><div className="loading-spinner"></div></div>;
   if (blockedReason) {
     return (
-      <div className="vendor-error" style={{
-        textAlign: 'center', padding: '60px 24px', maxWidth: 520, margin: '0 auto',
-      }} data-testid="vendor-landing-blocked">
-        <div style={{
-          background: '#F96815', width: 60, height: 60, borderRadius: '50%',
-          margin: '0 auto 20px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-          color: '#fff', fontSize: 30, fontWeight: 700,
-        }}>Q</div>
-        <h1 style={{ fontSize: 22, marginBottom: 12 }}>Landing non disponibile su questo dominio</h1>
-        <p style={{ color: '#555', fontSize: 14, lineHeight: 1.55 }}>{blockedReason}</p>
-        <a href="/" style={{
-          display: 'inline-block', marginTop: 24, padding: '10px 18px',
-          background: '#F96815', color: '#fff', borderRadius: 8, textDecoration: 'none', fontWeight: 600,
-        }}>Vai a QRHub</a>
+      <div data-testid="vendor-landing-blocked" style={{
+        minHeight: '100vh',
+        background: 'radial-gradient(circle at 20% 0%, rgba(249,104,21,0.12), transparent 50%), radial-gradient(circle at 80% 100%, rgba(74,45,140,0.1), transparent 55%), #0a0a0b',
+        color: '#fff',
+        fontFamily: 'Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: '40px 24px',
+      }}>
+        <div style={{ maxWidth: 480, width: '100%', textAlign: 'center' }}>
+          <div style={{
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            width: 64, height: 64, borderRadius: 18,
+            background: 'linear-gradient(135deg, #F96815, #ff8a3c)',
+            boxShadow: '0 10px 30px rgba(249,104,21,0.35)',
+            marginBottom: 24,
+          }}>
+            <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="3" width="7" height="7" rx="1.2"/>
+              <rect x="14" y="3" width="7" height="7" rx="1.2"/>
+              <rect x="3" y="14" width="7" height="7" rx="1.2"/>
+              <line x1="14" y1="14" x2="21" y2="14"/>
+              <line x1="14" y1="18" x2="18" y2="18"/>
+              <line x1="14" y1="21" x2="21" y2="21"/>
+            </svg>
+          </div>
+          <div style={{
+            fontSize: 11, letterSpacing: '0.14em', textTransform: 'uppercase',
+            color: '#ffae7e', marginBottom: 10, fontWeight: 600,
+          }}>
+            Pagina riservata
+          </div>
+          <h1 style={{
+            fontSize: 28, fontWeight: 800, letterSpacing: '-0.02em',
+            margin: '0 0 14px', lineHeight: 1.15,
+          }}>
+            Landing non disponibile su questo dominio
+          </h1>
+          <p style={{
+            color: '#b8b8be', fontSize: 15, lineHeight: 1.6, margin: '0 0 32px',
+          }}>
+            {blockedReason}
+          </p>
+          <a href="/" style={{
+            display: 'inline-flex', alignItems: 'center', gap: 8,
+            padding: '12px 22px', borderRadius: 999,
+            background: '#F96815', color: '#fff',
+            textDecoration: 'none', fontWeight: 600, fontSize: 14,
+            boxShadow: '0 8px 20px rgba(249,104,21,0.35)',
+            transition: 'transform .15s, background .15s',
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.background = '#ff7a2e'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = '#F96815'; e.currentTarget.style.transform = 'translateY(0)'; }}
+          data-testid="vendor-blocked-cta">
+            Scopri QRHub
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="5" y1="12" x2="19" y2="12"/>
+              <polyline points="12 5 19 12 12 19"/>
+            </svg>
+          </a>
+          <div style={{
+            marginTop: 40, paddingTop: 24,
+            borderTop: '1px solid rgba(255,255,255,0.06)',
+            fontSize: 12, color: '#666',
+          }}>
+            QRHub è una piattaforma multi-tenant.<br />
+            Le landing dei venditori vengono pubblicate esclusivamente sui domini delle rispettive organizzazioni.
+          </div>
+        </div>
       </div>
     );
   }
@@ -276,7 +331,7 @@ const VendorLanding = () => {
                 <MapPin className="h-6 w-6" />
               </a>
             )}
-            {vendor.store && (vendor.store.hours_text || vendor.store.address || vendor.store.phone || vendor.store.name) && (
+            {vendor.store && (vendor.store.hours_text || vendor.store.name) && (
               <button
                 type="button"
                 onClick={() => { setStoreOpen(true); trackClick('store_info'); }}
@@ -432,52 +487,15 @@ const VendorLanding = () => {
               </button>
             </div>
 
-            {vendor.store.address && (
-              <div style={{ marginBottom: 14, display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-                <MapPin size={16} style={{ marginTop: 2, color: '#888', flexShrink: 0 }} />
-                <div style={{ fontSize: 14, color: '#222', lineHeight: 1.5 }}>
-                  {vendor.store.address}
-                </div>
-              </div>
-            )}
-            {vendor.store.phone && (
-              <div style={{ marginBottom: 14, display: 'flex', gap: 10, alignItems: 'center' }}>
-                <Phone size={16} style={{ color: '#888', flexShrink: 0 }} />
-                <a href={`tel:${vendor.store.phone.replace(/\s+/g, '')}`}
-                    onClick={() => trackClick('store_phone')}
-                    style={{ fontSize: 14, color: '#222', textDecoration: 'none', fontWeight: 500 }}
-                    data-testid="vendor-store-phone-link">
-                  {vendor.store.phone}
-                </a>
-              </div>
-            )}
             {vendor.store.hours_text && (
-              <div style={{ marginBottom: 14, display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+              <div style={{ marginBottom: 4, display: 'flex', gap: 10, alignItems: 'flex-start' }}>
                 <Clock size={16} style={{ marginTop: 2, color: '#888', flexShrink: 0 }} />
                 <div style={{
-                  fontSize: 13, color: '#222', lineHeight: 1.55, whiteSpace: 'pre-line',
+                  fontSize: 14, color: '#222', lineHeight: 1.55, whiteSpace: 'pre-line',
                 }} data-testid="vendor-store-hours">
                   {vendor.store.hours_text}
                 </div>
               </div>
-            )}
-
-            {vendor.store.google_maps_url && (
-              <a
-                href={vendor.store.google_maps_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={() => trackClick('maps')}
-                style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                  marginTop: 8, padding: '12px 16px', borderRadius: 10,
-                  background: vendor.organization?.primary_color || '#F96815',
-                  color: '#fff', textDecoration: 'none', fontWeight: 600, fontSize: 14,
-                }}
-              >
-                <MapPin size={16} />
-                Indicazioni stradali
-              </a>
             )}
           </div>
         </div>

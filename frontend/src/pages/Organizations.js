@@ -11,7 +11,7 @@ import { Plus, Trash2, Building2, UserPlus, Users, KeyRound, ShieldCheck, Shield
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 const GdprBadge = ({ gdpr }) => {
-  if (!gdpr) return <span className="text-xs text-[#5a5a62]">—</span>;
+  if (!gdpr) return <span className="text-xs text-gray-400 dark:text-[#5a5a62]">—</span>;
   const { dpa_status, dpa_admins_accepted, dpa_admins_total, controller_fields_filled, controller_fields_required, controller_complete } = gdpr;
 
   let icon = ShieldX;
@@ -236,14 +236,14 @@ const Organizations = () => {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h2 className="text-2xl sm:text-3xl font-bold">Organizzazioni</h2>
-          <p className="text-sm text-[#8a8a92] mt-1">Gestisci i tenant della piattaforma QRHub</p>
+          <p className="text-sm text-gray-600 dark:text-[#8a8a92] mt-1">Gestisci i tenant della piattaforma QRHub</p>
         </div>
         <Button onClick={() => setCreateOpen(true)} className="bg-[#D2FA46] hover:bg-[#bce63d] text-[#0a0a0b]" data-testid="org-new-button">
           <Plus className="h-4 w-4 mr-2" />Nuova Organizzazione
         </Button>
       </div>
 
-      <div className="bg-[#131316] rounded-lg border overflow-x-auto">
+      <div className="bg-white dark:bg-[#131316] rounded-lg border overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
@@ -269,7 +269,7 @@ const Organizations = () => {
                       {o.name}
                     </div>
                   </TableCell>
-                  <TableCell className="text-xs text-[#6a6a72] font-mono">{o.slug}</TableCell>
+                  <TableCell className="text-xs text-gray-500 dark:text-[#6a6a72] font-mono">{o.slug}</TableCell>
                   <TableCell><div className="w-6 h-6 rounded border" style={{backgroundColor: o.primary_color}} /></TableCell>
                   <TableCell>{o.users_count}</TableCell>
                   <TableCell>{o.stores_count}</TableCell>
@@ -306,12 +306,12 @@ const Organizations = () => {
             <div>
               <Label>Brand name (display, opzionale)</Label>
               <Input value={form.brand_name} onChange={(e) => setForm({...form, brand_name: e.target.value})} placeholder="Es. TIM" maxLength={200} data-testid="org-create-brand-input" />
-              <p className="text-xs text-[#6a6a72] mt-1">Nome mostrato nelle landing dei venditori. Se vuoto, usa il nome dell'organizzazione.</p>
+              <p className="text-xs text-gray-500 dark:text-[#6a6a72] mt-1">Nome mostrato nelle landing dei venditori. Se vuoto, usa il nome dell'organizzazione.</p>
             </div>
             <div>
               <Label>Logo (opzionale)</Label>
               <div className="flex items-center gap-3">
-                <div className="w-16 h-16 rounded border bg-[#0a0a0b] flex items-center justify-center overflow-hidden flex-shrink-0">
+                <div className="w-16 h-16 rounded border bg-gray-50 dark:bg-[#0a0a0b] flex items-center justify-center overflow-hidden flex-shrink-0">
                   {form.logo_url ? (
                     <img src={form.logo_url} alt="logo" className="w-full h-full object-contain" />
                   ) : (
@@ -337,7 +337,7 @@ const Organizations = () => {
                           onChange={(e) => handleLogoFile(e, setForm)} />
                 </div>
               </div>
-              <p className="text-xs text-[#6a6a72] mt-1">PNG/JPG/SVG con sfondo trasparente. Max 5MB. Compare nell'header pubblico delle landing.</p>
+              <p className="text-xs text-gray-500 dark:text-[#6a6a72] mt-1">PNG/JPG/SVG con sfondo trasparente. Max 5MB. Compare nell'header pubblico delle landing.</p>
             </div>
             <div>
               <Label>Colore primario</Label>
@@ -362,7 +362,7 @@ const Organizations = () => {
             <DialogDescription>Aggiungi admin che possono gestire negozi, venditori e annunci di questa organizzazione.</DialogDescription>
           </DialogHeader>
 
-          <form onSubmit={handleCreateUser} className="space-y-3 border rounded-lg p-3 bg-[#0a0a0b]/50">
+          <form onSubmit={handleCreateUser} className="space-y-3 border rounded-lg p-3 bg-gray-50 dark:bg-[#0a0a0b]/50">
             <div className="text-sm font-medium flex items-center gap-2"><UserPlus className="h-4 w-4" />Aggiungi admin</div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <Input type="email" placeholder="email@dominio.it" required value={userForm.email} onChange={(e) => setUserForm({...userForm, email: e.target.value})} data-testid="org-user-email" />
@@ -375,14 +375,14 @@ const Organizations = () => {
           <div className="mt-4">
             <h4 className="text-sm font-medium mb-2">Utenti esistenti ({usersList.length})</h4>
             {usersList.length === 0 ? (
-              <p className="text-sm text-[#6a6a72] text-center py-4">Nessun utente. Crea il primo admin sopra.</p>
+              <p className="text-sm text-gray-500 dark:text-[#6a6a72] text-center py-4">Nessun utente. Crea il primo admin sopra.</p>
             ) : (
               <div className="space-y-2">
                 {usersList.map(u => (
                   <div key={u.email} className="flex items-center justify-between border rounded p-2 text-sm">
                     <div>
                       <div className="font-medium">{u.email}</div>
-                      <div className="text-xs text-[#6a6a72]">{u.name || '—'} · {u.role}</div>
+                      <div className="text-xs text-gray-500 dark:text-[#6a6a72]">{u.name || '—'} · {u.role}</div>
                     </div>
                     <div className="flex items-center gap-1">
                       <Button variant="ghost" size="icon"
@@ -434,7 +434,7 @@ const Organizations = () => {
                       placeholder="vdn-srl"
                       className="font-mono"
                       data-testid="org-edit-slug" />
-              <p className="text-xs text-[#6a6a72] mt-1">Univoco tra tutti i tenant. Deve essere identificativo, breve.</p>
+              <p className="text-xs text-gray-500 dark:text-[#6a6a72] mt-1">Univoco tra tutti i tenant. Deve essere identificativo, breve.</p>
             </div>
             <div>
               <Label>Brand name (display)</Label>
@@ -447,7 +447,7 @@ const Organizations = () => {
             <div>
               <Label>Logo</Label>
               <div className="flex items-center gap-3">
-                <div className="w-16 h-16 rounded border bg-[#0a0a0b] flex items-center justify-center overflow-hidden flex-shrink-0">
+                <div className="w-16 h-16 rounded border bg-gray-50 dark:bg-[#0a0a0b] flex items-center justify-center overflow-hidden flex-shrink-0">
                   {editForm.logo_url ? (
                     <img src={editForm.logo_url} alt="logo" className="w-full h-full object-contain" />
                   ) : (
@@ -519,7 +519,7 @@ const Organizations = () => {
                      placeholder="Es. NuovaPass2026!"
                      className="font-mono"
                      data-testid="new-password-input" />
-              <p className="text-xs text-[#6a6a72] mt-1">
+              <p className="text-xs text-gray-500 dark:text-[#6a6a72] mt-1">
                 Suggerimento: comunica all'utente la nuova password tramite un canale sicuro.
               </p>
             </div>

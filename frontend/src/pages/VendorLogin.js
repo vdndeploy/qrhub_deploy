@@ -31,19 +31,19 @@ const VendorLogin = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#0a0a0b] flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gray-50 dark:bg-[#0a0a0b] flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 bg-[#D2FA46] rounded-full mb-4">
-            <User className="h-8 w-8 text-white" />
+            <User className="h-8 w-8 text-gray-900 dark:text-white" />
           </div>
-          <h1 className="text-4xl font-black tracking-tighter text-white mb-2">
+          <h1 className="text-4xl font-black tracking-tighter text-gray-900 dark:text-white mb-2">
             QRHub
           </h1>
-          <p className="text-[#8a8a92]">Area Venditore</p>
+          <p className="text-gray-600 dark:text-[#8a8a92]">Area Venditore</p>
         </div>
 
-        <div className="bg-[#131316] rounded-lg border border-white/10 p-8">
+        <div className="bg-white dark:bg-[#131316] rounded-lg border border-gray-200 dark:border-white/10 p-8">
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
               <Label htmlFor="email" data-testid="vendor-login-email-label">

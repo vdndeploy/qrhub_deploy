@@ -120,7 +120,7 @@ const Files = () => {
             <ImageIcon className="h-7 w-7 text-[#D2FA46]" />
             Libreria Media
           </h2>
-          <p className="text-sm text-[#8a8a92] mt-1">
+          <p className="text-sm text-gray-600 dark:text-[#8a8a92] mt-1">
             Tutti i file Cloudinary della tua organizzazione. Riutilizzali nei post e nelle foto profilo.
           </p>
         </div>
@@ -152,9 +152,9 @@ const Files = () => {
         </div>
       )}
 
-      <div className="bg-[#131316] border rounded-lg p-3 sm:p-4 flex flex-wrap items-center gap-2 sm:gap-3">
+      <div className="bg-white dark:bg-[#131316] border rounded-lg p-3 sm:p-4 flex flex-wrap items-center gap-2 sm:gap-3">
         <div className="flex items-center gap-2 flex-1 min-w-full sm:min-w-[200px]">
-          <Search className="h-4 w-4 text-[#5a5a62] flex-shrink-0" />
+          <Search className="h-4 w-4 text-gray-400 dark:text-[#5a5a62] flex-shrink-0" />
           <Input placeholder="Cerca per nome..." value={search} onChange={(e) => setSearch(e.target.value)} className="flex-1 sm:max-w-xs" />
         </div>
         <Select value={folder} onValueChange={(v) => { setFolder(v); setSkip(0); }}>
@@ -178,15 +178,15 @@ const Files = () => {
       </div>
 
       {loading ? (
-        <div className="text-center py-12 text-[#6a6a72]">Caricamento...</div>
+        <div className="text-center py-12 text-gray-500 dark:text-[#6a6a72]">Caricamento...</div>
       ) : filtered.length === 0 ? (
-        <div className="border border-dashed rounded-lg py-16 text-center text-[#6a6a72] flex flex-col items-center gap-2">
+        <div className="border border-dashed rounded-lg py-16 text-center text-gray-500 dark:text-[#6a6a72] flex flex-col items-center gap-2">
           <FolderOpen className="h-10 w-10 text-gray-300" />
           Nessun file
         </div>
       ) : (
         <>
-          <div className="flex items-center gap-2 text-sm text-[#8a8a92]">
+          <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-[#8a8a92]">
             <Checkbox checked={selected.size === filtered.length && filtered.length > 0} onCheckedChange={toggleAll} />
             <span>Seleziona tutti ({filtered.length})</span>
           </div>
@@ -204,7 +204,7 @@ const Files = () => {
           {total > PAGE_SIZE && (
             <div className="flex justify-center items-center gap-3 pt-2">
               <Button variant="outline" disabled={skip === 0} onClick={() => setSkip(Math.max(0, skip - PAGE_SIZE))}>← Precedente</Button>
-              <span className="text-sm text-[#8a8a92]">{skip + 1}–{Math.min(skip + PAGE_SIZE, total)} di {total}</span>
+              <span className="text-sm text-gray-600 dark:text-[#8a8a92]">{skip + 1}–{Math.min(skip + PAGE_SIZE, total)} di {total}</span>
               <Button variant="outline" disabled={skip + PAGE_SIZE >= total} onClick={() => setSkip(skip + PAGE_SIZE)}>Successiva →</Button>
             </div>
           )}
@@ -221,7 +221,7 @@ const Files = () => {
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); setLightbox(null); }}
-            className="absolute top-4 right-4 text-white bg-white/10 hover:bg-white/20 rounded-full p-2"
+            className="absolute top-4 right-4 text-gray-900 dark:text-white bg-white/10 hover:bg-white/20 rounded-full p-2"
             aria-label="Chiudi"
           >
             <X className="h-5 w-5" />
@@ -232,7 +232,7 @@ const Files = () => {
             ) : (
               <img src={lightbox.url} alt={lightbox.original_filename || ''} className="max-w-full max-h-[80vh] object-contain" />
             )}
-            <div className="mt-3 px-4 py-2 rounded bg-white/10 text-white text-xs flex flex-wrap items-center gap-3">
+            <div className="mt-3 px-4 py-2 rounded bg-white/10 text-gray-900 dark:text-white text-xs flex flex-wrap items-center gap-3">
               <span className="font-semibold">{lightbox.original_filename || lightbox.public_id}</span>
               <span className="opacity-70">·</span>
               <span>{fmtSize(lightbox.bytes)}</span>
@@ -272,11 +272,11 @@ const StatCard = ({ label, value, hint, accent = 'gray' }) => {
   return (
     <div className={`border rounded-lg p-3 ${accentClasses[accent] || 'bg-white'}`}>
       <div className="flex items-start gap-2">
-        <HardDrive className={`h-4 w-4 mt-0.5 ${accent === 'amber' ? 'text-amber-600' : 'text-[#5a5a62]'}`} />
+        <HardDrive className={`h-4 w-4 mt-0.5 ${accent === 'amber' ? 'text-amber-600' : 'text-gray-400 dark:text-[#5a5a62]'}`} />
         <div className="flex-1 min-w-0">
-          <div className="text-[11px] uppercase tracking-wide text-[#6a6a72] font-semibold">{label}</div>
+          <div className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-[#6a6a72] font-semibold">{label}</div>
           <div className="text-xl font-bold">{value}</div>
-          <div className="text-[11px] text-[#6a6a72] mt-0.5">{hint}</div>
+          <div className="text-[11px] text-gray-500 dark:text-[#6a6a72] mt-0.5">{hint}</div>
         </div>
       </div>
     </div>
@@ -290,34 +290,34 @@ const FileCard = ({ f, fmtSize, fmtDate, selected, onToggleSelect, onDelete, onZ
       <button
         type="button"
         onClick={onZoom}
-        className="block relative aspect-square bg-[#1a1a1c] w-full cursor-zoom-in"
+        className="block relative aspect-square bg-gray-100 dark:bg-[#1a1a1c] w-full cursor-zoom-in"
         aria-label="Ingrandisci"
       >
         {isVideo ? (
-          <div className="w-full h-full flex items-center justify-center bg-black text-white">
+          <div className="w-full h-full flex items-center justify-center bg-black text-gray-900 dark:text-white">
             <FileVideo className="h-10 w-10" />
           </div>
         ) : (
           <img src={f.url} alt={f.original_filename || ''} className="w-full h-full object-cover" loading="lazy" />
         )}
         <div className="absolute top-2 left-2" onClick={(e) => e.stopPropagation()}>
-          <Checkbox checked={selected} onCheckedChange={onToggleSelect} className="bg-[#131316] border-2" />
+          <Checkbox checked={selected} onCheckedChange={onToggleSelect} className="bg-white dark:bg-[#131316] border-2" />
         </div>
         <div className="absolute top-1.5 right-1.5 z-10">
           {f.in_use ? (
             <span title="In uso" className="bg-green-500 text-white rounded-full p-0.5 flex items-center justify-center shadow-md"><CheckCircle2 className="h-3.5 w-3.5" /></span>
           ) : (
-            <span title="Orfano" className="bg-yellow-500 text-white rounded-full p-0.5 flex items-center justify-center shadow-md"><AlertCircle className="h-3.5 w-3.5" /></span>
+            <span title="Orfano" className="bg-yellow-500 text-gray-900 dark:text-white rounded-full p-0.5 flex items-center justify-center shadow-md"><AlertCircle className="h-3.5 w-3.5" /></span>
           )}
         </div>
       </button>
       <div className="p-2 text-xs">
         <div className="font-medium truncate" title={f.original_filename}>{f.original_filename || f.public_id}</div>
-        <div className="text-[#6a6a72] flex justify-between mt-0.5">
+        <div className="text-gray-500 dark:text-[#6a6a72] flex justify-between mt-0.5">
           <span>{fmtSize(f.bytes)}</span>
           <span className="truncate ml-2 text-[10px]">{(f.kind || f.folder || '').toString().split('/').pop()}</span>
         </div>
-        <div className="text-[#5a5a62] text-[10px] mt-0.5">{fmtDate(f.created_at)}</div>
+        <div className="text-gray-400 dark:text-[#5a5a62] text-[10px] mt-0.5">{fmtDate(f.created_at)}</div>
         <Button variant="ghost" size="sm" className="w-full mt-1 h-7 text-xs" onClick={onDelete}>
           <Trash2 className="h-3 w-3 mr-1 text-red-500" />Elimina
         </Button>

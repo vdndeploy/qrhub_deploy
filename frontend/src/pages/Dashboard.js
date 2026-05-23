@@ -13,7 +13,8 @@ import OrgSettings from './OrgSettings';
 import Legal from './Legal';
 import MyAccount from './MyAccount';
 import Dpa from './Dpa';
-import { LogOut, BarChart3, Users, Settings as SettingsIcon, Store, FolderOpen, Building2, Sliders, FileText, UserCircle, AlertTriangle } from 'lucide-react';
+import { LogOut, BarChart3, Users, Settings as SettingsIcon, Store, FolderOpen, Building2, Sliders, FileText, UserCircle, AlertTriangle, Sun, Moon } from 'lucide-react';
+import { useTheme } from '@/hooks/useTheme';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -23,6 +24,7 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const isSuper = user?.role === 'super_admin';
   const [dpaNeeded, setDpaNeeded] = useState(false);
+  const { isDark, toggle: toggleTheme } = useTheme();
 
   const isActive = (path) => location.pathname.startsWith(path);
 
@@ -34,8 +36,8 @@ const Dashboard = () => {
   }, [isSuper]);
 
   return (
-    <div className="min-h-screen bg-[#0a0a0b]">
-      <header className="bg-[#131316] border-b border-white/10 sticky top-0 z-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-[#0a0a0b]">
+      <header className="bg-white dark:bg-[#131316] border-b border-gray-200 dark:border-white/10 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-3 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             <div className="flex items-center gap-2">
@@ -49,14 +51,25 @@ const Dashboard = () => {
                   <line x1="14" y1="21" x2="21" y2="21"/>
                 </svg>
               </div>
-              <span className="text-xl sm:text-2xl font-black tracking-tight text-white">QRHub</span>
+              <span className="text-xl sm:text-2xl font-black tracking-tight text-gray-900 dark:text-white">QRHub</span>
             </div>
-            <span className="text-xs sm:text-sm text-[#6a6a72] hidden sm:inline">
+            <span className="text-xs sm:text-sm text-gray-500 dark:text-[#6a6a72] hidden sm:inline">
               {isSuper ? 'Super Admin' : 'Admin'}
             </span>
           </div>
           <div className="flex items-center gap-2 sm:gap-4 min-w-0">
-            <span className="text-xs sm:text-sm text-[#8a8a92] hidden md:inline truncate max-w-[180px]">{user?.email}</span>
+            <span className="text-xs sm:text-sm text-gray-600 dark:text-[#8a8a92] hidden md:inline truncate max-w-[180px]">{user?.email}</span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={toggleTheme}
+              data-testid="theme-toggle-button"
+              className="flex-shrink-0"
+              aria-label={isDark ? 'Passa al tema chiaro' : 'Passa al tema scuro'}
+              title={isDark ? 'Passa al tema chiaro' : 'Passa al tema scuro'}
+            >
+              {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            </Button>
             <Button
               variant="outline"
               size="sm"

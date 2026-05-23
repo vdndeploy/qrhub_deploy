@@ -101,7 +101,7 @@ const Stores = () => {
           <span className="sm:hidden">Nuovo</span>
         </Button>
       </div>
-      <div className="bg-[#131316] rounded-lg border overflow-x-auto">
+      <div className="bg-white dark:bg-[#131316] rounded-lg border overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
@@ -160,7 +160,7 @@ const Stores = () => {
               <div className="sm:col-span-2"><Label>Google Maps (Navigazione)</Label><Input placeholder="https://maps.app.goo.gl/..." value={formData.google_maps_url} onChange={(e) => setFormData({...formData, google_maps_url: e.target.value})} /></div>
             </div>
             <div className="border-t pt-4 space-y-3">
-              <div className="text-sm font-semibold text-[#a8a8b0]">Scheda negozio (pulsante "Store" sulla landing)</div>
+              <div className="text-sm font-semibold text-gray-700 dark:text-[#a8a8b0]">Scheda negozio (pulsante "Store" sulla landing)</div>
               <div>
                 <Label>Orari di apertura</Label>
                 <Textarea
@@ -171,7 +171,7 @@ const Stores = () => {
                   maxLength={500}
                   data-testid="store-hours-input"
                 />
-                <p className="text-[11px] text-[#6a6a72] mt-1">
+                <p className="text-[11px] text-gray-500 dark:text-[#6a6a72] mt-1">
                   Formato libero, supporta più righe. Compare nel pulsante "Store" sulla landing del venditore insieme al nome del negozio. Le indicazioni stradali sono già disponibili tramite il pulsante "Mappa" (campo Google Maps qui sopra).
                 </p>
               </div>

@@ -30,17 +30,17 @@ const Overview = () => {
   return (
     <div className="space-y-8" data-testid="overview-page">
       <div>
-        <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">Panoramica Globale</h2>
+        <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-gray-900 dark:text-white">Panoramica Globale</h2>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
-          <StatCard icon={<Users className="h-6 w-6 text-[#D2FA46]" />} bg="bg-[#D2FA46]/10" label="Venditori" value={stats?.total_vendors} testid="stat-vendors" />
+          <StatCard icon={<Users className="h-6 w-6 text-[#D2FA46]" />} bg="bg-[#D2FA46]/15 dark:bg-[#D2FA46]/10" label="Venditori" value={stats?.total_vendors} testid="stat-vendors" />
           <StatCard icon={<Eye className="h-6 w-6 text-[#4A2D8C]" />} bg="bg-purple-100" label="Visite Totali" value={stats?.total_views} testid="stat-views" />
           <StatCard icon={<MousePointerClick className="h-6 w-6 text-green-600" />} bg="bg-green-100" label="Click Totali" value={stats?.total_clicks} testid="stat-clicks" />
         </div>
 
         {chartData.length > 0 && (
-          <div className="bg-[#131316] rounded-lg border border-white/10 p-6 mt-6" data-testid="analytics-chart">
-            <h3 className="text-xl font-semibold mb-6 text-white">Performance per Venditore</h3>
+          <div className="bg-white dark:bg-[#131316] rounded-lg border border-gray-200 dark:border-white/10 p-6 mt-6" data-testid="analytics-chart">
+            <h3 className="text-xl font-semibold mb-6 text-gray-900 dark:text-white">Performance per Venditore</h3>
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" />
@@ -55,7 +55,7 @@ const Overview = () => {
         )}
       </div>
 
-      <div className="border-t border-white/10 pt-6">
+      <div className="border-t border-gray-200 dark:border-white/10 pt-6">
         <AnalyticsDetailed mode="admin" vendors={vendors} />
       </div>
     </div>
@@ -63,11 +63,11 @@ const Overview = () => {
 };
 
 const StatCard = ({ icon, bg, label, value, testid }) => (
-  <div className="bg-[#131316] rounded-lg border border-white/10 p-6" data-testid={testid}>
+  <div className="bg-white dark:bg-[#131316] rounded-lg border border-gray-200 dark:border-white/10 p-6" data-testid={testid}>
     <div className="flex items-center gap-4">
       <div className={`p-3 rounded-lg ${bg}`}>{icon}</div>
       <div>
-        <p className="text-sm text-[#8a8a92] uppercase tracking-widest">{label}</p>
+        <p className="text-sm text-gray-600 dark:text-[#8a8a92] uppercase tracking-widest">{label}</p>
         <p className="text-3xl font-black tracking-tighter">{value || 0}</p>
       </div>
     </div>

@@ -37,7 +37,7 @@ const Dpa = () => {
     return (
       <div className="max-w-3xl" data-testid="dpa-not-required">
         <h1 className="text-2xl font-bold mb-2">Data Processing Agreement</h1>
-        <p className="text-[#8a8a92]">
+        <p className="text-gray-600 dark:text-[#8a8a92]">
           Sei il super admin della piattaforma: non c'è bisogno che tu firmi un DPA con te stesso.
         </p>
       </div>
@@ -51,7 +51,7 @@ const Dpa = () => {
           <FileSignature className="h-7 w-7 text-emerald-700" />
           Data Processing Agreement (DPA)
         </h1>
-        <p className="text-sm text-[#6a6a72] mt-1">
+        <p className="text-sm text-gray-500 dark:text-[#6a6a72] mt-1">
           Versione corrente: <strong>{status?.current_version || '1.0'}</strong>
           {status?.accepted && (
             <> · <span className="text-emerald-700 inline-flex items-center gap-1"><CheckCircle2 className="h-4 w-4" />Accettato il {status.accepted_at}</span></>
@@ -59,7 +59,7 @@ const Dpa = () => {
         </p>
       </header>
 
-      <article className="bg-[#131316] border border-white/10 rounded-xl p-6 prose prose-sm max-w-none">
+      <article className="bg-white dark:bg-[#131316] border border-gray-200 dark:border-white/10 rounded-xl p-6 prose prose-sm max-w-none">
         <h2>1. Premesse</h2>
         <p>
           Il presente accordo (di seguito <em>"DPA"</em>) disciplina i ruoli e gli obblighi tra:

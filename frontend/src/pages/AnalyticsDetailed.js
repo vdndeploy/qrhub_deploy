@@ -89,7 +89,7 @@ export default function AnalyticsDetailed({ mode = 'admin', vendors = [], defaul
       <div className="flex flex-wrap items-start justify-between gap-3">
         <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">Analytics Dettagliata</h2>
         <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-          <Filter className="h-4 w-4 text-[#6a6a72] flex-shrink-0 hidden sm:block" />
+          <Filter className="h-4 w-4 text-gray-500 dark:text-[#6a6a72] flex-shrink-0 hidden sm:block" />
           <Select value={period} onValueChange={setPeriod}>
             <SelectTrigger className="w-full sm:w-[180px]" data-testid="period-select"><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -115,7 +115,7 @@ export default function AnalyticsDetailed({ mode = 'admin', vendors = [], defaul
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard icon={<Eye className="h-5 w-5 text-[#4A2D8C]" />} bg="bg-purple-100" label="Visite" value={data.total_views} />
-        <KpiCard icon={<MousePointerClick className="h-5 w-5 text-[#D2FA46]" />} bg="bg-[#D2FA46]/10" label="Click Totali" value={data.total_clicks} />
+        <KpiCard icon={<MousePointerClick className="h-5 w-5 text-[#D2FA46]" />} bg="bg-[#D2FA46]/15 dark:bg-[#D2FA46]/10" label="Click Totali" value={data.total_clicks} />
         <KpiCard icon={<Smartphone className="h-5 w-5 text-green-600" />} bg="bg-green-100" label="Eventi" value={data.total_events} />
         <KpiCard icon={<MapPin className="h-5 w-5 text-blue-600" />} bg="bg-blue-100" label="Città Uniche" value={(data.top_cities || []).length} />
       </div>
@@ -189,7 +189,7 @@ export default function AnalyticsDetailed({ mode = 'admin', vendors = [], defaul
             <TableBody>
               {data.top_cities.map((c, i) => (
                 <TableRow key={i}>
-                  <TableCell className="text-[#6a6a72]">{i+1}</TableCell>
+                  <TableCell className="text-gray-500 dark:text-[#6a6a72]">{i+1}</TableCell>
                   <TableCell className="font-medium">{c.city}</TableCell>
                   <TableCell className="text-right font-semibold">{c.count}</TableCell>
                 </TableRow>
@@ -234,11 +234,11 @@ export default function AnalyticsDetailed({ mode = 'admin', vendors = [], defaul
 }
 
 const KpiCard = ({ icon, bg, label, value }) => (
-  <div className="bg-[#131316] rounded-lg border border-white/10 p-5">
+  <div className="bg-white dark:bg-[#131316] rounded-lg border border-gray-200 dark:border-white/10 p-5">
     <div className="flex items-center gap-3">
       <div className={`p-2.5 rounded-lg ${bg}`}>{icon}</div>
       <div>
-        <p className="text-xs text-[#8a8a92] uppercase tracking-wider">{label}</p>
+        <p className="text-xs text-gray-600 dark:text-[#8a8a92] uppercase tracking-wider">{label}</p>
         <p className="text-2xl font-black tracking-tight">{value || 0}</p>
       </div>
     </div>
@@ -246,10 +246,10 @@ const KpiCard = ({ icon, bg, label, value }) => (
 );
 
 const Card = ({ title, children }) => (
-  <div className="bg-[#131316] rounded-lg border border-white/10 p-5">
-    <h3 className="text-base font-semibold mb-3 text-white">{title}</h3>
+  <div className="bg-white dark:bg-[#131316] rounded-lg border border-gray-200 dark:border-white/10 p-5">
+    <h3 className="text-base font-semibold mb-3 text-gray-900 dark:text-white">{title}</h3>
     {children}
   </div>
 );
 
-const Empty = () => <div className="text-center py-8 text-sm text-[#6a6a72]">Nessun dato disponibile</div>;
+const Empty = () => <div className="text-center py-8 text-sm text-gray-500 dark:text-[#6a6a72]">Nessun dato disponibile</div>;

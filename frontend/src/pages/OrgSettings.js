@@ -62,7 +62,7 @@ const GdprCompleteness = ({ org }) => {
             <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${colors.pill}`}
                   data-testid="gdpr-completeness-status">{headline}</span>
           </div>
-          <div className="h-2 bg-white/80 border border-white/10 rounded overflow-hidden mb-2">
+          <div className="h-2 bg-white/80 border border-gray-200 dark:border-white/10 rounded overflow-hidden mb-2">
             <div className={`h-full ${colors.bar} transition-all`} style={{ width: `${pct}%` }} />
           </div>
           <p className={`text-sm ${colors.text}`}>{cta}</p>
@@ -70,7 +70,7 @@ const GdprCompleteness = ({ org }) => {
             {GDPR_REQUIRED.map(f => {
               const filled = !!(org[f.key] || '').trim();
               return (
-                <li key={f.key} className={filled ? 'text-[#6a6a72]' : `${colors.text} font-semibold`}>
+                <li key={f.key} className={filled ? 'text-gray-500 dark:text-[#6a6a72]' : `${colors.text} font-semibold`}>
                   {filled ? '✓' : '○'} {f.label}
                 </li>
               );
@@ -78,7 +78,7 @@ const GdprCompleteness = ({ org }) => {
             {GDPR_OPTIONAL.map(f => {
               const filled = !!(org[f.key] || '').trim();
               return (
-                <li key={f.key} className={filled ? 'text-[#6a6a72]' : 'text-[#5a5a62]'}>
+                <li key={f.key} className={filled ? 'text-gray-500 dark:text-[#6a6a72]' : 'text-gray-400 dark:text-[#5a5a62]'}>
                   {filled ? '✓' : '○'} {f.label} <span className="text-[10px] uppercase tracking-wide opacity-70">opzionale</span>
                 </li>
               );
@@ -101,7 +101,7 @@ const CopyableValue = ({ value, testId }) => {
   };
   return (
     <button type="button" onClick={copy} data-testid={testId}
-            className="group inline-flex items-center gap-1.5 font-mono text-[11px] sm:text-xs font-semibold text-white hover:text-[#D2FA46] break-all text-left">
+            className="group inline-flex items-center gap-1.5 font-mono text-[11px] sm:text-xs font-semibold text-gray-900 dark:text-white hover:text-[#D2FA46] break-all text-left">
       <span className="break-all">{value}</span>
       <Copy className="h-3 w-3 opacity-50 group-hover:opacity-100 flex-shrink-0" />
     </button>
@@ -133,12 +133,12 @@ const DomainCard = ({ d, onRefresh, onVerify, onRemove, busy }) => {
   const hasCurrent = currentCnames.length > 0 || currentAValues.length > 0;
 
   return (
-    <div className="border rounded-lg p-3 sm:p-4 bg-[#131316]" data-testid={`domain-card-${d.domain}`}>
+    <div className="border rounded-lg p-3 sm:p-4 bg-white dark:bg-[#131316]" data-testid={`domain-card-${d.domain}`}>
       <div className="flex items-start justify-between gap-2 flex-wrap">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
             <a href={`https://${d.domain}`} target="_blank" rel="noreferrer"
-                className="font-mono text-sm font-semibold text-white hover:underline truncate">
+                className="font-mono text-sm font-semibold text-gray-900 dark:text-white hover:underline truncate">
               {d.domain}
             </a>
             {fullyOnline ? (
@@ -188,15 +188,15 @@ const DomainCard = ({ d, onRefresh, onVerify, onRemove, busy }) => {
                   : <>Vai su <strong>Aruba → Pannello Gestione Dominio → DNS / Record DNS</strong> e aggiungi {recordValues.length > 1 ? 'questi record' : 'questo record'} <strong>A</strong>:</>}
               </p>
 
-              <div className="bg-[#131316] border rounded p-2.5 text-[11px] sm:text-xs space-y-1.5">
+              <div className="bg-white dark:bg-[#131316] border rounded p-2.5 text-[11px] sm:text-xs space-y-1.5">
                 <div className="grid grid-cols-[70px_1fr] sm:grid-cols-[90px_1fr] gap-x-3 gap-y-1.5 items-center">
-                  <span className="text-[#6a6a72]">Tipo</span>
+                  <span className="text-gray-500 dark:text-[#6a6a72]">Tipo</span>
                   <span className="font-mono font-semibold">{recordType}</span>
 
-                  <span className="text-[#6a6a72]">Host / Nome</span>
+                  <span className="text-gray-500 dark:text-[#6a6a72]">Host / Nome</span>
                   <CopyableValue value={host} testId={`domain-copy-host-${d.domain}`} />
 
-                  <span className="text-[#6a6a72]">{recordValues.length > 1 ? 'Valori' : 'Valore'}</span>
+                  <span className="text-gray-500 dark:text-[#6a6a72]">{recordValues.length > 1 ? 'Valori' : 'Valore'}</span>
                   <div className="flex flex-col gap-1">
                     {recordValues.map((v, i) => (
                       <CopyableValue key={v + i} value={v}
@@ -204,7 +204,7 @@ const DomainCard = ({ d, onRefresh, onVerify, onRemove, busy }) => {
                     ))}
                   </div>
 
-                  <span className="text-[#6a6a72]">TTL</span>
+                  <span className="text-gray-500 dark:text-[#6a6a72]">TTL</span>
                   <span className="font-mono">3600 (o "Auto")</span>
                 </div>
               </div>
@@ -216,11 +216,11 @@ const DomainCard = ({ d, onRefresh, onVerify, onRemove, busy }) => {
                   </summary>
                   <div className="mt-2 space-y-1 font-mono text-[10px] sm:text-[11px]">
                     {currentCnames.length > 0 && (
-                      <div><span className="text-[#6a6a72]">CNAME attuali:</span>{' '}
+                      <div><span className="text-gray-500 dark:text-[#6a6a72]">CNAME attuali:</span>{' '}
                         <span className="break-all">{currentCnames.join(', ')}</span></div>
                     )}
                     {currentAValues.length > 0 && (
-                      <div><span className="text-[#6a6a72]">A attuali:</span>{' '}
+                      <div><span className="text-gray-500 dark:text-[#6a6a72]">A attuali:</span>{' '}
                         <span className="break-all">{currentAValues.join(', ')}</span></div>
                     )}
                   </div>
@@ -414,9 +414,9 @@ const OrgSettings = () => {
   };
 
   if (loading) return <div className="text-center py-12">Caricamento...</div>;
-  if (!org) return <div className="text-center py-12 text-[#6a6a72]">Nessuna organizzazione</div>;
+  if (!org) return <div className="text-center py-12 text-gray-500 dark:text-[#6a6a72]">Nessuna organizzazione</div>;
   if (org.is_super_admin) return (
-    <div className="text-center py-12 text-[#6a6a72]">
+    <div className="text-center py-12 text-gray-500 dark:text-[#6a6a72]">
       Sei super admin. Vai a "Organizzazioni" per gestire i tenant.
     </div>
   );
@@ -426,7 +426,7 @@ const OrgSettings = () => {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h2 className="text-2xl sm:text-3xl font-bold">Impostazioni Organizzazione</h2>
-          <p className="text-sm text-[#8a8a92] mt-1">Personalizza il brand e i domini di "{org.name}"</p>
+          <p className="text-sm text-gray-600 dark:text-[#8a8a92] mt-1">Personalizza il brand e i domini di "{org.name}"</p>
         </div>
         <Button onClick={handleSave} disabled={saving} className="bg-[#D2FA46] hover:bg-[#bce63d] text-[#0a0a0b]" data-testid="org-save-button">
           <Save className="h-4 w-4 mr-2" />{saving ? 'Salvataggio...' : 'Salva'}
@@ -435,7 +435,7 @@ const OrgSettings = () => {
 
       <GdprCompleteness org={org} />
 
-      <div className="bg-[#131316] border rounded-lg p-5 space-y-4">
+      <div className="bg-white dark:bg-[#131316] border rounded-lg p-5 space-y-4">
         <h3 className="font-semibold flex items-center gap-2"><ImgIcon className="h-4 w-4 text-[#D2FA46]" />Brand</h3>
         <div>
           <Label>Nome Organizzazione</Label>
@@ -454,7 +454,7 @@ const OrgSettings = () => {
             data-testid="org-landing-headline-input"
             maxLength={140}
           />
-          <p className="text-[11px] text-[#6a6a72] mt-1">
+          <p className="text-[11px] text-gray-500 dark:text-[#6a6a72] mt-1">
             Compare in piccolo sopra il titolo della landing del venditore (es. <span className="font-mono">/v/&hellip;</span>).
             Lascia vuoto per usare il default "Il tuo consulente di fiducia".
           </p>
@@ -470,7 +470,7 @@ const OrgSettings = () => {
           <Label>Logo</Label>
           {org.logo_url ? (
             <div className="flex items-center gap-3 mt-1">
-              <img src={org.logo_url} alt="logo" className="h-20 w-20 object-contain border rounded bg-[#0a0a0b] p-2" />
+              <img src={org.logo_url} alt="logo" className="h-20 w-20 object-contain border rounded bg-gray-50 dark:bg-[#0a0a0b] p-2" />
               <Button variant="outline" size="sm" onClick={removeLogo}><X className="h-4 w-4 mr-1" />Rimuovi</Button>
             </div>
           ) : (
@@ -484,14 +484,14 @@ const OrgSettings = () => {
         </div>
       </div>
 
-      <div className="bg-[#131316] border rounded-lg p-5 space-y-3">
+      <div className="bg-white dark:bg-[#131316] border rounded-lg p-5 space-y-3">
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <h3 className="font-semibold flex items-center gap-2">
             <Globe className="h-4 w-4 text-[#D2FA46]" />Domini personalizzati
           </h3>
-          {domainsLoading && <RefreshCw className="h-4 w-4 text-[#5a5a62] animate-spin" />}
+          {domainsLoading && <RefreshCw className="h-4 w-4 text-gray-400 dark:text-[#5a5a62] animate-spin" />}
         </div>
-        <p className="text-xs text-[#6a6a72]">
+        <p className="text-xs text-gray-500 dark:text-[#6a6a72]">
           Aggiungi il sottodominio (es. <span className="font-mono">qr.tuodominio.it</span>) che vuoi usare per le landing page.
           <strong> Verrà collegato in automatico</strong> al sito — non devi entrare su nessuna piattaforma esterna.
           Ti diremo solo quale record DNS aggiungere sul tuo pannello Aruba.
@@ -510,7 +510,7 @@ const OrgSettings = () => {
 
         <div className="space-y-2">
           {domains.length === 0 ? (
-            <p className="text-sm text-[#5a5a62] text-center py-4">Nessun dominio configurato</p>
+            <p className="text-sm text-gray-400 dark:text-[#5a5a62] text-center py-4">Nessun dominio configurato</p>
           ) : (
             domains.map(d => (
               <DomainCard
@@ -526,11 +526,11 @@ const OrgSettings = () => {
         </div>
       </div>
 
-      <div className="bg-[#131316] border rounded-lg p-5 space-y-4">
+      <div className="bg-white dark:bg-[#131316] border rounded-lg p-5 space-y-4">
         <h3 className="font-semibold flex items-center gap-2">
           <Cookie className="h-4 w-4 text-[#D2FA46]" />Banner cookie sulla landing pubblica
         </h3>
-        <p className="text-xs text-[#6a6a72]">
+        <p className="text-xs text-gray-500 dark:text-[#6a6a72]">
           Abilita un banner mostrato sui link pubblici dei tuoi venditori (es. <span className="font-mono">qr.tuodominio.it/v/...</span>).
           <strong> Il testo lo decidi tu</strong>: QRHub fornisce solo lo strumento, la responsabilità del contenuto della landing
           e dell'informativa è del titolare del dominio.
@@ -539,7 +539,7 @@ const OrgSettings = () => {
         <div className="flex items-center justify-between border rounded-lg p-3">
           <div>
             <p className="text-sm font-medium">Personalizza testo banner</p>
-            <p className="text-xs text-[#6a6a72]">
+            <p className="text-xs text-gray-500 dark:text-[#6a6a72]">
               Il banner è sempre attivo per legge (informativa art. 13 GDPR).
               Con questo switch decidi se mostrare un testo tuo o quello di default.
             </p>
@@ -561,7 +561,7 @@ const OrgSettings = () => {
             data-testid="cookie-banner-text-input"
             maxLength={1000}
           />
-          <p className="text-[11px] text-[#5a5a62] mt-1">
+          <p className="text-[11px] text-gray-400 dark:text-[#5a5a62] mt-1">
             {(org.cookie_banner_text || '').length}/1000 · Se vuoto verrà mostrato un testo default
           </p>
         </div>
@@ -575,7 +575,7 @@ const OrgSettings = () => {
             className="font-mono"
             data-testid="cookie-banner-link-input"
           />
-          <p className="text-[11px] text-[#5a5a62] mt-1">
+          <p className="text-[11px] text-gray-400 dark:text-[#5a5a62] mt-1">
             Se inserito, comparirà un link "Privacy policy" accanto al pulsante "Ho capito".
           </p>
         </div>
@@ -588,13 +588,13 @@ const OrgSettings = () => {
       </div>
 
       {/* GDPR — Titolare del trattamento (art. 13 GDPR) */}
-      <div className="bg-[#131316] border rounded-lg p-5 space-y-4" data-testid="org-gdpr-controller-section">
+      <div className="bg-white dark:bg-[#131316] border rounded-lg p-5 space-y-4" data-testid="org-gdpr-controller-section">
         <h3 className="font-semibold flex items-center gap-2">
           <span className="inline-block w-5 h-5 rounded bg-emerald-100 text-emerald-700 text-[11px] font-bold flex items-center justify-center">!</span>
           Dati del titolare del trattamento (GDPR)
         </h3>
-        <p className="text-xs text-[#6a6a72]">
-          Questi dati appaiono nella pagina pubblica <code className="bg-[#1a1a1c] px-1 rounded">/v/[id]/privacy</code> di ogni
+        <p className="text-xs text-gray-500 dark:text-[#6a6a72]">
+          Questi dati appaiono nella pagina pubblica <code className="bg-gray-100 dark:bg-[#1a1a1c] px-1 rounded">/v/[id]/privacy</code> di ogni
           tuo venditore, accessibile dal link <em>"Informativa privacy"</em> in fondo a ogni landing.
           Sono <strong>obbligatori</strong> per identificarti come titolare ai sensi dell'art. 13 GDPR.
         </p>
@@ -655,7 +655,7 @@ const OrgSettings = () => {
             data-testid="org-privacy-policy-url-input"
             maxLength={500}
           />
-          <p className="text-[11px] text-[#5a5a62] mt-1">
+          <p className="text-[11px] text-gray-400 dark:text-[#5a5a62] mt-1">
             Se compilato, la pagina informativa rimanderà ANCHE alla tua policy completa.
           </p>
         </div>

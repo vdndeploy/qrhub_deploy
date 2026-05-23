@@ -13,7 +13,7 @@ const CLICK_LABELS = {
   whatsapp_click: 'WhatsApp', instagram_click: 'Instagram', facebook_click: 'Facebook',
   review_click: 'Recensione Google', tiktok_click: 'TikTok', maps_click: 'Google Maps', post_cta_click: 'CTA Post'
 };
-const CLICK_COLORS = ['#25D366', '#E1306C', '#1877F2', '#FBBC04', '#000000', '#F96815', '#4A2D8C'];
+const CLICK_COLORS = ['#25D366', '#E1306C', '#1877F2', '#FBBC04', '#000000', '#D2FA46', '#4A2D8C'];
 
 const PERIOD_LABELS = { '7d': 'Ultimi 7 giorni', '30d': 'Ultimi 30 giorni', month: 'Mese corrente' };
 
@@ -89,7 +89,7 @@ export default function AnalyticsDetailed({ mode = 'admin', vendors = [], defaul
       <div className="flex flex-wrap items-start justify-between gap-3">
         <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">Analytics Dettagliata</h2>
         <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-          <Filter className="h-4 w-4 text-gray-500 flex-shrink-0 hidden sm:block" />
+          <Filter className="h-4 w-4 text-[#6a6a72] flex-shrink-0 hidden sm:block" />
           <Select value={period} onValueChange={setPeriod}>
             <SelectTrigger className="w-full sm:w-[180px]" data-testid="period-select"><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -107,7 +107,7 @@ export default function AnalyticsDetailed({ mode = 'admin', vendors = [], defaul
               </SelectContent>
             </Select>
           )}
-          <Button onClick={downloadPdf} disabled={downloading} className="bg-[#F96815] hover:bg-[#e05a0f] w-full sm:w-auto" data-testid="download-pdf-button">
+          <Button onClick={downloadPdf} disabled={downloading} className="bg-[#D2FA46] hover:bg-[#bce63d] text-[#0a0a0b] w-full sm:w-auto" data-testid="download-pdf-button">
             <Download className="h-4 w-4 mr-2" />{downloading ? 'Generazione...' : 'Esporta PDF'}
           </Button>
         </div>
@@ -115,7 +115,7 @@ export default function AnalyticsDetailed({ mode = 'admin', vendors = [], defaul
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard icon={<Eye className="h-5 w-5 text-[#4A2D8C]" />} bg="bg-purple-100" label="Visite" value={data.total_views} />
-        <KpiCard icon={<MousePointerClick className="h-5 w-5 text-[#F96815]" />} bg="bg-orange-100" label="Click Totali" value={data.total_clicks} />
+        <KpiCard icon={<MousePointerClick className="h-5 w-5 text-[#D2FA46]" />} bg="bg-[#D2FA46]/10" label="Click Totali" value={data.total_clicks} />
         <KpiCard icon={<Smartphone className="h-5 w-5 text-green-600" />} bg="bg-green-100" label="Eventi" value={data.total_events} />
         <KpiCard icon={<MapPin className="h-5 w-5 text-blue-600" />} bg="bg-blue-100" label="Città Uniche" value={(data.top_cities || []).length} />
       </div>
@@ -131,7 +131,7 @@ export default function AnalyticsDetailed({ mode = 'admin', vendors = [], defaul
                 <Tooltip />
                 <Legend />
                 <Line type="monotone" dataKey="views" name="Visite" stroke="#4A2D8C" strokeWidth={2} />
-                <Line type="monotone" dataKey="clicks" name="Click" stroke="#F96815" strokeWidth={2} />
+                <Line type="monotone" dataKey="clicks" name="Click" stroke="#D2FA46" strokeWidth={2} />
               </LineChart>
             </ResponsiveContainer>
           ) : <Empty />}
@@ -158,7 +158,7 @@ export default function AnalyticsDetailed({ mode = 'admin', vendors = [], defaul
               <XAxis dataKey="ora" tick={{ fontSize: 10 }} />
               <YAxis tick={{ fontSize: 11 }} />
               <Tooltip />
-              <Bar dataKey="eventi" fill="#F96815" />
+              <Bar dataKey="eventi" fill="#D2FA46" />
             </BarChart>
           </ResponsiveContainer>
         </Card>
@@ -168,7 +168,7 @@ export default function AnalyticsDetailed({ mode = 'admin', vendors = [], defaul
             <ResponsiveContainer width="100%" height={260}>
               <PieChart>
                 <Pie data={devicePie} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90} label>
-                  {devicePie.map((_, i) => <Cell key={i} fill={['#4A2D8C','#F96815','#25D366','#999'][i % 4]} />)}
+                  {devicePie.map((_, i) => <Cell key={i} fill={['#4A2D8C','#D2FA46','#25D366','#999'][i % 4]} />)}
                 </Pie>
                 <Tooltip />
                 <Legend />
@@ -189,7 +189,7 @@ export default function AnalyticsDetailed({ mode = 'admin', vendors = [], defaul
             <TableBody>
               {data.top_cities.map((c, i) => (
                 <TableRow key={i}>
-                  <TableCell className="text-gray-500">{i+1}</TableCell>
+                  <TableCell className="text-[#6a6a72]">{i+1}</TableCell>
                   <TableCell className="font-medium">{c.city}</TableCell>
                   <TableCell className="text-right font-semibold">{c.count}</TableCell>
                 </TableRow>
@@ -234,11 +234,11 @@ export default function AnalyticsDetailed({ mode = 'admin', vendors = [], defaul
 }
 
 const KpiCard = ({ icon, bg, label, value }) => (
-  <div className="bg-white rounded-lg border border-gray-200 p-5">
+  <div className="bg-[#131316] rounded-lg border border-white/10 p-5">
     <div className="flex items-center gap-3">
       <div className={`p-2.5 rounded-lg ${bg}`}>{icon}</div>
       <div>
-        <p className="text-xs text-gray-600 uppercase tracking-wider">{label}</p>
+        <p className="text-xs text-[#8a8a92] uppercase tracking-wider">{label}</p>
         <p className="text-2xl font-black tracking-tight">{value || 0}</p>
       </div>
     </div>
@@ -246,10 +246,10 @@ const KpiCard = ({ icon, bg, label, value }) => (
 );
 
 const Card = ({ title, children }) => (
-  <div className="bg-white rounded-lg border border-gray-200 p-5">
-    <h3 className="text-base font-semibold mb-3 text-gray-900">{title}</h3>
+  <div className="bg-[#131316] rounded-lg border border-white/10 p-5">
+    <h3 className="text-base font-semibold mb-3 text-white">{title}</h3>
     {children}
   </div>
 );
 
-const Empty = () => <div className="text-center py-8 text-sm text-gray-500">Nessun dato disponibile</div>;
+const Empty = () => <div className="text-center py-8 text-sm text-[#6a6a72]">Nessun dato disponibile</div>;

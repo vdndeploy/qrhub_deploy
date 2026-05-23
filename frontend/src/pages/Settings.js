@@ -38,16 +38,16 @@ const EMPTY = {
   aruba_dns_zone: '', aruba_notes: '',
 };
 
-const Section = ({ icon: Icon, title, desc, children, accent = '#F96815' }) => (
-  <div className="bg-white border border-gray-200 rounded-xl p-5 sm:p-6 shadow-sm">
+const Section = ({ icon: Icon, title, desc, children, accent = '#D2FA46' }) => (
+  <div className="bg-[#131316] border border-white/10 rounded-xl p-5 sm:p-6 shadow-sm">
     <div className="flex items-start gap-3 mb-5">
       <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
             style={{ backgroundColor: `${accent}14`, color: accent }}>
         <Icon className="h-5 w-5" />
       </div>
       <div className="min-w-0">
-        <h3 className="text-base font-semibold text-gray-900">{title}</h3>
-        {desc && <p className="text-xs text-gray-500 mt-0.5">{desc}</p>}
+        <h3 className="text-base font-semibold text-white">{title}</h3>
+        {desc && <p className="text-xs text-[#6a6a72] mt-0.5">{desc}</p>}
       </div>
     </div>
     <div className="space-y-4">{children}</div>
@@ -72,7 +72,7 @@ const SecretInput = ({ id, label, value, onChange, placeholder, testid, hint }) 
         <button
           type="button"
           onClick={() => setShow(s => !s)}
-          className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-900"
+          className="absolute right-2 top-1/2 -translate-y-1/2 text-[#6a6a72] hover:text-white"
           tabIndex={-1}
           aria-label={show ? 'Nascondi' : 'Mostra'}
           data-testid={`${testid}-toggle`}
@@ -80,7 +80,7 @@ const SecretInput = ({ id, label, value, onChange, placeholder, testid, hint }) 
           {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
         </button>
       </div>
-      {hint && <p className="text-[11px] text-gray-500 mt-1">{hint}</p>}
+      {hint && <p className="text-[11px] text-[#6a6a72] mt-1">{hint}</p>}
     </div>
   );
 };
@@ -96,7 +96,7 @@ const TextField = ({ id, label, value, onChange, placeholder, testid, hint, mono
       className={mono ? 'font-mono text-sm' : ''}
       data-testid={testid}
     />
-    {hint && <p className="text-[11px] text-gray-500 mt-1">{hint}</p>}
+    {hint && <p className="text-[11px] text-[#6a6a72] mt-1">{hint}</p>}
   </div>
 );
 
@@ -110,7 +110,7 @@ const CommandBlock = ({ label, command, testid }) => {
   return (
     <div>
       <div className="flex items-center justify-between mb-1">
-        <Label className="text-xs text-gray-600">{label}</Label>
+        <Label className="text-xs text-[#8a8a92]">{label}</Label>
         <Button type="button" variant="ghost" size="sm" onClick={copy} data-testid={testid}>
           <Copy className="h-3.5 w-3.5 mr-1" />Copia
         </Button>
@@ -293,14 +293,14 @@ const Settings = () => {
     } catch { /* ignore */ }
   };
 
-  if (loading) return <div className="text-center py-12 text-gray-500">Caricamento...</div>;
+  if (loading) return <div className="text-center py-12 text-[#6a6a72]">Caricamento...</div>;
 
   if (user?.role !== 'super_admin') {
     return (
-      <div className="bg-white border border-gray-200 rounded-xl p-8 text-center" data-testid="settings-forbidden">
-        <Lock className="h-10 w-10 mx-auto text-gray-400 mb-3" />
-        <h3 className="text-lg font-semibold text-gray-900">Accesso riservato</h3>
-        <p className="text-sm text-gray-500 mt-1">Solo il super admin può configurare il deploy.</p>
+      <div className="bg-[#131316] border border-white/10 rounded-xl p-8 text-center" data-testid="settings-forbidden">
+        <Lock className="h-10 w-10 mx-auto text-[#5a5a62] mb-3" />
+        <h3 className="text-lg font-semibold text-white">Accesso riservato</h3>
+        <p className="text-sm text-[#6a6a72] mt-1">Solo il super admin può configurare il deploy.</p>
       </div>
     );
   }
@@ -309,10 +309,10 @@ const Settings = () => {
     <div className="space-y-6" data-testid="settings-page">
       <div className="flex items-start sm:items-center justify-between flex-wrap gap-3">
         <div>
-          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-gray-900">
+          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">
             Configurazione Deploy
           </h2>
-          <p className="text-sm text-gray-500 mt-1 flex items-center gap-1.5">
+          <p className="text-sm text-[#6a6a72] mt-1 flex items-center gap-1.5">
             <ShieldCheck className="h-4 w-4 text-emerald-600" />
             Solo super admin · Le credenziali sono cifrate in MongoDB
           </p>
@@ -320,7 +320,7 @@ const Settings = () => {
         <Button
           onClick={handleSubmit}
           disabled={saving}
-          className="bg-[#F96815] hover:bg-[#e05a0f] text-white"
+          className="bg-[#D2FA46] hover:bg-[#bce63d] text-[#0a0a0b]"
           data-testid="save-config-button"
         >
           <Save className="h-4 w-4 mr-2" />
@@ -386,7 +386,7 @@ const Settings = () => {
               hint="Lascia vuoto se vuoi che venga calcolato da nome app + .fly.dev" />
 
             <a href="https://fly.io/user/personal_access_tokens" target="_blank" rel="noreferrer"
-                className="inline-flex items-center text-xs text-[#F96815] hover:underline">
+                className="inline-flex items-center text-xs text-[#D2FA46] hover:underline">
               Crea token Fly.io <ExternalLink className="h-3 w-3 ml-1" />
             </a>
           </Section>
@@ -408,7 +408,7 @@ const Settings = () => {
                 {opsLoading['fly-secrets'] ? 'Applico...' : 'Applica Secrets a Fly.io'}
               </Button>
               <Button onClick={redeployFly} disabled={opsLoading['fly-redeploy']}
-                      className="bg-[#F96815] hover:bg-[#e05a0f] text-white"
+                      className="bg-[#D2FA46] hover:bg-[#bce63d] text-[#0a0a0b]"
                       data-testid="btn-fly-redeploy">
                 <Rocket className="h-4 w-4 mr-2" />
                 {opsLoading['fly-redeploy'] ? 'Avvio...' : 'Redeploy immagine attuale'}
@@ -426,12 +426,12 @@ const Settings = () => {
                 Aggiorna stato
               </Button>
             </div>
-            <p className="text-[11px] text-gray-500">
-              Il <strong>primo deploy</strong> dell'immagine deve essere fatto una volta con <code className="bg-gray-100 px-1 rounded">fly deploy</code> (per buildare e pushare su <code className="bg-gray-100 px-1 rounded">registry.fly.io</code>). Dopo, redeploy e secret-apply funzionano da qui.
+            <p className="text-[11px] text-[#6a6a72]">
+              Il <strong>primo deploy</strong> dell'immagine deve essere fatto una volta con <code className="bg-[#1a1a1c] px-1 rounded">fly deploy</code> (per buildare e pushare su <code className="bg-[#1a1a1c] px-1 rounded">registry.fly.io</code>). Dopo, redeploy e secret-apply funzionano da qui.
             </p>
 
             {flyStatus && (
-              <div className="border rounded-lg p-3 bg-gray-50 space-y-2 text-sm" data-testid="fly-status-panel">
+              <div className="border rounded-lg p-3 bg-[#0a0a0b] space-y-2 text-sm" data-testid="fly-status-panel">
                 <div className="flex items-center justify-between flex-wrap gap-1">
                   <span className="font-semibold">App: <span className="font-mono">{flyStatus.app}</span></span>
                   <Badge variant={flyStatus.deployed ? 'default' : 'secondary'}
@@ -440,9 +440,9 @@ const Settings = () => {
                   </Badge>
                 </div>
                 {flyStatus.release && (
-                  <div className="text-xs text-gray-700">
+                  <div className="text-xs text-[#a8a8b0]">
                     <div>Release: <span className="font-mono">v{flyStatus.release.version}</span> — {flyStatus.release.status}</div>
-                    <div className="font-mono text-[10px] text-gray-500 break-all">{flyStatus.release.imageRef}</div>
+                    <div className="font-mono text-[10px] text-[#6a6a72] break-all">{flyStatus.release.imageRef}</div>
                   </div>
                 )}
                 <div className="space-y-1">
@@ -451,13 +451,13 @@ const Settings = () => {
                       <span className="font-mono">{m.id} · {m.region}</span>
                       <Badge variant="outline" className={
                         m.state === 'started' ? 'border-emerald-500 text-emerald-700' :
-                        m.state === 'stopped' ? 'border-gray-400 text-gray-600' :
+                        m.state === 'stopped' ? 'border-gray-400 text-[#8a8a92]' :
                         'border-amber-400 text-amber-700'
                       }>{m.state}</Badge>
                     </div>
                   ))}
                   {(!flyStatus.machines || flyStatus.machines.length === 0) && (
-                    <p className="text-xs text-gray-500 italic">Nessuna machine attiva.</p>
+                    <p className="text-xs text-[#6a6a72] italic">Nessuna machine attiva.</p>
                   )}
                 </div>
               </div>
@@ -497,7 +497,7 @@ const Settings = () => {
               hint="Vercel Project → Settings → Git → Deploy Hooks. Permette di triggerare deploy senza esporre il token." />
 
             <a href="https://vercel.com/account/tokens" target="_blank" rel="noreferrer"
-                className="inline-flex items-center text-xs text-[#F96815] hover:underline">
+                className="inline-flex items-center text-xs text-[#D2FA46] hover:underline">
               Crea token Vercel <ExternalLink className="h-3 w-3 ml-1" />
             </a>
           </Section>
@@ -515,7 +515,7 @@ const Settings = () => {
               <Rocket className="h-4 w-4 mr-2" />
               {opsLoading['vercel-trigger'] ? 'Avvio...' : 'Triggera Deploy Vercel'}
             </Button>
-            <p className="text-[11px] text-gray-500">
+            <p className="text-[11px] text-[#6a6a72]">
               Per il primo deploy collega il repo a Vercel manualmente (vercel.com → Add New → Project),
               poi qui puoi ri-distribuire ad ogni cambio. Con Deploy Hook anche senza token.
             </p>
@@ -593,7 +593,7 @@ const Settings = () => {
             <div className="flex items-center justify-between border rounded-lg p-3">
               <div>
                 <p className="text-sm font-medium">Ruota JWT_SECRET</p>
-                <p className="text-xs text-gray-500">Nuovo token casuale 64 hex chars. Tutti gli utenti dovranno rifare login.</p>
+                <p className="text-xs text-[#6a6a72]">Nuovo token casuale 64 hex chars. Tutti gli utenti dovranno rifare login.</p>
               </div>
               <Switch checked={rotate.rotate_jwt}
                       onCheckedChange={(v) => setRotate(r => ({ ...r, rotate_jwt: v }))}
@@ -604,7 +604,7 @@ const Settings = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium">Ruota password Org Admin</p>
-                  <p className="text-xs text-gray-500">{config.prod_admin_email || 'admin@example.com'}</p>
+                  <p className="text-xs text-[#6a6a72]">{config.prod_admin_email || 'admin@example.com'}</p>
                 </div>
                 <Switch checked={rotate.rotate_admin_password}
                         onCheckedChange={(v) => setRotate(r => ({ ...r, rotate_admin_password: v }))}
@@ -623,7 +623,7 @@ const Settings = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium">Ruota password Super Admin</p>
-                  <p className="text-xs text-gray-500">{config.prod_superadmin_email || 'superadmin@qrhub.it'}</p>
+                  <p className="text-xs text-[#6a6a72]">{config.prod_superadmin_email || 'superadmin@qrhub.it'}</p>
                 </div>
                 <Switch checked={rotate.rotate_superadmin_password}
                         onCheckedChange={(v) => setRotate(r => ({ ...r, rotate_superadmin_password: v }))}
@@ -641,7 +641,7 @@ const Settings = () => {
             <div className="flex items-center justify-between border rounded-lg p-3 bg-amber-50">
               <div>
                 <p className="text-sm font-medium flex items-center gap-1.5"><AlertTriangle className="h-4 w-4 text-amber-600" />Applica anche su Fly.io</p>
-                <p className="text-xs text-gray-600">Richiede Fly Token + Nome App. I secrets vengono inviati a Fly subito.</p>
+                <p className="text-xs text-[#8a8a92]">Richiede Fly Token + Nome App. I secrets vengono inviati a Fly subito.</p>
               </div>
               <Switch checked={rotate.apply_to_fly}
                       onCheckedChange={(v) => setRotate(r => ({ ...r, apply_to_fly: v }))}
@@ -683,17 +683,17 @@ const Settings = () => {
                   <div className="text-sm">JWT_SECRET: <span className="font-mono">{rotateResult.new_jwt_secret_preview}</span></div>
                 )}
                 {rotateResult.new_admin_password && (
-                  <div className="text-sm font-mono bg-white border p-2 rounded">
+                  <div className="text-sm font-mono bg-[#131316] border p-2 rounded">
                     <strong>Admin pwd:</strong> {rotateResult.new_admin_password}
                   </div>
                 )}
                 {rotateResult.new_superadmin_password && (
-                  <div className="text-sm font-mono bg-white border p-2 rounded">
+                  <div className="text-sm font-mono bg-[#131316] border p-2 rounded">
                     <strong>Super pwd:</strong> {rotateResult.new_superadmin_password}
                   </div>
                 )}
                 {rotateResult.fly && (
-                  <div className="text-xs text-gray-700">
+                  <div className="text-xs text-[#a8a8b0]">
                     Fly release: v{rotateResult.fly.release_version} — secrets aggiornati
                     ({(rotateResult.fly.applied_keys || []).length})
                   </div>
@@ -709,11 +709,11 @@ const Settings = () => {
                     desc="Ping automatico ogni 60s sul tuo backend Fly.io. Storico 24h."
                     accent="#10B981">
             {!uptime ? (
-              <p className="text-sm text-gray-500">Caricamento...</p>
+              <p className="text-sm text-[#6a6a72]">Caricamento...</p>
             ) : !uptime.has_data ? (
               <div className="space-y-3">
-                <p className="text-sm text-gray-600">{uptime.message}</p>
-                <div className="text-xs text-gray-500">
+                <p className="text-sm text-[#8a8a92]">{uptime.message}</p>
+                <div className="text-xs text-[#6a6a72]">
                   Target: <span className="font-mono">{uptime.target || '— non configurato —'}</span>
                 </div>
                 <Button onClick={checkNow} disabled={opsLoading['uptime-check']}
@@ -735,51 +735,51 @@ const Settings = () => {
                       {uptime.current_status === 'up'
                         ? <CheckCircle2 className="h-5 w-5 text-emerald-600" />
                         : <XCircle className="h-5 w-5 text-red-600" />}
-                      <span className="text-xs uppercase tracking-wider text-gray-500">Stato</span>
+                      <span className="text-xs uppercase tracking-wider text-[#6a6a72]">Stato</span>
                     </div>
                     <div className={`text-2xl font-bold mt-1 ${
                       uptime.current_status === 'up' ? 'text-emerald-700' : 'text-red-700'
                     }`}>
                       {uptime.current_status === 'up' ? 'Online' : 'Offline'}
                     </div>
-                    <div className="text-[11px] text-gray-500 mt-0.5">
+                    <div className="text-[11px] text-[#6a6a72] mt-0.5">
                       HTTP {uptime.last_check?.status_code || '—'}
                     </div>
                   </div>
 
-                  <div className="rounded-xl border bg-white p-4">
-                    <div className="text-xs uppercase tracking-wider text-gray-500">Uptime 24h</div>
-                    <div className="text-2xl font-bold text-gray-900 mt-1">
+                  <div className="rounded-xl border bg-[#131316] p-4">
+                    <div className="text-xs uppercase tracking-wider text-[#6a6a72]">Uptime 24h</div>
+                    <div className="text-2xl font-bold text-white mt-1">
                       {uptime.uptime_pct_24h}%
                     </div>
-                    <div className="text-[11px] text-gray-500 mt-0.5">
+                    <div className="text-[11px] text-[#6a6a72] mt-0.5">
                       {uptime.total_checks - uptime.down_count}/{uptime.total_checks} check OK
                     </div>
                   </div>
 
-                  <div className="rounded-xl border bg-white p-4">
-                    <div className="text-xs uppercase tracking-wider text-gray-500">Latenza media</div>
-                    <div className="text-2xl font-bold text-gray-900 mt-1">
-                      {uptime.avg_latency_ms}<span className="text-sm text-gray-500 font-normal"> ms</span>
+                  <div className="rounded-xl border bg-[#131316] p-4">
+                    <div className="text-xs uppercase tracking-wider text-[#6a6a72]">Latenza media</div>
+                    <div className="text-2xl font-bold text-white mt-1">
+                      {uptime.avg_latency_ms}<span className="text-sm text-[#6a6a72] font-normal"> ms</span>
                     </div>
-                    <div className="text-[11px] text-gray-500 mt-0.5">
+                    <div className="text-[11px] text-[#6a6a72] mt-0.5">
                       ultimo: {uptime.last_check?.latency_ms || 0} ms
                     </div>
                   </div>
 
-                  <div className="rounded-xl border bg-white p-4">
-                    <div className="text-xs uppercase tracking-wider text-gray-500">Downtime</div>
-                    <div className="text-2xl font-bold text-gray-900 mt-1">
+                  <div className="rounded-xl border bg-[#131316] p-4">
+                    <div className="text-xs uppercase tracking-wider text-[#6a6a72]">Downtime</div>
+                    <div className="text-2xl font-bold text-white mt-1">
                       {uptime.down_count}
                     </div>
-                    <div className="text-[11px] text-gray-500 mt-0.5">incidenti 24h</div>
+                    <div className="text-[11px] text-[#6a6a72] mt-0.5">incidenti 24h</div>
                   </div>
                 </div>
 
                 {/* Chart */}
-                <div className="bg-white border rounded-xl p-4">
+                <div className="bg-[#131316] border rounded-xl p-4">
                   <div className="flex items-center justify-between mb-2">
-                    <h4 className="text-sm font-semibold text-gray-900 flex items-center gap-1.5">
+                    <h4 className="text-sm font-semibold text-white flex items-center gap-1.5">
                       <Activity className="h-4 w-4 text-emerald-600" /> Latenza per ora (ms)
                     </h4>
                     <Button onClick={loadUptime} disabled={uptimeLoading} variant="ghost" size="sm"
@@ -803,14 +803,14 @@ const Settings = () => {
                       </LineChart>
                     </ResponsiveContainer>
                   </div>
-                  <p className="text-[11px] text-gray-500 mt-1">
+                  <p className="text-[11px] text-[#6a6a72] mt-1">
                     Target: <span className="font-mono">{uptime.target}</span> · intervallo {uptime.interval_sec}s
                   </p>
                 </div>
 
                 {/* Recent log */}
-                <div className="bg-white border rounded-xl overflow-hidden">
-                  <div className="px-4 py-2.5 border-b bg-gray-50 text-xs font-semibold text-gray-700">
+                <div className="bg-[#131316] border rounded-xl overflow-hidden">
+                  <div className="px-4 py-2.5 border-b bg-[#0a0a0b] text-xs font-semibold text-[#a8a8b0]">
                     Ultimi 15 check
                   </div>
                   <div className="divide-y max-h-72 overflow-y-auto">
@@ -820,11 +820,11 @@ const Settings = () => {
                           {c.up
                             ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 flex-shrink-0" />
                             : <XCircle className="h-3.5 w-3.5 text-red-600 flex-shrink-0" />}
-                          <span className="text-gray-700 font-mono truncate">
+                          <span className="text-[#a8a8b0] font-mono truncate">
                             {c.timestamp.slice(11, 19)} UTC
                           </span>
                         </div>
-                        <div className="flex items-center gap-3 text-gray-600">
+                        <div className="flex items-center gap-3 text-[#8a8a92]">
                           <span className="font-mono">HTTP {c.status_code || '—'}</span>
                           <span className="font-mono">{c.latency_ms} ms</span>
                         </div>
@@ -869,7 +869,7 @@ const Settings = () => {
             <div className="flex items-center justify-between border rounded-lg p-3">
               <div>
                 <p className="text-sm font-medium">Monitor abilitato</p>
-                <p className="text-xs text-gray-500">Disattiva per fermare il loop background.</p>
+                <p className="text-xs text-[#6a6a72]">Disattiva per fermare il loop background.</p>
               </div>
               <Switch checked={config.uptime_enabled !== false}
                       onCheckedChange={(v) => update('uptime_enabled')(v)}
@@ -888,11 +888,11 @@ const Settings = () => {
               placeholder="cloudinary://API_KEY:API_SECRET@CLOUD_NAME"
               testid="cloudinary-url-input"
               hint="Cloudinary Dashboard → Settings → API Keys → copia 'API Environment variable'" />
-            <p className="text-[11px] text-gray-500">
+            <p className="text-[11px] text-[#6a6a72]">
               Se compili questo campo, i 3 valori separati qui sotto vengono ignorati. È il modo più semplice e sicuro.
             </p>
             <a href="https://console.cloudinary.com/console/settings/api-keys" target="_blank" rel="noreferrer"
-                className="inline-flex items-center text-xs text-[#F96815] hover:underline">
+                className="inline-flex items-center text-xs text-[#D2FA46] hover:underline">
               Apri API Keys Cloudinary <ExternalLink className="h-3 w-3 ml-1" />
             </a>
           </Section>
@@ -944,7 +944,7 @@ const Settings = () => {
                 placeholder="Es. CNAME *.tuodominio.it → cname.vercel-dns.com"
                 data-testid="aruba-notes-input" />
             </div>
-            <div className="text-xs text-gray-600 bg-purple-50 border-l-2 border-purple-400 p-3 rounded-r">
+            <div className="text-xs text-[#8a8a92] bg-purple-50 border-l-2 border-purple-400 p-3 rounded-r">
               I sottodomini per cliente vengono gestiti dagli <strong>org admin</strong> nella loro
               pagina <em>Impostazioni Organizzazione</em> (campo "Domini autorizzati"). Da lì configurano
               il CNAME su Aruba e collegano il dominio a Vercel.
@@ -957,7 +957,7 @@ const Settings = () => {
         <Button
           onClick={handleSubmit}
           disabled={saving}
-          className="bg-[#F96815] hover:bg-[#e05a0f] text-white"
+          className="bg-[#D2FA46] hover:bg-[#bce63d] text-[#0a0a0b]"
           data-testid="save-config-button-bottom"
         >
           <Save className="h-4 w-4 mr-2" />
@@ -1049,7 +1049,7 @@ const PlatformDomainSection = () => {
   };
 
   if (loading) {
-    return <div className="text-sm text-gray-500">Caricamento…</div>;
+    return <div className="text-sm text-[#6a6a72]">Caricamento…</div>;
   }
 
   const live = doc?.dns || {};
@@ -1088,25 +1088,25 @@ const PlatformDomainSection = () => {
             <Button
               type="submit"
               disabled={busy === 'set' || !input.trim()}
-              className="bg-[#F96815] hover:bg-[#e05a0f]"
+              className="bg-[#D2FA46] hover:bg-[#bce63d] text-[#0a0a0b]"
               data-testid="platform-domain-submit"
             >
               {busy === 'set' ? 'Registro su Vercel…' : 'Registra'}
             </Button>
           </div>
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-[#6a6a72]">
             Inseriscilo senza <code>https://</code>. Verrà registrato automaticamente sul progetto Vercel.
             Dopo serviranno i record DNS sul tuo provider (Aruba/Cloudflare/etc.).
           </p>
         </form>
       ) : (
-        <div className="border rounded-lg p-4 bg-white" data-testid="platform-domain-card">
+        <div className="border rounded-lg p-4 bg-[#131316]" data-testid="platform-domain-card">
           <div className="flex items-start justify-between gap-3 flex-wrap mb-3">
             <div className="min-w-0">
               <a
                 href={`https://${doc.domain}`}
                 target="_blank" rel="noreferrer"
-                className="text-lg font-mono font-bold hover:underline text-gray-900"
+                className="text-lg font-mono font-bold hover:underline text-white"
                 data-testid="platform-domain-link"
               >
                 {doc.domain}
@@ -1146,29 +1146,29 @@ const PlatformDomainSection = () => {
               <p className="text-sm font-semibold text-amber-900">
                 Configura il DNS sul provider del dominio (Aruba/Cloudflare/…)
               </p>
-              <div className="bg-white border rounded p-2.5 text-xs space-y-1.5">
+              <div className="bg-[#131316] border rounded p-2.5 text-xs space-y-1.5">
                 <div className="grid grid-cols-[80px_1fr] gap-x-3 gap-y-1.5 items-center">
-                  <span className="text-gray-500">Tipo</span>
+                  <span className="text-[#6a6a72]">Tipo</span>
                   <span className="font-mono font-semibold">{recordType}</span>
 
-                  <span className="text-gray-500">Host / Nome</span>
+                  <span className="text-[#6a6a72]">Host / Nome</span>
                   <button type="button" onClick={() => copyVal(isApex ? '@' : doc.domain.split('.')[0])}
-                          className="font-mono font-semibold text-left hover:text-[#F96815] inline-flex items-center gap-1">
+                          className="font-mono font-semibold text-left hover:text-[#D2FA46] inline-flex items-center gap-1">
                     {isApex ? '@' : doc.domain.split('.')[0]}
                     <Copy className="h-3 w-3 opacity-50" />
                   </button>
 
-                  <span className="text-gray-500">{recordValues.length > 1 ? 'Valori' : 'Valore'}</span>
+                  <span className="text-[#6a6a72]">{recordValues.length > 1 ? 'Valori' : 'Valore'}</span>
                   <div className="flex flex-col gap-1">
                     {recordValues.map((v, i) => (
                       <button key={v + i} type="button" onClick={() => copyVal(v)}
-                               className="font-mono font-semibold text-left break-all hover:text-[#F96815] inline-flex items-center gap-1">
+                               className="font-mono font-semibold text-left break-all hover:text-[#D2FA46] inline-flex items-center gap-1">
                         {v} <Copy className="h-3 w-3 opacity-50 flex-shrink-0" />
                       </button>
                     ))}
                   </div>
 
-                  <span className="text-gray-500">TTL</span>
+                  <span className="text-[#6a6a72]">TTL</span>
                   <span className="font-mono">3600 (o "Auto")</span>
                 </div>
               </div>

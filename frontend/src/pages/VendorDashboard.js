@@ -103,14 +103,14 @@ const VendorDashboard = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
+    <div className="min-h-screen bg-[#0a0a0b]">
+      <header className="bg-[#131316] border-b border-white/10 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-3 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-2">
           <div className="min-w-0 flex-1">
-            <h1 className="text-lg sm:text-2xl font-black tracking-tighter text-gray-900">
+            <h1 className="text-lg sm:text-2xl font-black tracking-tighter text-white">
               Area Venditore
             </h1>
-            <p className="text-xs sm:text-sm text-gray-600 truncate">{vendor?.name}</p>
+            <p className="text-xs sm:text-sm text-[#8a8a92] truncate">{vendor?.name}</p>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
             <Button
@@ -138,13 +138,13 @@ const VendorDashboard = () => {
       <div className="max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-8">
         <div className="space-y-6">
           <div>
-            <h2 className="text-3xl font-bold tracking-tight text-gray-900 mb-6">
+            <h2 className="text-3xl font-bold tracking-tight text-white mb-6">
               Le Tue Statistiche
             </h2>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div
-                className="bg-white rounded-lg border border-gray-200 p-6"
+                className="bg-[#131316] rounded-lg border border-white/10 p-6"
                 data-testid="vendor-stat-views"
               >
                 <div className="flex items-center gap-4">
@@ -152,7 +152,7 @@ const VendorDashboard = () => {
                     <Eye className="h-6 w-6 text-[#4A2D8C]" />
                   </div>
                   <div>
-                    <p className="text-sm text-gray-600 uppercase tracking-widest">
+                    <p className="text-sm text-[#8a8a92] uppercase tracking-widest">
                       Visite Totali
                     </p>
                     <p className="text-3xl font-black tracking-tighter">
@@ -163,15 +163,15 @@ const VendorDashboard = () => {
               </div>
 
               <div
-                className="bg-white rounded-lg border border-gray-200 p-6"
+                className="bg-[#131316] rounded-lg border border-white/10 p-6"
                 data-testid="vendor-stat-clicks"
               >
                 <div className="flex items-center gap-4">
-                  <div className="p-3 bg-orange-100 rounded-lg">
-                    <MousePointerClick className="h-6 w-6 text-[#F96815]" />
+                  <div className="p-3 bg-[#D2FA46]/10 rounded-lg">
+                    <MousePointerClick className="h-6 w-6 text-[#D2FA46]" />
                   </div>
                   <div>
-                    <p className="text-sm text-gray-600 uppercase tracking-widest">
+                    <p className="text-sm text-[#8a8a92] uppercase tracking-widest">
                       Click Totali
                     </p>
                     <p className="text-3xl font-black tracking-tighter">
@@ -183,29 +183,29 @@ const VendorDashboard = () => {
             </div>
 
             {stats?.click_breakdown && (
-              <div className="bg-white rounded-lg border border-gray-200 p-6 mt-6">
-                <h3 className="text-lg font-semibold mb-4 text-gray-900">
+              <div className="bg-[#131316] rounded-lg border border-white/10 p-6 mt-6">
+                <h3 className="text-lg font-semibold mb-4 text-white">
                   Dettaglio Click
                 </h3>
                 <div className="grid grid-cols-3 md:grid-cols-7 gap-4">
-                  <div className="text-center"><p className="text-2xl font-bold text-[#25D366]">{stats.click_breakdown.whatsapp_click || 0}</p><p className="text-xs text-gray-600">WhatsApp</p></div>
-                  <div className="text-center"><p className="text-2xl font-bold text-[#E1306C]">{stats.click_breakdown.instagram_click || 0}</p><p className="text-xs text-gray-600">Instagram</p></div>
-                  <div className="text-center"><p className="text-2xl font-bold text-[#1877F2]">{stats.click_breakdown.facebook_click || 0}</p><p className="text-xs text-gray-600">Facebook</p></div>
-                  <div className="text-center"><p className="text-2xl font-bold text-[#FBBC04]">{stats.click_breakdown.review_click || 0}</p><p className="text-xs text-gray-600">Recensioni</p></div>
-                  <div className="text-center"><p className="text-2xl font-bold text-black">{stats.click_breakdown.tiktok_click || 0}</p><p className="text-xs text-gray-600">TikTok</p></div>
-                  <div className="text-center"><p className="text-2xl font-bold text-[#F96815]">{stats.click_breakdown.maps_click || 0}</p><p className="text-xs text-gray-600">Maps</p></div>
-                  <div className="text-center"><p className="text-2xl font-bold text-[#4A2D8C]">{stats.click_breakdown.post_cta_click || 0}</p><p className="text-xs text-gray-600">CTA Post</p></div>
+                  <div className="text-center"><p className="text-2xl font-bold text-[#25D366]">{stats.click_breakdown.whatsapp_click || 0}</p><p className="text-xs text-[#8a8a92]">WhatsApp</p></div>
+                  <div className="text-center"><p className="text-2xl font-bold text-[#E1306C]">{stats.click_breakdown.instagram_click || 0}</p><p className="text-xs text-[#8a8a92]">Instagram</p></div>
+                  <div className="text-center"><p className="text-2xl font-bold text-[#1877F2]">{stats.click_breakdown.facebook_click || 0}</p><p className="text-xs text-[#8a8a92]">Facebook</p></div>
+                  <div className="text-center"><p className="text-2xl font-bold text-[#FBBC04]">{stats.click_breakdown.review_click || 0}</p><p className="text-xs text-[#8a8a92]">Recensioni</p></div>
+                  <div className="text-center"><p className="text-2xl font-bold text-black">{stats.click_breakdown.tiktok_click || 0}</p><p className="text-xs text-[#8a8a92]">TikTok</p></div>
+                  <div className="text-center"><p className="text-2xl font-bold text-[#D2FA46]">{stats.click_breakdown.maps_click || 0}</p><p className="text-xs text-[#8a8a92]">Maps</p></div>
+                  <div className="text-center"><p className="text-2xl font-bold text-[#4A2D8C]">{stats.click_breakdown.post_cta_click || 0}</p><p className="text-xs text-[#8a8a92]">CTA Post</p></div>
                 </div>
               </div>
             )}
           </div>
 
-          <div className="border-t border-gray-200 pt-6">
+          <div className="border-t border-white/10 pt-6">
             <AnalyticsDetailed mode="vendor" />
           </div>
 
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <h2 className="text-2xl font-bold tracking-tight text-gray-900 mb-6">
+          <div className="bg-[#131316] rounded-lg border border-white/10 p-6">
+            <h2 className="text-2xl font-bold tracking-tight text-white mb-6">
               Modifica Profilo
             </h2>
 
@@ -236,14 +236,14 @@ const VendorDashboard = () => {
               </div>
 
               {/* Foto profilo (stile Instagram) */}
-              <div className="border border-gray-200 rounded-lg p-4 bg-gradient-to-br from-orange-50 to-pink-50">
+              <div className="border border-white/10 rounded-lg p-4 bg-gradient-to-br from-orange-50 to-pink-50">
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1">
-                    <Label className="font-semibold text-gray-800 flex items-center gap-2">
-                      <ImageIcon className="h-4 w-4 text-[#F96815]" />
+                    <Label className="font-semibold text-[#e6e6ea] flex items-center gap-2">
+                      <ImageIcon className="h-4 w-4 text-[#D2FA46]" />
                       Foto profilo
                     </Label>
-                    <p className="text-xs text-gray-600 mt-1">
+                    <p className="text-xs text-[#8a8a92] mt-1">
                       Carica una foto che apparirà come avatar sulla tua landing pubblica.
                       Formati JPG/PNG, max 5 MB. Consigliato: foto quadrata, viso ben visibile.
                     </p>
@@ -257,9 +257,9 @@ const VendorDashboard = () => {
                       }
                       disabled={!formData.profile_image_url}
                       data-testid="vendor-profile-image-toggle"
-                      className="data-[state=checked]:bg-[#F96815]"
+                      className="data-[state=checked]:bg-[#D2FA46]"
                     />
-                    <span className="text-[10px] text-gray-500 uppercase tracking-wide">
+                    <span className="text-[10px] text-[#6a6a72] uppercase tracking-wide">
                       {formData.profile_image_enabled ? 'Pubblica' : 'Nascosta'}
                     </span>
                   </div>
@@ -268,7 +268,7 @@ const VendorDashboard = () => {
                 <div className="flex items-center gap-4 mt-4">
                   {/* Avatar preview */}
                   <div className="relative">
-                    <div className={`w-24 h-24 rounded-full overflow-hidden ring-2 ${formData.profile_image_enabled && formData.profile_image_url ? 'ring-[#F96815]' : 'ring-gray-300'} bg-white shadow-md`}>
+                    <div className={`w-24 h-24 rounded-full overflow-hidden ring-2 ${formData.profile_image_enabled && formData.profile_image_url ? 'ring-[#D2FA46]' : 'ring-gray-300'} bg-white shadow-md`}>
                       {formData.profile_image_url ? (
                         <img
                           src={formData.profile_image_url}
@@ -277,7 +277,7 @@ const VendorDashboard = () => {
                           data-testid="vendor-profile-image-preview"
                         />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center bg-gray-100 text-gray-400">
+                        <div className="w-full h-full flex items-center justify-center bg-[#1a1a1c] text-[#5a5a62]">
                           <ImageIcon className="h-8 w-8" />
                         </div>
                       )}
@@ -288,7 +288,7 @@ const VendorDashboard = () => {
                         onClick={removeImage}
                         title="Rimuovi foto"
                         data-testid="vendor-profile-image-remove"
-                        className="absolute -top-1 -right-1 bg-white border border-gray-300 rounded-full p-1 hover:bg-red-50 hover:border-red-300 shadow-sm"
+                        className="absolute -top-1 -right-1 bg-[#131316] border border-white/15 rounded-full p-1 hover:bg-red-50 hover:border-red-300 shadow-sm"
                       >
                         <X className="h-3 w-3 text-red-500" />
                       </button>
@@ -301,8 +301,8 @@ const VendorDashboard = () => {
                       htmlFor="vendor-profile-upload"
                       className={`inline-flex items-center gap-2 px-4 py-2 rounded-md border-2 border-dashed cursor-pointer transition
                         ${uploading
-                          ? 'border-gray-300 bg-gray-100 cursor-wait opacity-60'
-                          : 'border-[#F96815] bg-white hover:bg-orange-50 text-[#F96815]'}`}
+                          ? 'border-white/15 bg-gray-100 cursor-wait opacity-60'
+                          : 'border-[#D2FA46] bg-white hover:bg-orange-50 text-[#D2FA46]'}`}
                     >
                       <Upload className={`h-4 w-4 ${uploading ? 'animate-pulse' : ''}`} />
                       <span className="text-sm font-medium">
@@ -331,7 +331,7 @@ const VendorDashboard = () => {
                     >
                       <FolderOpen className="h-4 w-4 mr-1" />Scegli dalla libreria
                     </Button>
-                    <p className="text-xs text-gray-500 mt-2">
+                    <p className="text-xs text-[#6a6a72] mt-2">
                       {formData.profile_image_url && !formData.profile_image_enabled && (
                         <span className="text-amber-700">⚠ Foto caricata ma nascosta — attiva il toggle a destra per mostrarla.</span>
                       )}
@@ -343,37 +343,37 @@ const VendorDashboard = () => {
                 </div>
               </div>
 
-              <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                <p className="text-sm font-medium text-gray-700 mb-2">
+              <div className="bg-[#0a0a0b] rounded-lg p-4 border border-white/10">
+                <p className="text-sm font-medium text-[#a8a8b0] mb-2">
                   Link Social (gestiti dal negozio)
                 </p>
                 <div className="grid grid-cols-2 gap-2 text-sm">
                   <div>
-                    <span className="text-gray-600">WhatsApp:</span>{' '}
-                    <span className="text-gray-900">
+                    <span className="text-[#8a8a92]">WhatsApp:</span>{' '}
+                    <span className="text-white">
                       {vendor?.whatsapp ? '✓ Configurato' : '✗ Non configurato'}
                     </span>
                   </div>
                   <div>
-                    <span className="text-gray-600">Instagram:</span>{' '}
-                    <span className="text-gray-900">
+                    <span className="text-[#8a8a92]">Instagram:</span>{' '}
+                    <span className="text-white">
                       {vendor?.instagram ? '✓ Configurato' : '✗ Non configurato'}
                     </span>
                   </div>
                   <div>
-                    <span className="text-gray-600">Facebook:</span>{' '}
-                    <span className="text-gray-900">
+                    <span className="text-[#8a8a92]">Facebook:</span>{' '}
+                    <span className="text-white">
                       {vendor?.facebook ? '✓ Configurato' : '✗ Non configurato'}
                     </span>
                   </div>
                   <div>
-                    <span className="text-gray-600">Google Review:</span>{' '}
-                    <span className="text-gray-900">
+                    <span className="text-[#8a8a92]">Google Review:</span>{' '}
+                    <span className="text-white">
                       {vendor?.google_review ? '✓ Configurato' : '✗ Non configurato'}
                     </span>
                   </div>
                 </div>
-                <p className="text-xs text-gray-500 mt-2">
+                <p className="text-xs text-[#6a6a72] mt-2">
                   Contatta l'amministratore per modificare i link social
                 </p>
               </div>
@@ -381,7 +381,7 @@ const VendorDashboard = () => {
               <Button
                 type="submit"
                 disabled={saving}
-                className="bg-[#F96815] hover:bg-[#e05a0f]"
+                className="bg-[#D2FA46] hover:bg-[#bce63d] text-[#0a0a0b]"
                 data-testid="vendor-profile-submit-button"
               >
                 <Save className="h-4 w-4 mr-2" />

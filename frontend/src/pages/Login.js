@@ -30,11 +30,11 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-[#0a0a0b] flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <div className="inline-flex items-center gap-2 mb-3">
-            <div className="w-12 h-12 rounded-xl bg-[#F96815] flex items-center justify-center">
+            <div className="w-12 h-12 rounded-xl bg-[#D2FA46] flex items-center justify-center">
               <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" className="w-7 h-7">
                 <rect x="3" y="3" width="7" height="7" rx="1.2"/>
                 <rect x="14" y="3" width="7" height="7" rx="1.2"/>
@@ -45,13 +45,13 @@ const Login = () => {
               </svg>
             </div>
           </div>
-          <h1 className="text-4xl font-black tracking-tighter text-gray-900 mb-2">
+          <h1 className="text-4xl font-black tracking-tighter text-white mb-2">
             QRHub
           </h1>
-          <p className="text-gray-600">Pannello Amministratore</p>
+          <p className="text-[#8a8a92]">Pannello Amministratore</p>
         </div>
 
-        <div className="bg-white rounded-lg border border-gray-200 p-8">
+        <div className="bg-[#131316] rounded-lg border border-white/10 p-8">
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
               <Label htmlFor="email" data-testid="login-email-label">
@@ -86,7 +86,7 @@ const Login = () => {
             <Button
               type="submit"
               disabled={loading}
-              className="w-full bg-[#F96815] hover:bg-[#e05a0f] text-white"
+              className="w-full bg-[#D2FA46] hover:bg-[#bce63d] text-[#0a0a0b]"
               data-testid="login-submit-button"
             >
               {loading ? 'Accesso...' : 'Accedi'}

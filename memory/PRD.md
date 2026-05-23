@@ -36,12 +36,13 @@ Il progetto **QRHub** è una piattaforma multi-tenant open source (MIT) che perm
 - Open source MIT, no-profit
 
 
-### 2026-05-23 — Tenant isolation + Marketing landing + Store simplification
+### 2026-05-23 — Tenant isolation + Marketing landing + Store simplification + Dark theme
 
 - **Tenant-only landing enforcement** (`pages/VendorLanding.js`): le landing `/v/:vendorId` ora vengono servite ESCLUSIVAMENTE sul `canonical_host` configurato dall'org. Su `qrhub.it`, `qrhub-app.vercel.app` e qualunque altro host non-canonical viene mostrato uno schermo dedicato "Landing non disponibile su questo dominio". Test hosts (localhost, *.preview.emergentagent.com, *.emergent.host) continuano a renderizzare per QA.
 - **Blocked screen ridisegnato**: dark + lime neon glow + logo QR + CTA per tornare al marketing. Coerente con la nuova palette.
-- **Marketing landing live su `/`** (`pages/Marketing.js` ora cablato in `App.js`): rimossa la `Navigate to=/dashboard`. Riprogettata con palette **dark + lime neon** (`#D2FA46`), stile distintivo con nav pill, grid background, hero con parola-chiave in muted gray, mock QR card, feature grid 3x2, access cards org/vendor. CSS scopato sotto `.marketing-root` per evitare collisioni con `VendorLanding.css`. Niente più arancione sulla home.
+- **Marketing landing live su `/`** (`pages/Marketing.js` ora cablato in `App.js`): riprogettata con palette **dark + lime neon** (`#D2FA46`), stile distintivo con nav pill sticky, grid background, hero con parola-chiave in muted gray, mock QR card, feature grid 3x2, access cards org/vendor. CSS scopato sotto `.marketing-root` per evitare collisioni con `VendorLanding.css`.
 - **Store info semplificato** (`pages/Stores.js` + modal in `VendorLanding.js`): scheda "Store" sulla landing ora mostra solo nome negozio + orari. Rimossi address/phone/maps (mappa già disponibile come pulsante separato, telefono escluso per favorire WhatsApp).
+- **Dark theme globale del dashboard**: `.dark` mode shadcn attivato su root, variabili CSS riconfigurate con palette lime, e tutti i file del dashboard (Login, Dashboard, Overview, Organizations, Vendors, Stores, Files, Settings, OrgSettings, MyAccount, Legal, Dpa, AnalyticsDetailed, VendorLogin, VendorDashboard, PostsManager, MediaPicker) aggiornati via sed: `#F96815` → `#D2FA46`, surface bianche → `#131316`/`#0a0a0b`, testi gray → text-white/`#a8a8b0`/`#8a8a92`, borders gray → `border-white/10`. Recharts colors aggiornati (lime + purple). Niente più arancione nel platform UI. Le landing pubbliche `/v/*` mantengono la propria palette per-org.
 
 ## What's been implemented (cronologia in questo workspace)
 

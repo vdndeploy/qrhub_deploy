@@ -226,12 +226,12 @@ const Vendors = () => {
   return (
     <div className="space-y-6" data-testid="vendors-page">
       <div className="flex items-center justify-between flex-wrap gap-3">
-        <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-gray-900">
+        <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">
           Gestione Venditori
         </h2>
         <Button
           onClick={() => handleOpenDialog()}
-          className="bg-[#F96815] hover:bg-[#e05a0f]"
+          className="bg-[#D2FA46] hover:bg-[#bce63d] text-[#0a0a0b]"
           data-testid="create-vendor-button"
         >
           <Plus className="h-4 w-4 mr-2" />
@@ -240,7 +240,7 @@ const Vendors = () => {
         </Button>
       </div>
 
-      <div className="bg-white rounded-lg border border-gray-200 overflow-x-auto">
+      <div className="bg-[#131316] rounded-lg border border-white/10 overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
@@ -255,7 +255,7 @@ const Vendors = () => {
           <TableBody>
             {vendors.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={4} className="text-center text-gray-500 py-8">
+                <TableCell colSpan={4} className="text-center text-[#6a6a72] py-8">
                   Nessun venditore. Creane uno per iniziare.
                 </TableCell>
               </TableRow>
@@ -263,7 +263,7 @@ const Vendors = () => {
               vendors.map((vendor) => (
                 <TableRow key={vendor.id} data-testid={`vendor-row-${vendor.id}`}>
                   <TableCell className="font-semibold">{vendor.name}</TableCell>
-                  <TableCell className="text-sm text-gray-600">
+                  <TableCell className="text-sm text-[#8a8a92]">
                     {vendor.bio || 'N/A'}
                   </TableCell>
                   <TableCell className="text-center">{vendor.total_views}</TableCell>
@@ -353,11 +353,11 @@ const Vendors = () => {
 
             <div>
               <Label htmlFor="vendor-slug">
-                Link personalizzato <span className="text-gray-500 font-normal">(opzionale)</span>
+                Link personalizzato <span className="text-[#6a6a72] font-normal">(opzionale)</span>
               </Label>
-              <div className="flex items-center gap-2 rounded-md border bg-white pl-2 focus-within:ring-2 focus-within:ring-[#F96815]/30">
-                <span className="text-xs text-gray-500 font-mono truncate hidden sm:inline">{`${window.location.origin}/v/`}</span>
-                <span className="text-xs text-gray-500 font-mono sm:hidden">/v/</span>
+              <div className="flex items-center gap-2 rounded-md border bg-[#131316] pl-2 focus-within:ring-2 focus-within:ring-[#D2FA46]/30">
+                <span className="text-xs text-[#6a6a72] font-mono truncate hidden sm:inline">{`${window.location.origin}/v/`}</span>
+                <span className="text-xs text-[#6a6a72] font-mono sm:hidden">/v/</span>
                 <Input
                   id="vendor-slug"
                   value={formData.slug || ''}
@@ -370,8 +370,8 @@ const Vendors = () => {
                   data-testid="vendor-slug-input"
                 />
               </div>
-              <p className="text-xs text-gray-500 mt-1">
-                Solo lettere minuscole, numeri e trattini (es. <code className="bg-gray-100 px-1 rounded">mario-roma</code>).
+              <p className="text-xs text-[#6a6a72] mt-1">
+                Solo lettere minuscole, numeri e trattini (es. <code className="bg-[#1a1a1c] px-1 rounded">mario-roma</code>).
                 {editingVendor && ' Cambiarlo aggiorna anche il QR; le URL precedenti continuano a funzionare con il codice originale.'}
               </p>
             </div>
@@ -396,7 +396,7 @@ const Vendors = () => {
                   ))}
                 </SelectContent>
               </Select>
-              <p className="text-sm text-gray-500 mt-1">
+              <p className="text-sm text-[#6a6a72] mt-1">
                 I link social verranno presi dal negozio selezionato
               </p>
             </div>
@@ -411,7 +411,7 @@ const Vendors = () => {
               </Button>
               <Button
                 type="submit"
-                className="bg-[#F96815] hover:bg-[#e05a0f]"
+                className="bg-[#D2FA46] hover:bg-[#bce63d] text-[#0a0a0b]"
                 data-testid="vendor-submit-button"
               >
                 {editingVendor ? 'Aggiorna' : 'Crea'}
@@ -475,7 +475,7 @@ const Vendors = () => {
               </Button>
               <Button
                 type="submit"
-                className="bg-[#F96815] hover:bg-[#e05a0f]"
+                className="bg-[#D2FA46] hover:bg-[#bce63d] text-[#0a0a0b]"
                 data-testid="credentials-submit-button"
               >
                 Crea Credenziali
@@ -495,7 +495,7 @@ const Vendors = () => {
           </DialogHeader>
           
           <div className="space-y-4">
-            <div className="bg-white rounded-lg border-2 border-gray-200 p-6 flex items-center justify-center">
+            <div className="bg-[#131316] rounded-lg border-2 border-white/10 p-6 flex items-center justify-center">
               {qrPreviewUrl && (
                 <img
                   src={qrPreviewUrl}
@@ -507,9 +507,9 @@ const Vendors = () => {
             </div>
 
             {selectedVendor && (
-              <div className="bg-gray-50 rounded-lg p-4 text-sm space-y-2">
-                <p className="text-gray-600">Link Landing Page:</p>
-                <p className="font-mono text-xs break-all text-gray-900" data-testid="qr-landing-url">
+              <div className="bg-[#0a0a0b] rounded-lg p-4 text-sm space-y-2">
+                <p className="text-[#8a8a92]">Link Landing Page:</p>
+                <p className="font-mono text-xs break-all text-white" data-testid="qr-landing-url">
                   {selectedVendor.landing_url || selectedVendor.qr_url}
                 </p>
                 <div className="flex gap-2 flex-wrap pt-1">
@@ -565,7 +565,7 @@ const Vendors = () => {
             </Button>
             <Button
               onClick={handleDownloadFromPreview}
-              className="bg-[#F96815] hover:bg-[#e05a0f]"
+              className="bg-[#D2FA46] hover:bg-[#bce63d] text-[#0a0a0b]"
               data-testid="download-qr-from-preview"
             >
               <Download className="h-4 w-4 mr-2" />

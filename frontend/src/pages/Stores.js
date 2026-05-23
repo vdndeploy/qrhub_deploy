@@ -95,13 +95,13 @@ const Stores = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <h2 className="text-2xl sm:text-3xl font-bold">Gestione Negozi</h2>
-        <Button onClick={() => handleOpenDialog()} className="bg-[#F96815] hover:bg-[#e05a0f]" data-testid="store-new-button">
+        <Button onClick={() => handleOpenDialog()} className="bg-[#D2FA46] hover:bg-[#bce63d] text-[#0a0a0b]" data-testid="store-new-button">
           <Plus className="h-4 w-4 mr-2" />
           <span className="hidden sm:inline">Nuovo Negozio</span>
           <span className="sm:hidden">Nuovo</span>
         </Button>
       </div>
-      <div className="bg-white rounded-lg border overflow-x-auto">
+      <div className="bg-[#131316] rounded-lg border overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
@@ -118,12 +118,12 @@ const Stores = () => {
               stores.map(s => (
                 <TableRow key={s.id}>
                   <TableCell className="font-semibold">
-                    <div className="flex items-center gap-2"><StoreIcon className="h-4 w-4 text-[#F96815]" />{s.name}</div>
+                    <div className="flex items-center gap-2"><StoreIcon className="h-4 w-4 text-[#D2FA46]" />{s.name}</div>
                   </TableCell>
                   <TableCell>{[s.whatsapp, s.instagram, s.facebook, s.tiktok].filter(Boolean).length}/4</TableCell>
                   <TableCell>
                     <Button variant="outline" size="sm" onClick={() => setPostsManagerStore(s)} data-testid={`store-posts-button-${s.id}`}>
-                      <Megaphone className="h-4 w-4 sm:mr-2 text-[#F96815]" />
+                      <Megaphone className="h-4 w-4 sm:mr-2 text-[#D2FA46]" />
                       <span className="hidden sm:inline">{postsCounts[s.id] || 0} {(postsCounts[s.id] === 1) ? 'annuncio' : 'annunci'}</span>
                       <span className="sm:hidden ml-1">{postsCounts[s.id] || 0}</span>
                     </Button>
@@ -160,7 +160,7 @@ const Stores = () => {
               <div className="sm:col-span-2"><Label>Google Maps (Navigazione)</Label><Input placeholder="https://maps.app.goo.gl/..." value={formData.google_maps_url} onChange={(e) => setFormData({...formData, google_maps_url: e.target.value})} /></div>
             </div>
             <div className="border-t pt-4 space-y-3">
-              <div className="text-sm font-semibold text-gray-700">Scheda negozio (pulsante "Store" sulla landing)</div>
+              <div className="text-sm font-semibold text-[#a8a8b0]">Scheda negozio (pulsante "Store" sulla landing)</div>
               <div>
                 <Label>Orari di apertura</Label>
                 <Textarea
@@ -171,14 +171,14 @@ const Stores = () => {
                   maxLength={500}
                   data-testid="store-hours-input"
                 />
-                <p className="text-[11px] text-gray-500 mt-1">
+                <p className="text-[11px] text-[#6a6a72] mt-1">
                   Formato libero, supporta più righe. Compare nel pulsante "Store" sulla landing del venditore insieme al nome del negozio. Le indicazioni stradali sono già disponibili tramite il pulsante "Mappa" (campo Google Maps qui sopra).
                 </p>
               </div>
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>Annulla</Button>
-              <Button type="submit" className="bg-[#F96815] hover:bg-[#e05a0f]">{editingStore ? 'Aggiorna' : 'Crea'}</Button>
+              <Button type="submit" className="bg-[#D2FA46] hover:bg-[#bce63d] text-[#0a0a0b]">{editingStore ? 'Aggiorna' : 'Crea'}</Button>
             </DialogFooter>
           </form>
         </DialogContent>

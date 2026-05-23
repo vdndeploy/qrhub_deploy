@@ -120,15 +120,15 @@ const PostsManager = ({ open, onClose, storeId, storeName }) => {
         {editing === null ? (
           <div className="space-y-3">
             <div className="flex justify-between items-center">
-              <p className="text-sm text-gray-600">{posts.length} {posts.length === 1 ? 'annuncio' : 'annunci'} configurati</p>
-              <Button onClick={openNew} className="bg-[#F96815] hover:bg-[#e05a0f]" data-testid="post-new-button">
+              <p className="text-sm text-[#8a8a92]">{posts.length} {posts.length === 1 ? 'annuncio' : 'annunci'} configurati</p>
+              <Button onClick={openNew} className="bg-[#D2FA46] hover:bg-[#bce63d] text-[#0a0a0b]" data-testid="post-new-button">
                 <Plus className="h-4 w-4 mr-2" />Nuovo Annuncio
               </Button>
             </div>
             {loading ? (
-              <div className="text-center py-6 text-sm text-gray-500">Caricamento...</div>
+              <div className="text-center py-6 text-sm text-[#6a6a72]">Caricamento...</div>
             ) : posts.length === 0 ? (
-              <div className="border border-dashed rounded-lg py-12 text-center text-sm text-gray-500">
+              <div className="border border-dashed rounded-lg py-12 text-center text-sm text-[#6a6a72]">
                 Nessun annuncio. Clicca "Nuovo Annuncio" per crearne uno.
               </div>
             ) : (
@@ -136,7 +136,7 @@ const PostsManager = ({ open, onClose, storeId, storeName }) => {
                 {posts.map((p, i) => (
                   <div key={p.id} className="border rounded-lg p-3 flex flex-col sm:flex-row gap-3 sm:items-center" data-testid={`post-row-${i}`}>
                     <div className="flex gap-3 items-start min-w-0 flex-1">
-                      <div className="w-14 h-14 sm:w-16 sm:h-16 flex-shrink-0 bg-gray-100 rounded overflow-hidden">
+                      <div className="w-14 h-14 sm:w-16 sm:h-16 flex-shrink-0 bg-[#1a1a1c] rounded overflow-hidden">
                         {p.media_url ? (
                           p.media_resource_type === 'video' ? (
                             <div className="w-full h-full flex items-center justify-center bg-black text-white"><Video className="h-6 w-6" /></div>
@@ -144,7 +144,7 @@ const PostsManager = ({ open, onClose, storeId, storeName }) => {
                             <img src={p.media_url} alt="" className="w-full h-full object-cover" />
                           )
                         ) : (
-                          <div className="w-full h-full flex items-center justify-center text-gray-400"><ImgIcon className="h-6 w-6" /></div>
+                          <div className="w-full h-full flex items-center justify-center text-[#5a5a62]"><ImgIcon className="h-6 w-6" /></div>
                         )}
                       </div>
                       <div className="flex-1 min-w-0">
@@ -152,14 +152,14 @@ const PostsManager = ({ open, onClose, storeId, storeName }) => {
                           <div className="font-medium text-sm truncate max-w-full">{p.title || '(senza titolo)'}</div>
                           <StatusBadge status={p.status} />
                         </div>
-                        <div className="text-xs text-gray-500 line-clamp-2 break-words">{p.text || '—'}</div>
+                        <div className="text-xs text-[#6a6a72] line-clamp-2 break-words">{p.text || '—'}</div>
                         {(p.start_at || p.end_at) && (
-                          <div className="text-[10px] text-gray-500 mt-0.5 flex items-center gap-1">
+                          <div className="text-[10px] text-[#6a6a72] mt-0.5 flex items-center gap-1">
                             <Calendar className="h-3 w-3 flex-shrink-0" />
                             <span className="truncate">{formatScheduleSummary(p.start_at, p.end_at)}</span>
                           </div>
                         )}
-                        {p.cta_text && <div className="text-[10px] text-[#F96815] uppercase mt-0.5 truncate">CTA: {p.cta_text}</div>}
+                        {p.cta_text && <div className="text-[10px] text-[#D2FA46] uppercase mt-0.5 truncate">CTA: {p.cta_text}</div>}
                       </div>
                     </div>
                     <div className="flex gap-1 flex-shrink-0 justify-end sm:justify-start border-t sm:border-0 pt-2 sm:pt-0">
@@ -219,12 +219,12 @@ const PostsManager = ({ open, onClose, storeId, storeName }) => {
                 <Input value={form.cta_whatsapp_message} onChange={(e) => setForm({...form, cta_whatsapp_message: e.target.value})} placeholder="Ciao, info su..." />
               </div>
             </div>
-            <div className="border rounded-lg p-3 bg-gray-50/50">
+            <div className="border rounded-lg p-3 bg-[#0a0a0b]/50">
               <div className="flex items-center gap-2 mb-2">
-                <Clock className="h-4 w-4 text-[#F96815]" />
+                <Clock className="h-4 w-4 text-[#D2FA46]" />
                 <span className="text-sm font-medium">Programmazione (opzionale)</span>
               </div>
-              <p className="text-xs text-gray-500 mb-3">L'annuncio sarà visibile solo nell'intervallo. Lascia vuoto per "sempre attivo".</p>
+              <p className="text-xs text-[#6a6a72] mb-3">L'annuncio sarà visibile solo nell'intervallo. Lascia vuoto per "sempre attivo".</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <Label className="text-xs">Inizio</Label>
@@ -242,7 +242,7 @@ const PostsManager = ({ open, onClose, storeId, storeName }) => {
             </div>
             <div className="flex justify-end gap-2 pt-2">
               <Button variant="outline" onClick={cancelEdit}>Annulla</Button>
-              <Button onClick={handleSave} disabled={saving} className="bg-[#F96815] hover:bg-[#e05a0f]" data-testid="post-save-button">
+              <Button onClick={handleSave} disabled={saving} className="bg-[#D2FA46] hover:bg-[#bce63d] text-[#0a0a0b]" data-testid="post-save-button">
                 {saving ? 'Salvataggio...' : (editing === 'new' ? 'Crea' : 'Salva')}
               </Button>
             </div>
@@ -278,7 +278,7 @@ const StatusBadge = ({ status }) => {
   const cfg = {
     active: { bg: 'bg-green-100 text-green-700', label: 'Attivo' },
     scheduled: { bg: 'bg-blue-100 text-blue-700', label: 'Programmato' },
-    expired: { bg: 'bg-gray-200 text-gray-600', label: 'Scaduto' }
+    expired: { bg: 'bg-gray-200 text-[#8a8a92]', label: 'Scaduto' }
   }[status || 'active'] || { bg: 'bg-green-100 text-green-700', label: 'Attivo' };
   return <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${cfg.bg}`}>{cfg.label}</span>;
 };

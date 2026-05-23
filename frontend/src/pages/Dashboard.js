@@ -34,12 +34,12 @@ const Dashboard = () => {
   }, [isSuper]);
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
+    <div className="min-h-screen bg-[#0a0a0b]">
+      <header className="bg-[#131316] border-b border-white/10 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-3 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             <div className="flex items-center gap-2">
-              <div className="w-9 h-9 rounded-lg bg-[#F96815] flex items-center justify-center flex-shrink-0">
+              <div className="w-9 h-9 rounded-lg bg-[#D2FA46] flex items-center justify-center flex-shrink-0">
                 <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" className="w-5 h-5">
                   <rect x="3" y="3" width="7" height="7" rx="1.2"/>
                   <rect x="14" y="3" width="7" height="7" rx="1.2"/>
@@ -49,14 +49,14 @@ const Dashboard = () => {
                   <line x1="14" y1="21" x2="21" y2="21"/>
                 </svg>
               </div>
-              <span className="text-xl sm:text-2xl font-black tracking-tight text-gray-900">QRHub</span>
+              <span className="text-xl sm:text-2xl font-black tracking-tight text-white">QRHub</span>
             </div>
-            <span className="text-xs sm:text-sm text-gray-500 hidden sm:inline">
+            <span className="text-xs sm:text-sm text-[#6a6a72] hidden sm:inline">
               {isSuper ? 'Super Admin' : 'Admin'}
             </span>
           </div>
           <div className="flex items-center gap-2 sm:gap-4 min-w-0">
-            <span className="text-xs sm:text-sm text-gray-600 hidden md:inline truncate max-w-[180px]">{user?.email}</span>
+            <span className="text-xs sm:text-sm text-[#8a8a92] hidden md:inline truncate max-w-[180px]">{user?.email}</span>
             <Button
               variant="outline"
               size="sm"
@@ -97,7 +97,7 @@ const Dashboard = () => {
                 <Button
                   variant={isActive('/dashboard') && location.pathname === '/dashboard' ? 'default' : 'ghost'}
                   size="sm"
-                  className={isActive('/dashboard') && location.pathname === '/dashboard' ? 'bg-[#F96815] hover:bg-[#e05a0f]' : ''}
+                  className={isActive('/dashboard') && location.pathname === '/dashboard' ? 'bg-[#D2FA46] hover:bg-[#bce63d] text-[#0a0a0b]' : ''}
                   data-testid="nav-overview"
                 >
                   <BarChart3 className="h-4 w-4 sm:mr-2" />
@@ -109,7 +109,7 @@ const Dashboard = () => {
                 <Button
                   variant={isActive('/dashboard/stores') ? 'default' : 'ghost'}
                   size="sm"
-                  className={isActive('/dashboard/stores') ? 'bg-[#F96815] hover:bg-[#e05a0f]' : ''}
+                  className={isActive('/dashboard/stores') ? 'bg-[#D2FA46] hover:bg-[#bce63d] text-[#0a0a0b]' : ''}
                   data-testid="nav-stores"
                 >
                   <Store className="h-4 w-4 sm:mr-2" />
@@ -120,7 +120,7 @@ const Dashboard = () => {
                 <Button
                   variant={isActive('/dashboard/vendors') ? 'default' : 'ghost'}
                   size="sm"
-                  className={isActive('/dashboard/vendors') ? 'bg-[#F96815] hover:bg-[#e05a0f]' : ''}
+                  className={isActive('/dashboard/vendors') ? 'bg-[#D2FA46] hover:bg-[#bce63d] text-[#0a0a0b]' : ''}
                   data-testid="nav-vendors"
                 >
                   <Users className="h-4 w-4 sm:mr-2" />
@@ -131,7 +131,7 @@ const Dashboard = () => {
                 <Button
                   variant={isActive('/dashboard/media') || isActive('/dashboard/files') ? 'default' : 'ghost'}
                   size="sm"
-                  className={isActive('/dashboard/media') || isActive('/dashboard/files') ? 'bg-[#F96815] hover:bg-[#e05a0f]' : ''}
+                  className={isActive('/dashboard/media') || isActive('/dashboard/files') ? 'bg-[#D2FA46] hover:bg-[#bce63d] text-[#0a0a0b]' : ''}
                   data-testid="nav-media"
                 >
                   <FolderOpen className="h-4 w-4 sm:mr-2" />
@@ -142,7 +142,7 @@ const Dashboard = () => {
                 <Button
                   variant={isActive('/dashboard/organization') ? 'default' : 'ghost'}
                   size="sm"
-                  className={isActive('/dashboard/organization') ? 'bg-[#F96815] hover:bg-[#e05a0f]' : ''}
+                  className={isActive('/dashboard/organization') ? 'bg-[#D2FA46] hover:bg-[#bce63d] text-[#0a0a0b]' : ''}
                   data-testid="nav-org-settings"
                 >
                   <Sliders className="h-4 w-4 sm:mr-2" />
@@ -158,7 +158,7 @@ const Dashboard = () => {
                 <Button
                   variant={isActive('/dashboard/organizations') ? 'default' : 'ghost'}
                   size="sm"
-                  className={isActive('/dashboard/organizations') ? 'bg-[#F96815] hover:bg-[#e05a0f]' : ''}
+                  className={isActive('/dashboard/organizations') ? 'bg-[#D2FA46] hover:bg-[#bce63d] text-[#0a0a0b]' : ''}
                   data-testid="nav-organizations"
                 >
                   <Building2 className="h-4 w-4 sm:mr-2" />
@@ -170,7 +170,7 @@ const Dashboard = () => {
                 <Button
                   variant={isActive('/dashboard/settings') ? 'default' : 'ghost'}
                   size="sm"
-                  className={isActive('/dashboard/settings') ? 'bg-[#F96815] hover:bg-[#e05a0f]' : ''}
+                  className={isActive('/dashboard/settings') ? 'bg-[#D2FA46] hover:bg-[#bce63d] text-[#0a0a0b]' : ''}
                   data-testid="nav-settings"
                 >
                   <SettingsIcon className="h-4 w-4 sm:mr-2" />
@@ -184,7 +184,7 @@ const Dashboard = () => {
             <Button
               variant={isActive('/dashboard/legal') ? 'default' : 'ghost'}
               size="sm"
-              className={isActive('/dashboard/legal') ? 'bg-[#F96815] hover:bg-[#e05a0f]' : ''}
+              className={isActive('/dashboard/legal') ? 'bg-[#D2FA46] hover:bg-[#bce63d] text-[#0a0a0b]' : ''}
               data-testid="nav-legal"
             >
               <FileText className="h-4 w-4 sm:mr-2" />
@@ -196,7 +196,7 @@ const Dashboard = () => {
             <Button
               variant={isActive('/dashboard/account') ? 'default' : 'ghost'}
               size="sm"
-              className={isActive('/dashboard/account') ? 'bg-[#F96815] hover:bg-[#e05a0f]' : ''}
+              className={isActive('/dashboard/account') ? 'bg-[#D2FA46] hover:bg-[#bce63d] text-[#0a0a0b]' : ''}
               data-testid="nav-my-account"
             >
               <UserCircle className="h-4 w-4 sm:mr-2" />

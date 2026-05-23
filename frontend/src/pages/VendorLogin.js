@@ -31,19 +31,19 @@ const VendorLogin = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-[#0a0a0b] flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-[#F96815] rounded-full mb-4">
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-[#D2FA46] rounded-full mb-4">
             <User className="h-8 w-8 text-white" />
           </div>
-          <h1 className="text-4xl font-black tracking-tighter text-gray-900 mb-2">
+          <h1 className="text-4xl font-black tracking-tighter text-white mb-2">
             QRHub
           </h1>
-          <p className="text-gray-600">Area Venditore</p>
+          <p className="text-[#8a8a92]">Area Venditore</p>
         </div>
 
-        <div className="bg-white rounded-lg border border-gray-200 p-8">
+        <div className="bg-[#131316] rounded-lg border border-white/10 p-8">
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
               <Label htmlFor="email" data-testid="vendor-login-email-label">
@@ -78,7 +78,7 @@ const VendorLogin = () => {
             <Button
               type="submit"
               disabled={loading}
-              className="w-full bg-[#F96815] hover:bg-[#e05a0f] text-white"
+              className="w-full bg-[#D2FA46] hover:bg-[#bce63d] text-[#0a0a0b]"
               data-testid="vendor-login-submit-button"
             >
               {loading ? 'Accesso...' : 'Accedi'}

@@ -134,13 +134,13 @@ const MediaPicker = ({
       <DialogContent className="max-w-5xl max-h-[90vh] flex flex-col" data-testid="media-picker-dialog">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <ImageIcon className="h-5 w-5 text-[#F96815]" />
+            <ImageIcon className="h-5 w-5 text-[#D2FA46]" />
             {title}
           </DialogTitle>
           <DialogDescription className="flex items-center justify-between gap-3 flex-wrap">
             <span>Riutilizza foto già caricate per i tuoi venditori e annunci — risparmia spazio Cloudinary.</span>
             {stats && (
-              <span className="text-xs font-mono text-gray-600">
+              <span className="text-xs font-mono text-[#8a8a92]">
                 {stats.count} file · {formatBytes(stats.bytes)}
               </span>
             )}
@@ -150,24 +150,24 @@ const MediaPicker = ({
         {/* Tab + search */}
         <div className="flex items-center gap-2 flex-wrap pb-2 border-b">
           {!hidePostsTab && !kindProp && (
-            <div className="inline-flex rounded-md border bg-gray-50 p-0.5">
+            <div className="inline-flex rounded-md border bg-[#0a0a0b] p-0.5">
               <button
                 type="button"
                 onClick={() => handleKindChange('uploads')}
-                className={`px-3 py-1 text-xs rounded-sm transition ${kind === 'uploads' ? 'bg-white shadow-sm font-semibold' : 'text-gray-600'}`}
+                className={`px-3 py-1 text-xs rounded-sm transition ${kind === 'uploads' ? 'bg-white shadow-sm font-semibold' : 'text-[#8a8a92]'}`}
                 data-testid="media-tab-uploads"
               >Foto profilo</button>
               <button
                 type="button"
                 onClick={() => handleKindChange('posts')}
-                className={`px-3 py-1 text-xs rounded-sm transition ${kind === 'posts' ? 'bg-white shadow-sm font-semibold' : 'text-gray-600'}`}
+                className={`px-3 py-1 text-xs rounded-sm transition ${kind === 'posts' ? 'bg-white shadow-sm font-semibold' : 'text-[#8a8a92]'}`}
                 data-testid="media-tab-posts"
               >Immagini post</button>
             </div>
           )}
           <form onSubmit={handleSearch} className="flex items-center gap-2 flex-1 min-w-[200px]">
             <div className="relative flex-1">
-              <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-gray-400" />
+              <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-[#5a5a62]" />
               <Input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
@@ -183,9 +183,9 @@ const MediaPicker = ({
         {/* Grid */}
         <div className="flex-1 overflow-y-auto py-3">
           {loading ? (
-            <div className="text-center text-sm text-gray-500 py-12">Caricamento...</div>
+            <div className="text-center text-sm text-[#6a6a72] py-12">Caricamento...</div>
           ) : items.length === 0 ? (
-            <div className="text-center text-sm text-gray-500 py-12">
+            <div className="text-center text-sm text-[#6a6a72] py-12">
               {search ? 'Nessun risultato.' : 'Nessuna immagine caricata. Caricane una per iniziare.'}
             </div>
           ) : (
@@ -193,7 +193,7 @@ const MediaPicker = ({
               {items.map((item) => (
                 <div
                   key={item.public_id}
-                  className="group relative aspect-square rounded-md overflow-hidden border bg-gray-50"
+                  className="group relative aspect-square rounded-md overflow-hidden border bg-[#0a0a0b]"
                   data-testid={`media-item-${item.public_id}`}
                 >
                   {item.resource_type === 'video' ? (
@@ -217,7 +217,7 @@ const MediaPicker = ({
                       </Badge>
                     )}
                     {!item.in_use && (
-                      <Badge variant="outline" className="bg-white/80 text-gray-700 text-[9px] px-1.5 py-0 border-gray-300">
+                      <Badge variant="outline" className="bg-white/80 text-[#a8a8b0] text-[9px] px-1.5 py-0 border-white/15">
                         libera
                       </Badge>
                     )}
@@ -229,7 +229,7 @@ const MediaPicker = ({
                       type="button"
                       size="sm"
                       onClick={() => handlePick(item)}
-                      className="h-7 text-xs bg-[#F96815] hover:bg-[#E85A00] text-white"
+                      className="h-7 text-xs bg-[#D2FA46] hover:bg-[#E85A00]"
                       data-testid={`media-pick-${item.public_id}`}
                     >
                       <Check className="h-3 w-3 mr-1" />Usa
@@ -263,7 +263,7 @@ const MediaPicker = ({
 
         {/* Pagination */}
         <div className="flex items-center justify-between gap-2 pt-2 border-t text-xs">
-          <span className="text-gray-500">
+          <span className="text-[#6a6a72]">
             {total > 0 ? `${skip + 1}–${Math.min(skip + items.length, total)} di ${total}` : '0'}
           </span>
           <div className="flex items-center gap-1">

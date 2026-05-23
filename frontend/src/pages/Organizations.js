@@ -11,7 +11,7 @@ import { Plus, Trash2, Building2, UserPlus, Users, KeyRound, ShieldCheck, Shield
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 const GdprBadge = ({ gdpr }) => {
-  if (!gdpr) return <span className="text-xs text-gray-400">—</span>;
+  if (!gdpr) return <span className="text-xs text-[#5a5a62]">—</span>;
   const { dpa_status, dpa_admins_accepted, dpa_admins_total, controller_fields_filled, controller_fields_required, controller_complete } = gdpr;
 
   let icon = ShieldX;
@@ -43,7 +43,7 @@ const Organizations = () => {
   const [createOpen, setCreateOpen] = useState(false);
   const [userOpen, setUserOpen] = useState(null); // org obj for "add user" dialog
   const [usersList, setUsersList] = useState([]);
-  const [form, setForm] = useState({ name: '', primary_color: '#F96815', brand_name: '', logo_url: '', logo_public_id: '' });
+  const [form, setForm] = useState({ name: '', primary_color: '#D2FA46', brand_name: '', logo_url: '', logo_public_id: '' });
   const [userForm, setUserForm] = useState({ email: '', password: '', name: '' });
   const [pwdResetFor, setPwdResetFor] = useState(null); // user email being reset
   const [newPassword, setNewPassword] = useState('');
@@ -107,7 +107,7 @@ const Organizations = () => {
       await axios.post(`${API}/organizations`, form, { withCredentials: true });
       toast.success('Organizzazione creata');
       setCreateOpen(false);
-      setForm({ name: '', primary_color: '#F96815', brand_name: '', logo_url: '', logo_public_id: '' });
+      setForm({ name: '', primary_color: '#D2FA46', brand_name: '', logo_url: '', logo_public_id: '' });
       fetchOrgs();
     } catch (err) {
       toast.error(err.response?.data?.detail || 'Errore');
@@ -169,7 +169,7 @@ const Organizations = () => {
       name: org.name || '',
       slug: org.slug || '',
       brand_name: org.brand_name || '',
-      primary_color: org.primary_color || '#F96815',
+      primary_color: org.primary_color || '#D2FA46',
       logo_url: org.logo_url || '',
       logo_public_id: org.logo_public_id || '',
     });
@@ -236,14 +236,14 @@ const Organizations = () => {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h2 className="text-2xl sm:text-3xl font-bold">Organizzazioni</h2>
-          <p className="text-sm text-gray-600 mt-1">Gestisci i tenant della piattaforma QRHub</p>
+          <p className="text-sm text-[#8a8a92] mt-1">Gestisci i tenant della piattaforma QRHub</p>
         </div>
-        <Button onClick={() => setCreateOpen(true)} className="bg-[#F96815] hover:bg-[#e05a0f]" data-testid="org-new-button">
+        <Button onClick={() => setCreateOpen(true)} className="bg-[#D2FA46] hover:bg-[#bce63d] text-[#0a0a0b]" data-testid="org-new-button">
           <Plus className="h-4 w-4 mr-2" />Nuova Organizzazione
         </Button>
       </div>
 
-      <div className="bg-white rounded-lg border overflow-x-auto">
+      <div className="bg-[#131316] rounded-lg border overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
@@ -269,7 +269,7 @@ const Organizations = () => {
                       {o.name}
                     </div>
                   </TableCell>
-                  <TableCell className="text-xs text-gray-500 font-mono">{o.slug}</TableCell>
+                  <TableCell className="text-xs text-[#6a6a72] font-mono">{o.slug}</TableCell>
                   <TableCell><div className="w-6 h-6 rounded border" style={{backgroundColor: o.primary_color}} /></TableCell>
                   <TableCell>{o.users_count}</TableCell>
                   <TableCell>{o.stores_count}</TableCell>
@@ -306,12 +306,12 @@ const Organizations = () => {
             <div>
               <Label>Brand name (display, opzionale)</Label>
               <Input value={form.brand_name} onChange={(e) => setForm({...form, brand_name: e.target.value})} placeholder="Es. TIM" maxLength={200} data-testid="org-create-brand-input" />
-              <p className="text-xs text-gray-500 mt-1">Nome mostrato nelle landing dei venditori. Se vuoto, usa il nome dell'organizzazione.</p>
+              <p className="text-xs text-[#6a6a72] mt-1">Nome mostrato nelle landing dei venditori. Se vuoto, usa il nome dell'organizzazione.</p>
             </div>
             <div>
               <Label>Logo (opzionale)</Label>
               <div className="flex items-center gap-3">
-                <div className="w-16 h-16 rounded border bg-gray-50 flex items-center justify-center overflow-hidden flex-shrink-0">
+                <div className="w-16 h-16 rounded border bg-[#0a0a0b] flex items-center justify-center overflow-hidden flex-shrink-0">
                   {form.logo_url ? (
                     <img src={form.logo_url} alt="logo" className="w-full h-full object-contain" />
                   ) : (
@@ -337,18 +337,18 @@ const Organizations = () => {
                           onChange={(e) => handleLogoFile(e, setForm)} />
                 </div>
               </div>
-              <p className="text-xs text-gray-500 mt-1">PNG/JPG/SVG con sfondo trasparente. Max 5MB. Compare nell'header pubblico delle landing.</p>
+              <p className="text-xs text-[#6a6a72] mt-1">PNG/JPG/SVG con sfondo trasparente. Max 5MB. Compare nell'header pubblico delle landing.</p>
             </div>
             <div>
               <Label>Colore primario</Label>
               <div className="flex gap-2 items-center">
                 <Input type="color" value={form.primary_color} onChange={(e) => setForm({...form, primary_color: e.target.value})} className="w-16 h-10 cursor-pointer" />
-                <Input value={form.primary_color} onChange={(e) => setForm({...form, primary_color: e.target.value})} placeholder="#F96815" />
+                <Input value={form.primary_color} onChange={(e) => setForm({...form, primary_color: e.target.value})} placeholder="#D2FA46" />
               </div>
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setCreateOpen(false)}>Annulla</Button>
-              <Button type="submit" className="bg-[#F96815] hover:bg-[#e05a0f]">Crea</Button>
+              <Button type="submit" className="bg-[#D2FA46] hover:bg-[#bce63d] text-[#0a0a0b]">Crea</Button>
             </DialogFooter>
           </form>
         </DialogContent>
@@ -362,27 +362,27 @@ const Organizations = () => {
             <DialogDescription>Aggiungi admin che possono gestire negozi, venditori e annunci di questa organizzazione.</DialogDescription>
           </DialogHeader>
 
-          <form onSubmit={handleCreateUser} className="space-y-3 border rounded-lg p-3 bg-gray-50/50">
+          <form onSubmit={handleCreateUser} className="space-y-3 border rounded-lg p-3 bg-[#0a0a0b]/50">
             <div className="text-sm font-medium flex items-center gap-2"><UserPlus className="h-4 w-4" />Aggiungi admin</div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <Input type="email" placeholder="email@dominio.it" required value={userForm.email} onChange={(e) => setUserForm({...userForm, email: e.target.value})} data-testid="org-user-email" />
               <Input placeholder="Nome (opzionale)" value={userForm.name} onChange={(e) => setUserForm({...userForm, name: e.target.value})} />
               <Input type="password" placeholder="Password" required minLength={6} value={userForm.password} onChange={(e) => setUserForm({...userForm, password: e.target.value})} className="sm:col-span-2" data-testid="org-user-password" />
             </div>
-            <Button type="submit" size="sm" className="bg-[#F96815] hover:bg-[#e05a0f]">Crea utente</Button>
+            <Button type="submit" size="sm" className="bg-[#D2FA46] hover:bg-[#bce63d] text-[#0a0a0b]">Crea utente</Button>
           </form>
 
           <div className="mt-4">
             <h4 className="text-sm font-medium mb-2">Utenti esistenti ({usersList.length})</h4>
             {usersList.length === 0 ? (
-              <p className="text-sm text-gray-500 text-center py-4">Nessun utente. Crea il primo admin sopra.</p>
+              <p className="text-sm text-[#6a6a72] text-center py-4">Nessun utente. Crea il primo admin sopra.</p>
             ) : (
               <div className="space-y-2">
                 {usersList.map(u => (
                   <div key={u.email} className="flex items-center justify-between border rounded p-2 text-sm">
                     <div>
                       <div className="font-medium">{u.email}</div>
-                      <div className="text-xs text-gray-500">{u.name || '—'} · {u.role}</div>
+                      <div className="text-xs text-[#6a6a72]">{u.name || '—'} · {u.role}</div>
                     </div>
                     <div className="flex items-center gap-1">
                       <Button variant="ghost" size="icon"
@@ -409,7 +409,7 @@ const Organizations = () => {
         <DialogContent className="max-w-md w-[95vw]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Pencil className="h-5 w-5 text-[#F96815]" />
+              <Pencil className="h-5 w-5 text-[#D2FA46]" />
               Modifica "{editOrg?.name}"
             </DialogTitle>
             <DialogDescription>
@@ -434,7 +434,7 @@ const Organizations = () => {
                       placeholder="vdn-srl"
                       className="font-mono"
                       data-testid="org-edit-slug" />
-              <p className="text-xs text-gray-500 mt-1">Univoco tra tutti i tenant. Deve essere identificativo, breve.</p>
+              <p className="text-xs text-[#6a6a72] mt-1">Univoco tra tutti i tenant. Deve essere identificativo, breve.</p>
             </div>
             <div>
               <Label>Brand name (display)</Label>
@@ -447,7 +447,7 @@ const Organizations = () => {
             <div>
               <Label>Logo</Label>
               <div className="flex items-center gap-3">
-                <div className="w-16 h-16 rounded border bg-gray-50 flex items-center justify-center overflow-hidden flex-shrink-0">
+                <div className="w-16 h-16 rounded border bg-[#0a0a0b] flex items-center justify-center overflow-hidden flex-shrink-0">
                   {editForm.logo_url ? (
                     <img src={editForm.logo_url} alt="logo" className="w-full h-full object-contain" />
                   ) : (
@@ -488,7 +488,7 @@ const Organizations = () => {
             <DialogFooter className="gap-2 sm:gap-0">
               <Button type="button" variant="outline" onClick={() => setEditOrg(null)}>Annulla</Button>
               <Button type="submit" disabled={editSubmitting}
-                      className="bg-[#F96815] hover:bg-[#e05a0f]"
+                      className="bg-[#D2FA46] hover:bg-[#bce63d] text-[#0a0a0b]"
                       data-testid="org-edit-save">
                 {editSubmitting ? 'Salvataggio…' : 'Salva modifiche'}
               </Button>
@@ -519,7 +519,7 @@ const Organizations = () => {
                      placeholder="Es. NuovaPass2026!"
                      className="font-mono"
                      data-testid="new-password-input" />
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-xs text-[#6a6a72] mt-1">
                 Suggerimento: comunica all'utente la nuova password tramite un canale sicuro.
               </p>
             </div>

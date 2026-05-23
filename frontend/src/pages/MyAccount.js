@@ -18,11 +18,11 @@ const Section = ({ title, icon: Icon, children, accent = 'orange' }) => {
     emerald: 'bg-emerald-50 border-emerald-200 text-emerald-700',
   };
   return (
-    <section className="bg-white border border-gray-200 rounded-xl p-5 sm:p-6 mb-4">
+    <section className="bg-[#131316] border border-white/10 rounded-xl p-5 sm:p-6 mb-4">
       <h2 className={`text-lg font-semibold flex items-center gap-2 mb-2 ${colors[accent]?.split(' ')[2] || ''}`}>
         {Icon && <Icon className="h-5 w-5" />}{title}
       </h2>
-      <div className="text-sm text-gray-700 space-y-3">{children}</div>
+      <div className="text-sm text-[#a8a8b0] space-y-3">{children}</div>
     </section>
   );
 };
@@ -128,12 +128,12 @@ const MyAccount = () => {
     <div className="max-w-3xl" data-testid="my-account-page">
       <header className="mb-4">
         <h1 className="text-2xl sm:text-3xl font-bold">Il mio account</h1>
-        <p className="text-sm text-gray-500 mt-1">Esercita i tuoi diritti GDPR e gestisci la sicurezza del tuo account.</p>
+        <p className="text-sm text-[#6a6a72] mt-1">Esercita i tuoi diritti GDPR e gestisci la sicurezza del tuo account.</p>
       </header>
 
       <Section title="Esporta i miei dati (Art. 15 GDPR)" icon={Download} accent="orange">
         <p>Scarica una copia di tutti i dati personali che la piattaforma conserva su di te in formato JSON.</p>
-        <Button onClick={handleExport} disabled={exporting} className="bg-[#F96815] hover:bg-[#e05a0f]"
+        <Button onClick={handleExport} disabled={exporting} className="bg-[#D2FA46] hover:bg-[#bce63d] text-[#0a0a0b]"
                 data-testid="export-data-button">
           <Download className="h-4 w-4 mr-2" />{exporting ? 'Esportazione…' : 'Esporta i miei dati'}
         </Button>
@@ -154,7 +154,7 @@ const MyAccount = () => {
             />
           </div>
           <div>
-            <Label className="text-xs">Nuova password <span className="text-gray-500">(min 8 caratteri)</span></Label>
+            <Label className="text-xs">Nuova password <span className="text-[#6a6a72]">(min 8 caratteri)</span></Label>
             <Input
               type="password"
               autoComplete="new-password"
@@ -180,7 +180,7 @@ const MyAccount = () => {
           <Button
             type="submit"
             disabled={pwSubmitting}
-            className="bg-[#F96815] hover:bg-[#e05a0f]"
+            className="bg-[#D2FA46] hover:bg-[#bce63d] text-[#0a0a0b]"
             data-testid="change-password-submit"
           >
             <Lock className="h-4 w-4 mr-2" />
@@ -193,7 +193,7 @@ const MyAccount = () => {
         <p>
           Il cambio email richiede un link di conferma inviato al nuovo indirizzo (per evitare typo e takeover).
         </p>
-        <p className="text-xs text-gray-500">
+        <p className="text-xs text-[#6a6a72]">
           Stiamo configurando l'invio email. Per modificare ora la tua mail, contatta un super admin.
         </p>
         <Button variant="outline" disabled className="opacity-60 cursor-not-allowed"
@@ -207,7 +207,7 @@ const MyAccount = () => {
           Invalida ogni token JWT attivo su altri dispositivi/browser. Utile se sospetti che le tue credenziali
           siano state compromesse. La sessione corrente verrà rinnovata e non sarai disconnesso da questa pagina.
         </p>
-        <p className="text-xs text-gray-500">
+        <p className="text-xs text-[#6a6a72]">
           Nota: se sei anche venditore (vendor login), le sessioni vendor restano separate e devono essere revocate
           dal tuo profilo vendor.
         </p>
@@ -241,7 +241,7 @@ const MyAccount = () => {
               : <span className="font-semibold text-amber-700">Non accettato — richiede la tua firma</span>}.
           </p>
           {dpa.accepted_at && (
-            <p className="text-xs text-gray-500">Accettato il: {dpa.accepted_at}</p>
+            <p className="text-xs text-[#6a6a72]">Accettato il: {dpa.accepted_at}</p>
           )}
           <Button onClick={() => navigate('/dashboard/dpa')} variant="outline" data-testid="goto-dpa-button">
             Vedi DPA

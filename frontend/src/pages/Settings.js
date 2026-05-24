@@ -551,15 +551,11 @@ const Settings = () => {
               </div>
             </div>
 
-            <div className="grid sm:grid-cols-2 gap-4">
-              <TextField id="prod_admin_email" label="ADMIN_EMAIL"
-                value={config.prod_admin_email} onChange={update('prod_admin_email')}
-                placeholder="admin@example.com"
-                testid="prod-admin-email-input" />
-              <SecretInput id="prod_admin_password" label="ADMIN_PASSWORD"
-                value={config.prod_admin_password} onChange={update('prod_admin_password')}
-                placeholder="••••••"
-                testid="prod-admin-password-input" />
+            <div className="rounded-lg border border-sky-200/60 dark:border-sky-500/20 bg-sky-50/50 dark:bg-sky-500/[0.04] p-3 text-xs text-sky-900 dark:text-sky-200 flex gap-2" data-testid="admin-info-note">
+              <span className="font-bold flex-shrink-0">ℹ</span>
+              <span>
+                <strong>Solo il super admin</strong> viene seedato dal backend tramite questi secrets. Gli <strong>org admin</strong> e gli altri utenti operativi si creano dal pannello "Modifica utenti" della rispettiva organizzazione.
+              </span>
             </div>
 
             <div className="grid sm:grid-cols-2 gap-4">
@@ -603,19 +599,19 @@ const Settings = () => {
             <div className="border rounded-lg p-3 space-y-2">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium">Ruota password Org Admin</p>
-                  <p className="text-xs text-gray-500 dark:text-[#6a6a72]">{config.prod_admin_email || 'admin@example.com'}</p>
+                  <p className="text-sm font-medium">Ruota password Super Admin</p>
+                  <p className="text-xs text-gray-500 dark:text-[#6a6a72]">{config.prod_superadmin_email || 'superadmin@qrhub.it'}</p>
                 </div>
-                <Switch checked={rotate.rotate_admin_password}
-                        onCheckedChange={(v) => setRotate(r => ({ ...r, rotate_admin_password: v }))}
-                        data-testid="switch-rotate-admin" />
+                <Switch checked={rotate.rotate_superadmin_password}
+                        onCheckedChange={(v) => setRotate(r => ({ ...r, rotate_superadmin_password: v }))}
+                        data-testid="switch-rotate-superadmin" />
               </div>
-              {rotate.rotate_admin_password && (
-                <Input value={rotate.new_admin_password}
-                        onChange={(e) => setRotate(r => ({ ...r, new_admin_password: e.target.value }))}
+              {rotate.rotate_superadmin_password && (
+                <Input value={rotate.new_superadmin_password}
+                        onChange={(e) => setRotate(r => ({ ...r, new_superadmin_password: e.target.value }))}
                         placeholder="Lascia vuoto per generare automaticamente"
                         className="font-mono"
-                        data-testid="input-new-admin-pwd" />
+                        data-testid="input-new-superadmin-pwd" />
               )}
             </div>
 

@@ -28,7 +28,7 @@ const Legal = () => {
       <header className="pb-2">
         <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">Note Legali e Privacy</h1>
         <p className="text-sm text-gray-500 dark:text-[#6a6a72] mt-1">
-          Ultima revisione: febbraio 2026 · Versione 1.0
+          Ultima revisione: maggio 2026 · Versione 1.0
         </p>
       </header>
 

@@ -30,7 +30,6 @@ const EMPTY = {
   vercel_deploy_hook: '',
   github_repo: '', github_token: '',
   prod_mongo_url: '', prod_db_name: 'qrhub_db', prod_jwt_secret: '',
-  prod_admin_email: '', prod_admin_password: '',
   prod_superadmin_email: '', prod_superadmin_password: '',
   prod_frontend_url: '', prod_cors_origins: '',
   cloudinary_url: '',
@@ -163,8 +162,6 @@ const Settings = () => {
       `  MONGO_URL="${config.prod_mongo_url || '<mongodb-srv-url>'}" \\`,
       `  DB_NAME="${config.prod_db_name || 'qrhub_db'}" \\`,
       `  JWT_SECRET="${config.prod_jwt_secret || '<random-secret>'}" \\`,
-      `  ADMIN_EMAIL="${config.prod_admin_email || 'admin@example.com'}" \\`,
-      `  ADMIN_PASSWORD="${config.prod_admin_password || '<pwd>'}" \\`,
       `  SUPERADMIN_EMAIL="${config.prod_superadmin_email || 'superadmin@qrhub.it'}" \\`,
       `  SUPERADMIN_PASSWORD="${config.prod_superadmin_password || '<pwd>'}" \\`,
       `  FRONTEND_URL="${config.prod_frontend_url || config.vercel_app_url || '<vercel-url>'}" \\`,
@@ -250,9 +247,7 @@ const Settings = () => {
   // ── Rotate credentials ─────────────────────────────────────────
   const [rotate, setRotate] = useState({
     rotate_jwt: true,
-    rotate_admin_password: false,
     rotate_superadmin_password: false,
-    new_admin_password: '',
     new_superadmin_password: '',
     apply_to_fly: true,
   });
@@ -554,7 +549,7 @@ const Settings = () => {
             <div className="rounded-lg border border-sky-200/60 dark:border-sky-500/20 bg-sky-50/50 dark:bg-sky-500/[0.04] p-3 text-xs text-sky-900 dark:text-sky-200 flex gap-2" data-testid="admin-info-note">
               <span className="font-bold flex-shrink-0">ℹ</span>
               <span>
-                <strong>Solo il super admin</strong> viene seedato dal backend tramite questi secrets. Gli <strong>org admin</strong> e gli altri utenti operativi si creano dal pannello "Modifica utenti" della rispettiva organizzazione.
+                Da questa sezione gestisci solo le credenziali <strong>infrastrutturali</strong> (Mongo, JWT, super admin, CORS, frontend URL). Il <strong>super admin</strong> viene seedato automaticamente al boot del backend tramite queste variabili. Gli <strong>org admin</strong> e tutti gli altri utenti operativi si creano direttamente dal pannello "Modifica utenti" della rispettiva organizzazione — non esiste più un seed legacy via env.
               </span>
             </div>
 
@@ -615,25 +610,6 @@ const Settings = () => {
               )}
             </div>
 
-            <div className="border rounded-lg p-3 space-y-2">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium">Ruota password Super Admin</p>
-                  <p className="text-xs text-gray-500 dark:text-[#6a6a72]">{config.prod_superadmin_email || 'superadmin@qrhub.it'}</p>
-                </div>
-                <Switch checked={rotate.rotate_superadmin_password}
-                        onCheckedChange={(v) => setRotate(r => ({ ...r, rotate_superadmin_password: v }))}
-                        data-testid="switch-rotate-super" />
-              </div>
-              {rotate.rotate_superadmin_password && (
-                <Input value={rotate.new_superadmin_password}
-                        onChange={(e) => setRotate(r => ({ ...r, new_superadmin_password: e.target.value }))}
-                        placeholder="Lascia vuoto per generare automaticamente"
-                        className="font-mono"
-                        data-testid="input-new-super-pwd" />
-              )}
-            </div>
-
             <div className="flex items-center justify-between border rounded-lg p-3 bg-amber-50">
               <div>
                 <p className="text-sm font-medium flex items-center gap-1.5"><AlertTriangle className="h-4 w-4 text-amber-600" />Applica anche su Fly.io</p>
@@ -677,11 +653,6 @@ const Settings = () => {
                 </p>
                 {rotateResult.new_jwt_secret_preview && (
                   <div className="text-sm">JWT_SECRET: <span className="font-mono">{rotateResult.new_jwt_secret_preview}</span></div>
-                )}
-                {rotateResult.new_admin_password && (
-                  <div className="text-sm font-mono bg-white dark:bg-[#131316] border p-2 rounded">
-                    <strong>Admin pwd:</strong> {rotateResult.new_admin_password}
-                  </div>
                 )}
                 {rotateResult.new_superadmin_password && (
                   <div className="text-sm font-mono bg-white dark:bg-[#131316] border p-2 rounded">

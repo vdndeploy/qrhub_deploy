@@ -395,24 +395,12 @@ async def rotate_credentials(req: RotateCredsRequest, user: dict = Depends(requi
     cfg = await _load_deploy_config()
 
     updates = {}
-    rotated = {'jwt': False, 'admin_password': False, 'superadmin_password': False}
-    new_admin_pwd = None
+    rotated = {'jwt': False, 'superadmin_password': False}
     new_super_pwd = None
 
     if req.rotate_jwt:
         updates['prod_jwt_secret'] = _random_secret(32)
         rotated['jwt'] = True
-
-    if req.rotate_admin_password:
-        new_admin_pwd = (req.new_admin_password or '').strip() or _random_password(16)
-        updates['prod_admin_password'] = new_admin_pwd
-        rotated['admin_password'] = True
-        # Update DB admin
-        admin_email = cfg.get('prod_admin_email') or os.environ.get('ADMIN_EMAIL', 'admin@example.com')
-        await db.users.update_one(
-            {'email': admin_email.lower(), 'role': {'$ne': 'super_admin'}},
-            {'$set': {'password_hash': hash_password(new_admin_pwd)}}
-        )
 
     if req.rotate_superadmin_password:
         new_super_pwd = (req.new_superadmin_password or '').strip() or _random_password(16)
@@ -456,7 +444,6 @@ async def rotate_credentials(req: RotateCredsRequest, user: dict = Depends(requi
     return {
         'message': 'Credenziali ruotate',
         'rotated': rotated,
-        'new_admin_password': new_admin_pwd if req.rotate_admin_password else None,
         'new_superadmin_password': new_super_pwd if req.rotate_superadmin_password else None,
         'new_jwt_secret_preview': (updates.get('prod_jwt_secret') or '')[:8] + '…' if rotated['jwt'] else None,
         'fly': fly_result

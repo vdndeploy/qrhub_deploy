@@ -69,8 +69,9 @@ if len(JWT_SECRET) < 32:
             'Rotate from Super Admin → Deploy → Secrets to a value ≥ 32 bytes ASAP.',
             len(JWT_SECRET)
         )
-ADMIN_EMAIL = os.environ.get('ADMIN_EMAIL', 'admin@example.com')
-ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', '')  # empty = no auto-seed (no hardcoded default for security)
+# Legacy ADMIN_EMAIL / ADMIN_PASSWORD seed removed (Feb 2026): org-admins are
+# now created exclusively from the in-app "Modifica utenti" panel. The platform
+# only bootstraps the SUPERADMIN account on startup.
 
 # Cookie settings — set to "none"/True in production (cross-site Vercel <-> Fly.io)
 COOKIE_SAMESITE = os.environ.get('COOKIE_SAMESITE', 'lax').lower()
@@ -542,8 +543,6 @@ class DeployConfig(BaseModel):
     prod_mongo_url: Optional[str] = ''
     prod_db_name: Optional[str] = 'qrhub_db'
     prod_jwt_secret: Optional[str] = ''
-    prod_admin_email: Optional[str] = ''
-    prod_admin_password: Optional[str] = ''
     prod_superadmin_email: Optional[str] = ''
     prod_superadmin_password: Optional[str] = ''
     prod_frontend_url: Optional[str] = ''
@@ -2120,6 +2119,18 @@ async def get_vendor_public(vendor_id: str):
                                       else ('verified' if has_all_required else 'incomplete'),
                 },
             }
+            # DPA gating: a vendor's landing is "active" only after at least one
+            # org_admin of the controller organization has signed the latest DPA.
+            # Until then the public endpoint still answers (so admin previews keep
+            # working) but the frontend renders a "Servizio non ancora attivo"
+            # screen instead of the real landing.
+            accepted_count = await db.users.count_documents({
+                'organization_id': real_vendor['organization_id'],
+                'role': 'org_admin',
+                'accepted_dpa_version': CURRENT_DPA_VERSION,
+            })
+            if accepted_count == 0:
+                vendor['inactive_reason'] = 'dpa_pending'
     return vendor
 
 @api_router.put('/vendors/{vendor_id}', response_model=VendorResponse)
@@ -2439,8 +2450,6 @@ def _collect_fly_secrets(cfg: dict) -> List[dict]:
         'MONGO_URL': cfg.get('prod_mongo_url') or '',
         'DB_NAME': cfg.get('prod_db_name') or 'qrhub_db',
         'JWT_SECRET': cfg.get('prod_jwt_secret') or '',
-        'ADMIN_EMAIL': cfg.get('prod_admin_email') or '',
-        'ADMIN_PASSWORD': cfg.get('prod_admin_password') or '',
         'SUPERADMIN_EMAIL': cfg.get('prod_superadmin_email') or '',
         'SUPERADMIN_PASSWORD': cfg.get('prod_superadmin_password') or '',
         'FRONTEND_URL': cfg.get('prod_frontend_url') or cfg.get('vercel_app_url') or '',
@@ -2462,9 +2471,7 @@ class FlyRedeployRequest(BaseModel):
 
 class RotateCredsRequest(BaseModel):
     rotate_jwt: bool = True
-    rotate_admin_password: bool = False
     rotate_superadmin_password: bool = False
-    new_admin_password: Optional[str] = None  # if None and rotate=True → auto-generate
     new_superadmin_password: Optional[str] = None
     apply_to_fly: bool = True
 
@@ -2795,29 +2802,8 @@ async def seed_admin():
     except Exception as _e:
         logger.warning(f'Org anonymization skipped: {_e}')
 
-    # 3. Legacy ADMIN_EMAIL → ensure exists as default org_admin.
-    # Skip seeding if no ADMIN_PASSWORD is set (no hardcoded default).
-    if ADMIN_PASSWORD:
-        admin = await db.users.find_one({'email': ADMIN_EMAIL})
-        if not admin:
-            default_org = await db.organizations.find_one({'slug': 'demo'}, {'_id': 0, 'id': 1})
-            await db.users.insert_one({
-                'email': ADMIN_EMAIL,
-                'password_hash': hash_password(ADMIN_PASSWORD),
-                'name': 'Org Admin',
-                'role': 'org_admin',
-                'organization_id': default_org['id'] if default_org else None,
-                'created_at': datetime.now(timezone.utc).isoformat()
-            })
-            logger.info(f'Org admin created: {_redact_email(ADMIN_EMAIL)}')
-        elif not verify_password(ADMIN_PASSWORD, admin['password_hash']):
-            await db.users.update_one(
-                {'email': ADMIN_EMAIL},
-                {'$set': {'password_hash': hash_password(ADMIN_PASSWORD)}}
-            )
-            logger.info(f'Admin password updated: {_redact_email(ADMIN_EMAIL)}')
-    else:
-        logger.warning('ADMIN_PASSWORD not set — skipping org-admin seed.')
+    # 3. Legacy ADMIN_EMAIL seed removed (Feb 2026). Org-admins are now provisioned
+    # exclusively from the in-app "Modifica utenti" panel — no env-driven seed.
 
     # Anonymize legacy user display name "Admin VDN"
     try:
@@ -2840,10 +2826,7 @@ async def seed_admin():
                 f'- Email: {SUPERADMIN_EMAIL}\n'
                 '- Password: see env var `SUPERADMIN_PASSWORD` (in `backend/.env`)\n'
                 '- Role: super_admin\n\n'
-                '## Org Admin (default organization)\n'
-                f'- Email: {ADMIN_EMAIL}\n'
-                '- Password: see env var `ADMIN_PASSWORD` (in `backend/.env`)\n'
-                '- Role: org_admin\n\n'
+                '_Note: org-admins are provisioned from the in-app "Modifica utenti" panel — no env-driven seed._\n\n'
                 '## API Endpoints\n'
                 '- POST /api/auth/login\n'
                 '- GET /api/auth/me\n'

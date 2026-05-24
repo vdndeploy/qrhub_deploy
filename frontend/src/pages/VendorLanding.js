@@ -315,6 +315,78 @@ const VendorLanding = () => {
   }
   if (!vendor) return <div className="vendor-error"><h1>Venditore non trovato</h1></div>;
 
+  // DPA gating: backend marks the response with inactive_reason='dpa_pending'
+  // when the controller org hasn't signed the latest DPA yet. We hide the
+  // public landing in that case so visitors don't see content the org hasn't
+  // legally cleared. Preview mode (admin) still shows the real landing so
+  // operators can QA before going live.
+  if (vendor.inactive_reason === 'dpa_pending' && !previewMode) {
+    const brand = vendor?.organization?.brand_name || vendor?.organization?.name || 'questa organizzazione';
+    return (
+      <div data-testid="vendor-landing-dpa-pending" style={{
+        minHeight: '100vh',
+        background: 'radial-gradient(ellipse 60% 50% at 50% 0%, rgba(210,250,70,0.10), transparent 70%), #0a0a0b',
+        color: '#e6e6ea',
+        fontFamily: 'Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: '40px 24px',
+      }}>
+        <div style={{ maxWidth: 520, width: '100%', textAlign: 'center' }}>
+          <div style={{
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            width: 64, height: 64, borderRadius: 18,
+            background: 'radial-gradient(circle at 30% 30%, rgba(210,250,70,0.25), rgba(210,250,70,0.05))',
+            border: '1px solid rgba(210,250,70,0.25)',
+            color: '#D2FA46',
+            marginBottom: 24,
+          }}>
+            <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="9"/>
+              <line x1="12" y1="8" x2="12" y2="12"/>
+              <circle cx="12" cy="16" r="0.6" fill="currentColor"/>
+            </svg>
+          </div>
+          <div style={{
+            fontSize: 11, letterSpacing: '0.14em', textTransform: 'uppercase',
+            color: '#D2FA46', marginBottom: 10, fontWeight: 600,
+          }}>
+            Servizio in attivazione
+          </div>
+          <h1 style={{
+            fontSize: 28, fontWeight: 800, letterSpacing: '-0.02em',
+            margin: '0 0 14px', lineHeight: 1.15, color: '#fff',
+          }}>
+            Servizio non ancora attivo
+          </h1>
+          <p style={{
+            color: '#8a8a92', fontSize: 15, lineHeight: 1.6, margin: '0 0 32px',
+          }}>
+            L'organizzazione <strong style={{ color: '#e6e6ea' }}>{brand}</strong> deve
+            completare la configurazione del servizio (Accordo sul Trattamento Dati) prima
+            che questa landing diventi pubblica. Torna a trovarci tra qualche giorno.
+          </p>
+          <a href="/" style={{
+            display: 'inline-flex', alignItems: 'center', gap: 8,
+            padding: '12px 22px', borderRadius: 999,
+            background: '#D2FA46', color: '#0a0a0b',
+            textDecoration: 'none', fontWeight: 600, fontSize: 14,
+            boxShadow: '0 0 0 1px rgba(210,250,70,0.4), 0 8px 24px rgba(210,250,70,0.22)',
+            transition: 'transform .15s, background .15s',
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.background = '#dcff5e'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = '#D2FA46'; e.currentTarget.style.transform = 'translateY(0)'; }}
+          data-testid="vendor-dpa-pending-cta">
+            Scopri QRHub
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="5" y1="12" x2="19" y2="12"/>
+              <polyline points="12 5 19 12 12 19"/>
+            </svg>
+          </a>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="vendor-landing">
       {previewMode && (
@@ -339,7 +411,9 @@ const VendorLanding = () => {
               textTransform: 'uppercase', flexShrink: 0,
             }}>Anteprima</span>
             <span style={{ fontSize: 13, fontWeight: 600 }}>
-              Stai vedendo questa landing come admin. I visitatori normali la vedono solo sul dominio dell'organizzazione.
+              {vendor.inactive_reason === 'dpa_pending'
+                ? 'DPA non ancora accettato dall\'organizzazione · landing visibile solo agli admin.'
+                : 'Stai vedendo questa landing come admin. I visitatori normali la vedono solo sul dominio dell\'organizzazione.'}
             </span>
           </div>
           <a

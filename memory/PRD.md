@@ -12,7 +12,7 @@ Il progetto **QRHub** è una piattaforma multi-tenant open source (MIT) che perm
 
 ## Architettura
 
-- **Backend**: FastAPI + Motor (Mongo async) — singolo file `backend/server.py`
+- **Backend**: FastAPI + Motor (Mongo async) — singolo file `backend/server.py` (in refactor)
 - **Frontend**: React 19 + CRACO + Tailwind + shadcn/ui — `frontend/`
 - **DB**: MongoDB Atlas (cluster `clustervdn`)
 - **Storage media**: Cloudinary (vedi env `CLOUDINARY_CLOUD_NAME`)
@@ -35,6 +35,18 @@ Il progetto **QRHub** è una piattaforma multi-tenant open source (MIT) che perm
 - Hosting free-tier sostenibile (≤256MB RAM, 512MB DB, 25 credits Cloudinary/mese)
 - Open source MIT, no-profit
 
+### 2026-05-24 — Sprint pre-beta · Lotto 1
+
+- **GDPR_AUDIT.md riscritto** (v2.0): tutti i blocker critici/high/medium dell'audit originale del 2026-05-17 risultano CHIUSI. Verdetto finale: 🟢 **READY for beta launch**. Documento aggiornato con stato risoluzione issue-per-issue + nuova sezione "feature GDPR-related post-audit" + sub-processor register aggiornato + aperti residui marcati non-blocker.
+- **DPA gating sulle landing pubbliche** (`backend/server.py` → `get_vendor_public()` + `frontend/src/pages/VendorLanding.js`): se nessun org_admin dell'organizzazione del vendor ha accettato il DPA v1.0, il backend marca la response con `inactive_reason: 'dpa_pending'`. Il frontend renderizza una schermata "Servizio non ancora attivo" (`data-testid="vendor-landing-dpa-pending"`) con dettaglio del brand della controller invece della landing reale. **Bypass admin**: la modalità preview (`?preview=<JWT>`) salta il gating per permettere il QA prima del go-live. Il banner sticky mostra un testo dedicato "DPA non ancora accettato" in modalità preview pending. Verificato end-to-end: visitatore→DPA screen / admin con preview-token→landing reale.
+- **Tab Secrets pulito** (`pages/Settings.js` + `backend/server.py` + `backend/routers/deploy.py` + `backend/.env`):
+  - Rimossi tutti i riferimenti legacy `ADMIN_EMAIL` / `ADMIN_PASSWORD`: input EMPTY state, `flySecretsCmd` (comando `fly secrets set`), state `rotate` + `rotateResult` di rotazione, blocco duplicato "Ruota password Super Admin", `_collect_fly_secrets()` mapping, `RotateCredsRequest` model, ramo `rotate_admin_password` nel handler.
+  - Backend `server.py`: rimosso il modulo costanti `ADMIN_EMAIL`/`ADMIN_PASSWORD` + l'intero blocco di seed dell'org-admin legacy (l'org-admin si crea solo via pannello "Modifica utenti"). Update di `test_credentials.md` generato automaticamente al boot per non listare più la sezione Org Admin.
+  - `.env` pulito: rimosse `ADMIN_EMAIL=local-dev@qrhub.local` e `ADMIN_PASSWORD=local-dev-only-not-used`. Solo `SUPERADMIN_*` resta come credenziale env-driven.
+  - Nota descrittiva sul tab aggiornata: "gli org admin si creano dal pannello — non esiste più un seed legacy via env".
+  - Pydantic ignora i campi extra → backward compat preservata per vecchi client che ancora inviano `rotate_admin_password=true` (campo inerte, no error).
+- **Date legali**: verificato che Terms / Privacy / License riportano già "Maggio 2026" (nessuna correzione necessaria).
+- Verifica fatta via screenshot tool: tab Secrets su `/dashboard/settings` mostra **solo** SUPERADMIN_EMAIL / SUPERADMIN_PASSWORD (locator `prod-admin-*-input` count = 0).
 
 ### 2026-05-23 (notte) — Footer landing con dati titolare + profilazione editabile
 

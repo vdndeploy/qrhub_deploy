@@ -35,6 +35,17 @@ Il progetto **QRHub** è una piattaforma multi-tenant open source (MIT) che perm
 - Hosting free-tier sostenibile (≤256MB RAM, 512MB DB, 25 credits Cloudinary/mese)
 - Open source MIT, no-profit
 
+### 2026-05-24 — Sprint pre-beta · Lotto 2 UX (hotfixes post-deploy)
+
+- **Bug fix MediaPicker white-page** (`components/MediaPicker.js`): le props `mineOnly` + `manageMode` non erano destrutturate nella signature → `ReferenceError: mineOnly is not defined` su `VendorDashboard` post-login (white page totale). Re-applicata destrutturazione.
+- **Doppia tab anteprima** (`pages/Vendors.js`): rimosso `noopener` dal `window.open('about:blank')` perché con `noopener` il browser ritorna `null` lasciando la tab vuota orfana + redirect cadeva sulla tab corrente. Ora teniamo la reference della nuova tab e ci settiamo `location.href` dopo che il preview-token arriva.
+- **Slug rispettato sull'anteprima** (`pages/Vendors.js` + `pages/VendorDashboard.js`): URL anteprima/landing ora usa `(vendor.slug || '').trim() || vendor.id` invece di `vendor.id` fisso.
+- **Mobile anteprima funzionante** (`pages/Vendors.js`): discrimina via `matchMedia('(min-width: 768px)')`. Su mobile → redirect same-tab (`window.location.href`) per bypassare i popup blocker iOS Safari draconiani. Su desktop → nuova tab.
+- **Preview check ora risolve slug↔UUID** (`backend/server.py`): `/api/preview/check` usa `_resolve_vendor_doc()` su entrambi i lati (token.vendor_id e URL vendor_id) prima del confronto. Una preview generata per il UUID `6a0c73f2...` ora valida anche se l'URL è `/v/giz`. Verificato in prod su Fly v33.
+- **Landing URL dal dominio personalizzato** (`backend/server.py` + `pages/VendorDashboard.js`): `/api/vendor-auth/login` e `/api/vendor-auth/me` ora restituiscono `landing_url` (computato via `_effective_landing_url`). Il bottone "Vedi Pagina" del VendorDashboard usa quel valore (dominio custom dell'org, es. `app.vdn.srl/v/giz`) invece di forgiare un URL sul host admin `qrhub.it`. Fallback graceful: `landing_url` → `slug` → `id`.
+
+Deploy Fly v33 completato 2026-05-24 12:20 UTC. Frontend pending push GitHub→Vercel.
+
 ### 2026-05-24 — Sprint pre-beta · Lotto 2 UX
 
 - **Toggle Light/Dark su VendorDashboard** (`pages/VendorDashboard.js`): aggiunto il bottone Sun/Moon (testid `vendor-theme-toggle`) nell'header del pannello venditore, accanto a "Vedi Pagina" e "Esci". Condivide lo stesso `useTheme` hook del Dashboard admin → la preferenza persiste su localStorage `qrhub_theme` ed è coerente tra i due pannelli.
@@ -284,6 +295,44 @@ Validazione: lint clean (JS), supervisor frontend RUNNING senza errori critici, 
 | RL | TTL index su `login_attempts.ts` invece di cleanup opportunistico | ~15min |
 
 ## Next action items (proposti per la prossima sessione)
+
+### 🔴 P0 — Feature "Post multi-store" (richiesta utente 2026-05-24, deferred per budget)
+
+**Scopo**: permettere di creare un annuncio **una sola volta** e selezionare via flag su quali negozi pubblicarlo, invece di replicarlo manualmente su ogni store.
+
+**Scoping confermato**:
+- Nuovo tab/route `/dashboard/posts` nel pannello admin (nav link "Post" accanto a "Negozi")
+- Editor identico all'attuale (titolo, testo, media via MediaPicker, CTA testo, WhatsApp message, schedule start/end)
+- Aggiunta: **multi-store selector** (checkbox grid con tutti i negozi dell'org)
+- Tabella con "pubblicato su N negozi" + edit/delete + duplica
+- L'editor legacy per-store nei "Negozi" resta come fallback (no breaking change)
+- CTA / WhatsApp message conservati per-post; analytics CTA già usa `post_id` quindi nessuna modifica
+
+**Implementazione backend stimata (~15-20 crediti)**:
+1. Cambiare modello `posts` da `store_id: str` (singolo) a `store_ids: List[str]` (additive, backward-compat). Lasciare il vecchio `store_id` come campo legacy per la migrazione.
+2. Migrazione idempotente al boot: post legacy → `store_ids: [post.store_id]` (`db.posts.update_many({store_ids: {$exists: False}}, [{$set: {store_ids: ['$store_id']}}])`)
+3. Aggiornare 4 endpoint:
+   - `GET /api/posts` (admin list) → ritorna anche `store_ids`
+   - `POST /api/posts` → accetta `store_ids: List[str]` (tenant-scoped validation: ogni id deve appartenere a `user.organization_id`)
+   - `PUT /api/posts/{id}` → idem
+   - `DELETE /api/posts/{id}` → invariato
+4. Aggiornare il fetch post in `/api/vendors/{id}` (server.py:2043): cambiare `await db.posts.find({'store_id': vendor['store_id']})` → `find({$or: [{store_id: X}, {store_ids: X}]})` per supportare entrambi i formati.
+5. `_is_post_currently_active()` resta invariato.
+
+**Implementazione frontend stimata (~15-20 crediti)**:
+1. Nuova pagina `pages/Posts.js` con tabella + editor modale
+2. Componente `<StoreMultiSelect>` (checkbox grid con `Seleziona tutti`, search per nome negozio)
+3. Aggiungere route + nav link in `Dashboard.js`
+4. Riusare `MediaPicker`, `HoursEditor` (no, solo media)
+5. UI feedback: "Pubblicato su 3 negozi: WindTre Castelnuovo, ..., +1"
+
+**Test + Fly deploy stimato (~5 crediti)**
+
+**Rischio principale**: tenant leak via `store_ids` non validato (qualcuno mette nel body uno store_id di un'altra org). Mitigazione: nel POST/PUT validare ogni id con `_tenant_filter(user, {'id': sid})` prima dell'insert.
+
+**Effort totale**: 30-40 crediti. Confermato deferred dall'utente 2026-05-24.
+
+### 🟡 P1 — Altri pending
 
 1. **Sprint 3 GDPR**: H2 (endpoint GDPR utente) + H3 (session revoke) + H6 (DPA flow) — completa la copertura "diritti dell'interessato"
 2. **Sprint 4 GDPR**: tutti i medium M1-M8 in un batch (refactor sicurezza)

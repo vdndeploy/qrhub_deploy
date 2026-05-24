@@ -53,7 +53,7 @@ const MediaPicker = ({
     setLoading(true);
     try {
       const { data } = await axios.get(`${API}/media`, {
-        params: { kind: nextKind, skip: nextSkip, limit: PAGE_SIZE, search: q },
+        params: { kind: nextKind, skip: nextSkip, limit: PAGE_SIZE, search: q, mine_only: mineOnly },
         withCredentials: true,
       });
       setItems(data.items || []);
@@ -64,7 +64,7 @@ const MediaPicker = ({
     } finally {
       setLoading(false);
     }
-  }, [kind, search]);
+  }, [kind, search, mineOnly]);
 
   const fetchStats = useCallback(async () => {
     try {
@@ -138,7 +138,9 @@ const MediaPicker = ({
             {title}
           </DialogTitle>
           <DialogDescription className="flex items-center justify-between gap-3 flex-wrap">
-            <span>Riutilizza foto già caricate per i tuoi venditori e annunci — risparmia spazio Cloudinary.</span>
+            <span>{manageMode
+              ? 'Visualizzi solo le foto che hai caricato tu. Passa il cursore su una foto per eliminarla.'
+              : 'Riutilizza foto già caricate per i tuoi venditori e annunci — risparmia spazio Cloudinary.'}</span>
             {stats && (
               <span className="text-xs font-mono text-gray-600 dark:text-[#8a8a92]">
                 {stats.count} file · {formatBytes(stats.bytes)}
@@ -225,15 +227,17 @@ const MediaPicker = ({
 
                   {/* Hover overlay */}
                   <div className="absolute inset-0 bg-black/0 group-hover:bg-black/55 transition flex flex-col items-center justify-center gap-1 opacity-0 group-hover:opacity-100">
-                    <Button
-                      type="button"
-                      size="sm"
-                      onClick={() => handlePick(item)}
-                      className="h-7 text-xs bg-[#D2FA46] hover:bg-[#E85A00]"
-                      data-testid={`media-pick-${item.public_id}`}
-                    >
-                      <Check className="h-3 w-3 mr-1" />Usa
-                    </Button>
+                    {!manageMode && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={() => handlePick(item)}
+                        className="h-7 text-xs bg-[#D2FA46] hover:bg-[#E85A00]"
+                        data-testid={`media-pick-${item.public_id}`}
+                      >
+                        <Check className="h-3 w-3 mr-1" />Usa
+                      </Button>
+                    )}
                     {allowDelete && item.can_delete && (
                       <Button
                         type="button"

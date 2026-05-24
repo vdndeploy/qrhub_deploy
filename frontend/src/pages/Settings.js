@@ -324,29 +324,31 @@ const Settings = () => {
       </div>
 
       <Tabs defaultValue="domain" className="w-full">
-        <TabsList className="grid grid-cols-2 sm:grid-cols-7 w-full sm:w-auto">
-          <TabsTrigger value="domain" data-testid="tab-domain">
-            <Crown className="h-4 w-4 mr-1.5" /> Dominio
-          </TabsTrigger>
-          <TabsTrigger value="flyio" data-testid="tab-flyio">
-            <Rocket className="h-4 w-4 mr-1.5" /> Fly.io
-          </TabsTrigger>
-          <TabsTrigger value="vercel" data-testid="tab-vercel">
-            <Globe2 className="h-4 w-4 mr-1.5" /> Vercel
-          </TabsTrigger>
-          <TabsTrigger value="secrets" data-testid="tab-secrets">
-            <KeyRound className="h-4 w-4 mr-1.5" /> Secrets
-          </TabsTrigger>
-          <TabsTrigger value="monitor" data-testid="tab-monitor">
-            <HeartPulse className="h-4 w-4 mr-1.5" /> Monitor
-          </TabsTrigger>
-          <TabsTrigger value="cloudinary" data-testid="tab-cloudinary">
-            <Cloud className="h-4 w-4 mr-1.5" /> Cloudinary
-          </TabsTrigger>
-          <TabsTrigger value="github" data-testid="tab-github">
-            <Github className="h-4 w-4 mr-1.5" /> GitHub
-          </TabsTrigger>
-        </TabsList>
+        <div className="-mx-3 sm:mx-0 overflow-x-auto pb-1">
+          <TabsList className="flex sm:grid sm:grid-cols-7 w-max sm:w-auto min-w-full sm:min-w-0 px-3 sm:px-0 whitespace-nowrap">
+            <TabsTrigger value="domain" data-testid="tab-domain" className="flex-shrink-0">
+              <Crown className="h-4 w-4 mr-1.5" /> Dominio
+            </TabsTrigger>
+            <TabsTrigger value="flyio" data-testid="tab-flyio" className="flex-shrink-0">
+              <Rocket className="h-4 w-4 mr-1.5" /> Fly.io
+            </TabsTrigger>
+            <TabsTrigger value="vercel" data-testid="tab-vercel" className="flex-shrink-0">
+              <Globe2 className="h-4 w-4 mr-1.5" /> Vercel
+            </TabsTrigger>
+            <TabsTrigger value="secrets" data-testid="tab-secrets" className="flex-shrink-0">
+              <KeyRound className="h-4 w-4 mr-1.5" /> Secrets
+            </TabsTrigger>
+            <TabsTrigger value="monitor" data-testid="tab-monitor" className="flex-shrink-0">
+              <HeartPulse className="h-4 w-4 mr-1.5" /> Monitor
+            </TabsTrigger>
+            <TabsTrigger value="cloudinary" data-testid="tab-cloudinary" className="flex-shrink-0">
+              <Cloud className="h-4 w-4 mr-1.5" /> Cloudinary
+            </TabsTrigger>
+            <TabsTrigger value="github" data-testid="tab-github" className="flex-shrink-0">
+              <Github className="h-4 w-4 mr-1.5" /> GitHub
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         {/* PLATFORM PRIMARY DOMAIN */}
         <TabsContent value="domain" className="space-y-6 mt-5">

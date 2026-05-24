@@ -35,6 +35,16 @@ Il progetto **QRHub** è una piattaforma multi-tenant open source (MIT) che perm
 - Hosting free-tier sostenibile (≤256MB RAM, 512MB DB, 25 credits Cloudinary/mese)
 - Open source MIT, no-profit
 
+### 2026-05-24 — Sprint pre-beta · Lotto 2 UX
+
+- **Toggle Light/Dark su VendorDashboard** (`pages/VendorDashboard.js`): aggiunto il bottone Sun/Moon (testid `vendor-theme-toggle`) nell'header del pannello venditore, accanto a "Vedi Pagina" e "Esci". Condivide lo stesso `useTheme` hook del Dashboard admin → la preferenza persiste su localStorage `qrhub_theme` ed è coerente tra i due pannelli.
+- **Vendor "Le mie foto"** (`pages/VendorDashboard.js` + `components/MediaPicker.js`): nuovo bottone secondario "Le mie foto" (icona Trash2, testid `vendor-manage-my-photos`) accanto a "Scegli dalla libreria". Apre il `MediaPicker` in **manage mode** che (a) passa `mine_only=true` al backend `/api/media` mostrando solo le immagini caricate dal vendor loggato, (b) nasconde il pulsante "Usa" (non serve la selezione), (c) mostra solo il pulsante "Elimina" sull'hover delle foto eliminabili. Il backend già supportava `DELETE /api/media/{public_id}` con check ownership (uploaded_by_id == vendor.id) e blocco se in-use come foto profilo. Nuove props MediaPicker: `mineOnly`, `manageMode`.
+- **Mobile fix #1 — chart "Performance per Venditore"** (`pages/Overview.js`): asse X con rotazione `-35°` + `textAnchor='end'` + `height=70` + truncate a 12 caratteri con ellipsis. Altezza grafico aumentata da 320→360. I nomi venditori non si sovrappongono più su schermi <640px.
+- **Mobile fix #2 — pulsante Eye anteprima venditore** (`pages/Vendors.js`): apertura della nuova tab spostata **sincrona dentro l'handler di click** (`window.open('about:blank')`) PRIMA dell'await sul preview-token. Mobile Safari/Chrome non bloccano più il popup. Fallback: se il browser blocca comunque la tab, redirect same-tab.
+- **Mobile fix #3 — tab Deploy** (`pages/Settings.js`): la TabsList passa da `grid grid-cols-2` (che faceva 4 righe su mobile per 7 tab) a `flex w-max overflow-x-auto` con `whitespace-nowrap` + `flex-shrink-0` su ogni TabsTrigger. Su mobile ora i tab scorrono orizzontalmente in una singola riga.
+
+Validazione: lint clean (JS), supervisor frontend RUNNING senza errori critici, smoke screenshot UI ok. Testing utente: l'utente preferisce verificare i 4 fix manualmente per risparmiare crediti.
+
 ### 2026-05-24 — Sprint pre-beta · Lotto 1
 
 - **GDPR_AUDIT.md riscritto** (v2.0): tutti i blocker critici/high/medium dell'audit originale del 2026-05-17 risultano CHIUSI. Verdetto finale: 🟢 **READY for beta launch**. Documento aggiornato con stato risoluzione issue-per-issue + nuova sezione "feature GDPR-related post-audit" + sub-processor register aggiornato + aperti residui marcati non-blocker.

@@ -97,14 +97,18 @@ const Overview = () => {
                 </span>
               </div>
             </div>
-            <ResponsiveContainer width="100%" height={320}>
-              <BarChart data={chartData} margin={{ top: 8, right: 8, left: -16, bottom: 4 }} barGap={6} barCategoryGap="24%">
+            <ResponsiveContainer width="100%" height={360}>
+              <BarChart data={chartData} margin={{ top: 8, right: 8, left: -16, bottom: 60 }} barGap={6} barCategoryGap="24%">
                 <XAxis
                   dataKey="name"
                   tick={{ fontSize: 11, fill: 'currentColor' }}
                   tickLine={false}
                   axisLine={false}
                   interval={0}
+                  angle={-35}
+                  textAnchor="end"
+                  height={70}
+                  tickFormatter={(v) => (v && v.length > 12 ? v.slice(0, 11) + '…' : v)}
                   className="text-gray-500 dark:text-[#6a6a72]"
                 />
                 <YAxis

@@ -6,15 +6,17 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
-import { LogOut, Eye, MousePointerClick, ExternalLink, Save, Upload, X, Image as ImageIcon, FolderOpen } from 'lucide-react';
+import { LogOut, Eye, MousePointerClick, ExternalLink, Save, Upload, X, Image as ImageIcon, FolderOpen, Sun, Moon, Trash2 } from 'lucide-react';
 import axios from 'axios';
 import AnalyticsDetailed from './AnalyticsDetailed';
 import MediaPicker from '@/components/MediaPicker';
+import { useTheme } from '@/hooks/useTheme';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 const VendorDashboard = () => {
   const { vendor, logout, refreshVendor } = useVendorAuth();
+  const { isDark, toggle: toggleTheme } = useTheme();
   const [stats, setStats] = useState(null);
   const [formData, setFormData] = useState({
     name: '',
@@ -25,6 +27,7 @@ const VendorDashboard = () => {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerMode, setPickerMode] = useState('select'); // 'select' | 'manage'
 
   useEffect(() => {
     if (vendor) {
@@ -113,6 +116,16 @@ const VendorDashboard = () => {
             <p className="text-xs sm:text-sm text-gray-600 dark:text-[#8a8a92] truncate">{vendor?.name}</p>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={toggleTheme}
+              aria-label={isDark ? 'Passa al tema chiaro' : 'Passa al tema scuro'}
+              title={isDark ? 'Passa al tema chiaro' : 'Passa al tema scuro'}
+              data-testid="vendor-theme-toggle"
+            >
+              {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            </Button>
             <Button
               variant="outline"
               size="sm"
@@ -325,11 +338,21 @@ const VendorDashboard = () => {
                     <Button
                       type="button"
                       variant="outline"
-                      onClick={() => setPickerOpen(true)}
+                      onClick={() => { setPickerMode('select'); setPickerOpen(true); }}
                       className="ml-2 h-9 text-xs"
                       data-testid="vendor-profile-from-library"
                     >
                       <FolderOpen className="h-4 w-4 mr-1" />Scegli dalla libreria
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() => { setPickerMode('manage'); setPickerOpen(true); }}
+                      className="ml-1 h-9 text-xs text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10"
+                      data-testid="vendor-manage-my-photos"
+                      title="Gestisci ed elimina le foto che hai caricato"
+                    >
+                      <Trash2 className="h-4 w-4 mr-1" />Le mie foto
                     </Button>
                     <p className="text-xs text-gray-500 dark:text-[#6a6a72] mt-2">
                       {formData.profile_image_url && !formData.profile_image_enabled && (
@@ -396,12 +419,15 @@ const VendorDashboard = () => {
         open={pickerOpen}
         onClose={() => setPickerOpen(false)}
         onSelect={(item) => {
+          if (pickerMode === 'manage') return;
           setFormData((prev) => ({ ...prev, profile_image_url: item.url }));
           toast.success('Foto selezionata. Clicca Salva per applicare.');
         }}
         kind="uploads"
         hidePostsTab
-        title="Foto profilo della libreria"
+        mineOnly={pickerMode === 'manage'}
+        manageMode={pickerMode === 'manage'}
+        title={pickerMode === 'manage' ? 'Le mie foto caricate' : 'Foto profilo della libreria'}
       />
     </div>
   );

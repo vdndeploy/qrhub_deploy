@@ -301,14 +301,26 @@ const Vendors = () => {
                         variant="outline"
                         size="sm"
                         onClick={async () => {
+                          // Open the tab synchronously inside the user-gesture so mobile
+                          // browsers don't block it. We'll set its URL once the signed
+                          // preview-token comes back from the API.
+                          const win = window.open('about:blank', '_blank', 'noopener');
                           try {
                             const { data } = await axios.post(
                               `${API}/vendors/${vendor.id}/preview-token`,
                               {},
                               { withCredentials: true }
                             );
-                            window.open(`${window.location.origin}/v/${vendor.id}?preview=${encodeURIComponent(data.token)}`, '_blank', 'noopener');
+                            const url = `${window.location.origin}/v/${vendor.id}?preview=${encodeURIComponent(data.token)}`;
+                            if (win && !win.closed) {
+                              win.location.href = url;
+                            } else {
+                              // Popup was blocked anyway → fall back to a same-tab redirect
+                              // so the admin still reaches the preview on mobile.
+                              window.location.href = url;
+                            }
                           } catch (e) {
+                            if (win && !win.closed) win.close();
                             toast.error(e.response?.data?.detail || 'Impossibile generare token anteprima');
                           }
                         }}

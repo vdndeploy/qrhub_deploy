@@ -2245,7 +2245,11 @@ async def generate_vendor_preview_token(vendor_id: str, user: dict = Depends(get
 @api_router.get('/preview/check')
 async def check_preview_token(token: str, vendor_id: str):
     """Public endpoint used by the landing to verify a preview token signature
-    and expiry. Returns 200 if valid for the given vendor_id, 401 otherwise."""
+    and expiry. Returns 200 if valid for the given vendor_id, 401 otherwise.
+
+    Both sides are resolved through `_resolve_vendor_doc` so that a token
+    minted for the canonical UUID still validates when the URL uses the
+    friendly slug (e.g. /v/giz vs /v/<uuid>)."""
     try:
         payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
     except jwt.ExpiredSignatureError:
@@ -2254,7 +2258,10 @@ async def check_preview_token(token: str, vendor_id: str):
         raise HTTPException(status_code=401, detail='Preview token non valido')
     if payload.get('scope') != 'vendor_preview':
         raise HTTPException(status_code=401, detail='Preview token non valido')
-    if payload.get('vendor_id') != vendor_id:
+    token_vendor_key = payload.get('vendor_id') or ''
+    url_doc = await _resolve_vendor_doc(vendor_id)
+    token_doc = await _resolve_vendor_doc(token_vendor_key)
+    if not url_doc or not token_doc or url_doc.get('id') != token_doc.get('id'):
         raise HTTPException(status_code=401, detail='Preview token non valido per questo venditore')
     return {'valid': True, 'admin_email': payload.get('admin_email', '')}
 
@@ -2342,6 +2349,10 @@ async def vendor_login(req: LoginRequest, request: Request, response: Response):
     )
     
     vendor.pop('password_hash', None)
+    # Enrich with the effective public landing URL so the vendor dashboard can
+    # link "Vedi Pagina" to the org's custom domain (e.g. https://app.vdn.srl/v/giz)
+    # instead of forging an URL on the platform admin host.
+    vendor['landing_url'] = await _effective_landing_url(vendor)
     return vendor
 
 @api_router.post('/vendor-auth/logout')
@@ -2351,6 +2362,7 @@ async def vendor_logout(response: Response):
 
 @api_router.get('/vendor-auth/me')
 async def get_vendor_me(vendor: dict = Depends(get_current_vendor)):
+    vendor['landing_url'] = await _effective_landing_url(vendor)
     return vendor
 
 @api_router.get('/vendor/stats')

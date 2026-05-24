@@ -101,11 +101,16 @@ const VendorDashboard = () => {
   };
 
   const openLandingPage = () => {
-    // Use the friendly slug when set, fall back to the canonical UUID otherwise.
-    // This keeps freshly-printed QR codes (UUID-based) working while modern links
-    // benefit from the human-readable URL the org configured.
-    const path = (vendor?.slug || '').trim() || vendor?.id;
-    const url = `${window.location.origin}/v/${path}`;
+    // Prefer the effective public URL computed by the backend: that's the org's
+    // verified custom domain (e.g. https://app.vdn.srl/v/giz) so the link the
+    // vendor copies/shares matches what their customers will actually see. The
+    // local `window.location.origin` is only a fallback (typically qrhub.it for
+    // unconfigured orgs or local development).
+    let url = (vendor?.landing_url || '').trim();
+    if (!url) {
+      const path = (vendor?.slug || '').trim() || vendor?.id;
+      url = `${window.location.origin}/v/${path}`;
+    }
     window.open(url, '_blank');
   };
 

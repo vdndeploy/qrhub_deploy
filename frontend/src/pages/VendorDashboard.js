@@ -101,7 +101,11 @@ const VendorDashboard = () => {
   };
 
   const openLandingPage = () => {
-    const url = `${window.location.origin}/v/${vendor.id}`;
+    // Use the friendly slug when set, fall back to the canonical UUID otherwise.
+    // This keeps freshly-printed QR codes (UUID-based) working while modern links
+    // benefit from the human-readable URL the org configured.
+    const path = (vendor?.slug || '').trim() || vendor?.id;
+    const url = `${window.location.origin}/v/${path}`;
     window.open(url, '_blank');
   };
 

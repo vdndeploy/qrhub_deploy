@@ -301,22 +301,29 @@ const Vendors = () => {
                         variant="outline"
                         size="sm"
                         onClick={async () => {
-                          // Open the tab synchronously inside the user-gesture so mobile
-                          // browsers don't block it. We'll set its URL once the signed
-                          // preview-token comes back from the API.
-                          const win = window.open('about:blank', '_blank', 'noopener');
+                          // Mobile browsers (especially iOS Safari) block ANY async
+                          // window.open — even when called before the first await.
+                          // Strategy:
+                          //  - Desktop (≥768px): open a real new tab synchronously
+                          //    WITHOUT 'noopener' so we keep the reference and can
+                          //    redirect it once the preview-token arrives.
+                          //  - Mobile (<768px): redirect the current tab. UX is
+                          //    slightly different (no new tab) but reliable.
+                          const isDesktop = window.matchMedia('(min-width: 768px)').matches;
+                          const win = isDesktop ? window.open('about:blank', '_blank') : null;
                           try {
                             const { data } = await axios.post(
                               `${API}/vendors/${vendor.id}/preview-token`,
                               {},
                               { withCredentials: true }
                             );
-                            const url = `${window.location.origin}/v/${vendor.id}?preview=${encodeURIComponent(data.token)}`;
+                            // Honor the vendor's custom slug when set so the
+                            // anteprima opens the same URL the public visitors see.
+                            const path = (vendor.slug || '').trim() || vendor.id;
+                            const url = `${window.location.origin}/v/${path}?preview=${encodeURIComponent(data.token)}`;
                             if (win && !win.closed) {
                               win.location.href = url;
                             } else {
-                              // Popup was blocked anyway → fall back to a same-tab redirect
-                              // so the admin still reaches the preview on mobile.
                               window.location.href = url;
                             }
                           } catch (e) {

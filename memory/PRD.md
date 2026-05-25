@@ -35,6 +35,26 @@ Il progetto **QRHub** è una piattaforma multi-tenant open source (MIT) che perm
 - Hosting free-tier sostenibile (≤256MB RAM, 512MB DB, 25 credits Cloudinary/mese)
 - Open source MIT, no-profit
 
+### 2026-05-24 — Feature "Stampa cartellino" (Print Badge) + UI fixes
+
+- **Stampa cartellino fronte/retro** (`components/BadgePrintDialog.js` nuovo + `pages/Vendors.js`):
+  - Nuovo bottone Printer accanto a "Anteprima QR" sulla riga venditore (testid `print-badge-<vendorId>`).
+  - Dialog Shadcn con RadioGroup ruoli predefiniti ("Store Specialist", "Store Manager") + opzione "Personalizzato…" che attiva un input free-text (max 32 char).
+  - Generazione **client-side senza dipendenze**: apre `window.open()` con un HTML stand-alone, scarica il QR PNG dal backend e lo converte in dataURL (FileReader), inietta logo+brand+colore dell'org dal payload `my-organization`. Il `window.onload` triggera automaticamente `window.print()` → l'utente sceglie "Salva come PDF" come destinazione.
+  - Layout: A4 con **2 cartellini affiancati identici** (fronte/retro), formato 86×132mm credit-card tall, crop marks all'angolo per il taglio dopo stampa.
+  - **Design**: hero con gradient `var(--brand)` → `color-mix(in srgb, brand 65%, #fff)` + glassmorphism circle, badge ruolo pill su sfondo bianco con shadow, nome vendor uppercase grande, QR centrato in cornice con angoli decorativi nel brand color, footer URL landing + brand name, logo org top-left bianco (filter invert per leggibilità su sfondo brand).
+  - Escape HTML su tutti gli input utente per prevenire injection nella finestra figlia.
+  - `crossorigin="anonymous"` sul logo per consentire il render anche da Cloudinary.
+- **UI fix: contrasto VendorDashboard tema scuro** (`pages/VendorDashboard.js`): aggiunti dark: variants su 3 blocchi che mostravano bianco-su-bianco (gradient profilo, ring avatar, button "Carica/Cambia foto").
+- **UI fix: primary_color dell'org applicato a tutta la landing** (`pages/VendorLanding.css` + `pages/VendorLanding.js`):
+  - Tutti i 20+ `#F96815` hardcoded nel CSS sostituiti con `var(--brand-color)`.
+  - Introdotta `var(--brand-color-soft)` calcolata da `color-mix(in srgb, var(--brand-color) 65%, #fff)` per i gradienti, così qualsiasi primary_color dell'org genera automaticamente il suo light-variant senza intervento JS.
+  - Il root `.vendor-landing` ora setta inline `style={{'--brand-color': vendor.organization?.primary_color || '#F96815'}}` propagando il colore a hero, posts CTA, announcement CTA, posts-card border, posts-title, announcement-title, eyebrow, map-btn, dot attivo, conic-gradient avatar, card icons (via `currentColor`).
+  - Shadows convertite da `rgba(249,104,21,X)` a `rgba(0,0,0,X)` neutre per evitare aloni arancio con altri colori brand.
+  - Verificato in prod: org "TIM" (`primary_color: #3327dd`) ora renderizza tutto in blu dopo il push GitHub→Vercel.
+
+Solo modifiche frontend → niente Fly redeploy. Push GitHub→Vercel necessario per produzione.
+
 ### 2026-05-24 — Sprint pre-beta · Lotto 2 UX (hotfixes post-deploy)
 
 - **Bug fix MediaPicker white-page** (`components/MediaPicker.js`): le props `mineOnly` + `manageMode` non erano destrutturate nella signature → `ReferenceError: mineOnly is not defined` su `VendorDashboard` post-login (white page totale). Re-applicata destrutturazione.

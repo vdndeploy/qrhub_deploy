@@ -28,13 +28,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Plus, Edit, Trash2, QrCode, Eye, Key, Download, ExternalLink, Copy, RotateCcw } from 'lucide-react';
+import { Plus, Edit, Trash2, QrCode, Eye, Key, Download, ExternalLink, Copy, RotateCcw, Printer } from 'lucide-react';
+import BadgePrintDialog from '@/components/BadgePrintDialog';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 const Vendors = () => {
   const [vendors, setVendors] = useState([]);
   const [stores, setStores] = useState([]);
+  const [organization, setOrganization] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isCredentialsDialogOpen, setIsCredentialsDialogOpen] = useState(false);
@@ -43,6 +45,7 @@ const Vendors = () => {
   const [qrPreviewOpen, setQrPreviewOpen] = useState(false);
   const [qrPreviewUrl, setQrPreviewUrl] = useState('');
   const [qrVendorName, setQrVendorName] = useState('');
+  const [badgeVendor, setBadgeVendor] = useState(null);
   const [credentialsForm, setCredentialsForm] = useState({
     email: '',
     password: '',
@@ -56,7 +59,19 @@ const Vendors = () => {
   useEffect(() => {
     fetchVendors();
     fetchStores();
+    fetchOrganization();
   }, []);
+
+  const fetchOrganization = async () => {
+    try {
+      const { data } = await axios.get(`${API}/my-organization`, {
+        withCredentials: true,
+      });
+      setOrganization(data);
+    } catch {
+      // Org fetch is best-effort: super admins or first-login states are tolerated.
+    }
+  };
 
   const fetchVendors = async () => {
     try {
@@ -344,6 +359,15 @@ const Vendors = () => {
                         title="Anteprima QR Code"
                       >
                         <QrCode className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setBadgeVendor(vendor)}
+                        data-testid={`print-badge-${vendor.id}`}
+                        title="Stampa cartellino fronte/retro"
+                      >
+                        <Printer className="h-4 w-4 text-indigo-500" />
                       </Button>
                       <Button
                         variant="outline"
@@ -638,6 +662,14 @@ const Vendors = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <BadgePrintDialog
+        open={!!badgeVendor}
+        onClose={() => setBadgeVendor(null)}
+        vendor={badgeVendor || {}}
+        organization={organization}
+        landingUrl={badgeVendor?.landing_url}
+      />
     </div>
   );
 };

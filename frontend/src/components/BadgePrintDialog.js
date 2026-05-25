@@ -56,6 +56,19 @@ const BadgePrintDialog = ({ open, onClose, vendor, organization, landingUrl }) =
       toast.error('Inserisci o seleziona un ruolo');
       return;
     }
+    // Safari (iOS + macOS) blocks any window.open() that runs after the first
+    // `await` in an async handler, even when triggered by a click. The fix is
+    // to open the window SYNCHRONOUSLY inside the user gesture, paint a quick
+    // loading screen, then swap in the real content once the QR arrives.
+    const win = window.open('about:blank', '_blank');
+    if (!win) {
+      toast.error('Il browser ha bloccato la finestra. Consenti i popup per qrhub.it');
+      return;
+    }
+    win.document.open();
+    win.document.write(buildLoaderHtml(vendor?.name || 'Venditore'));
+    win.document.close();
+
     setGenerating(true);
     try {
       const qrDataUrl = await fetchQrDataUrl();
@@ -68,27 +81,28 @@ const BadgePrintDialog = ({ open, onClose, vendor, organization, landingUrl }) =
         qrDataUrl,
         landingUrl: landingUrl || vendor.landing_url || '',
       });
-      const win = window.open('', '_blank');
-      if (!win) {
-        toast.error('Il browser ha bloccato la finestra. Consenti i popup per qrhub.it');
-        setGenerating(false);
+      if (win.closed) {
+        // User closed the loading tab before the QR finished downloading.
+        toast.error('Finestra chiusa prima del completamento');
         return;
       }
       win.document.open();
       win.document.write(html);
       win.document.close();
-      // After the new window content has rendered images, automatically trigger
-      // the native print dialog so the operator can save as PDF in one click.
-      win.onload = () => {
+      // Auto-trigger native print once the new HTML (and its images) finish
+      // loading inside the popup. iOS Safari ignores window.print() reliably
+      // when called immediately after document.write, so we wait for `load`.
+      win.addEventListener('load', () => {
         try {
           win.focus();
           win.print();
         } catch {
           /* user can still press Cmd/Ctrl+P manually */
         }
-      };
+      });
       onClose();
     } catch (e) {
+      if (!win.closed) win.close();
       toast.error('Errore nella generazione del cartellino');
     } finally {
       setGenerating(false);
@@ -167,6 +181,34 @@ const BadgePrintDialog = ({ open, onClose, vendor, organization, landingUrl }) =
     </Dialog>
   );
 };
+
+/**
+ * Tiny HTML that shows a branded loading screen inside the popup while the
+ * QR code is being fetched in the background. Keeps the popup "alive" so
+ * mobile Safari doesn't blank/close it.
+ */
+function buildLoaderHtml(vendorName) {
+  const safe = String(vendorName)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+  return `<!doctype html>
+<html lang="it"><head><meta charset="utf-8" />
+<title>Cartellino — ${safe}</title>
+<style>
+  html,body{margin:0;padding:0;height:100%;background:#0a0a0b;color:#e6e6ea;font-family:'Helvetica Neue',Arial,sans-serif;display:flex;align-items:center;justify-content:center}
+  .wrap{text-align:center;padding:24px}
+  .spinner{width:48px;height:48px;border:4px solid rgba(210,250,70,0.15);border-top-color:#D2FA46;border-radius:50%;animation:spin 0.9s linear infinite;margin:0 auto 18px}
+  h1{font-size:16px;font-weight:700;margin:0 0 4px}
+  p{font-size:13px;color:#8a8a92;margin:0}
+  @keyframes spin{to{transform:rotate(360deg)}}
+</style></head>
+<body><div class="wrap">
+  <div class="spinner"></div>
+  <h1>Generazione cartellino…</h1>
+  <p>${safe}</p>
+</div></body></html>`;
+}
 
 /**
  * Build a self-contained printable HTML document for two identical front/back

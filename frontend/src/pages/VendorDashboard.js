@@ -290,7 +290,7 @@ const VendorDashboard = () => {
                 <div className="flex items-center gap-4 mt-4">
                   {/* Avatar preview */}
                   <div className="relative">
-                    <div className={`w-24 h-24 rounded-full overflow-hidden ring-2 ${formData.profile_image_enabled && formData.profile_image_url ? 'ring-[#D2FA46]' : 'ring-gray-300'} bg-white shadow-md`}>
+                    <div className={`w-24 h-24 rounded-full overflow-hidden ring-2 ${formData.profile_image_enabled && formData.profile_image_url ? 'ring-[#D2FA46]' : 'ring-gray-300 dark:ring-white/15'} bg-white dark:bg-[#0a0a0b] shadow-md`}>
                       {formData.profile_image_url ? (
                         <img
                           src={formData.profile_image_url}
@@ -323,8 +323,8 @@ const VendorDashboard = () => {
                       htmlFor="vendor-profile-upload"
                       className={`inline-flex items-center gap-2 px-4 py-2 rounded-md border-2 border-dashed cursor-pointer transition
                         ${uploading
-                          ? 'border-gray-300 dark:border-white/15 bg-gray-100 cursor-wait opacity-60'
-                          : 'border-[#D2FA46] bg-white hover:bg-orange-50 text-[#D2FA46]'}`}
+                          ? 'border-gray-300 dark:border-white/15 bg-gray-100 dark:bg-[#1a1a1c] cursor-wait opacity-60'
+                          : 'border-[#D2FA46] bg-white dark:bg-[#0a0a0b] hover:bg-orange-50 dark:hover:bg-[#D2FA46]/10 text-[#D2FA46]'}`}
                     >
                       <Upload className={`h-4 w-4 ${uploading ? 'animate-pulse' : ''}`} />
                       <span className="text-sm font-medium">

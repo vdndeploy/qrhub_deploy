@@ -30,6 +30,7 @@ const BadgePrintDialog = ({ open, onClose, vendor, organization, landingUrl }) =
   const [rolePreset, setRolePreset] = useState('Store Specialist');
   const [customRole, setCustomRole] = useState('');
   const [bannerDataUrl, setBannerDataUrl] = useState('');
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [generating, setGenerating] = useState(false);
 
   const resolvedRole = useMemo(() => {
@@ -172,22 +173,34 @@ const BadgePrintDialog = ({ open, onClose, vendor, organization, landingUrl }) =
                 </button>
               </div>
             ) : (
-              <label
-                htmlFor="badge-banner-input"
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-md border-2 border-dashed border-[#D2FA46] bg-white dark:bg-[#0a0a0b] hover:bg-[#D2FA46]/10 cursor-pointer text-[#D2FA46] text-sm font-medium"
-                data-testid="banner-upload-label"
-              >
-                <ImagePlus className="h-4 w-4" />
-                Carica banner
-                <input
-                  id="badge-banner-input"
-                  type="file"
-                  accept="image/*"
-                  onChange={handleBannerSelect}
-                  className="hidden"
-                  data-testid="banner-upload-input"
-                />
-              </label>
+              <div className="flex flex-wrap gap-2">
+                <label
+                  htmlFor="badge-banner-input"
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-md border-2 border-dashed border-[#D2FA46] bg-white dark:bg-[#0a0a0b] hover:bg-[#D2FA46]/10 cursor-pointer text-[#D2FA46] text-sm font-medium"
+                  data-testid="banner-upload-label"
+                >
+                  <ImagePlus className="h-4 w-4" />
+                  Carica nuovo
+                  <input
+                    id="badge-banner-input"
+                    type="file"
+                    accept="image/*"
+                    onChange={handleBannerSelect}
+                    className="hidden"
+                    data-testid="banner-upload-input"
+                  />
+                </label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setPickerOpen(true)}
+                  className="h-auto py-2 text-sm"
+                  data-testid="banner-browse-library"
+                >
+                  <FolderOpen className="h-4 w-4 mr-1.5" />
+                  Sfoglia caricati
+                </Button>
+              </div>
             )}
           </div>
 
@@ -211,6 +224,14 @@ const BadgePrintDialog = ({ open, onClose, vendor, organization, landingUrl }) =
           </Button>
         </DialogFooter>
       </DialogContent>
+      <MediaPicker
+        open={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        onSelect={(item) => { setPickerOpen(false); handleBannerFromLibrary(item); }}
+        kind="uploads"
+        hidePostsTab
+        title="Scegli un banner dalla libreria"
+      />
     </Dialog>
   );
 };
@@ -296,34 +317,37 @@ function buildBadgeHtml({
     text-shadow: 0 0.4mm 1mm rgba(0,0,0,0.30);
   }
   .body {
-    padding: 9mm 6mm 18mm; display:flex; flex-direction:column; align-items:center; gap: 4mm;
+    padding: 6mm 6mm 22mm; display:flex; flex-direction:column; align-items:center; gap: 3.5mm;
     text-align:center;
   }
   .vendor-name {
-    margin:0; font-size: 19pt; font-weight: 900; color:#0a0a0b;
+    margin:0; font-size: 17pt; font-weight: 900; color:#0a0a0b;
     letter-spacing: -0.3pt; line-height: 1.05; text-transform: uppercase;
   }
   .qr-wrap {
     position:relative; padding: 4mm; background:#fff; border-radius: 4mm;
     box-shadow: 0 0 0 0.4mm var(--brand);
+    margin-top: 1mm;
   }
   .qr-wrap::before, .qr-wrap::after {
     content:''; position:absolute; width: 5mm; height: 5mm; border: 0.8mm solid var(--brand);
   }
   .qr-wrap::before { top:-0.8mm; left:-0.8mm; border-right:0; border-bottom:0; border-top-left-radius: 2mm; }
   .qr-wrap::after { bottom:-0.8mm; right:-0.8mm; border-left:0; border-top:0; border-bottom-right-radius: 2mm; }
-  .qr-wrap img { display:block; width: 38mm; height: 38mm; }
+  .qr-wrap img { display:block; width: 42mm; height: 42mm; }
   .scan-label {
-    font-size: 7pt; color:#555; font-weight: 600; letter-spacing: 0.4pt; text-transform: uppercase;
+    font-size: 7pt; color:#666; font-weight: 600; letter-spacing: 0.4pt; text-transform: uppercase;
+    margin-top: 1mm;
   }
   .footer {
     position:absolute; left:0; right:0; bottom:0;
     padding: 4mm 5mm; text-align:center;
-    background: var(--brand);
-    color: #fff;
+    background: #f5f5f7;
+    border-top: 0.25mm solid #e0e0e3;
+    color: #1a1a1a;
   }
-  .footer-role { font-size: 10pt; font-weight: 800; letter-spacing: 0.5pt; text-transform: uppercase; line-height:1.1; }
-  .footer-brand { font-size: 7.5pt; font-weight: 500; opacity: 0.92; margin-top: 1mm; letter-spacing: 0.3pt; }
+  .footer-role { font-size: 10pt; font-weight: 800; letter-spacing: 0.5pt; text-transform: uppercase; line-height:1.1; color: var(--brand); }
+  .footer-brand { font-size: 7.5pt; font-weight: 500; color:#666; margin-top: 1mm; letter-spacing: 0.3pt; }
   .footer-sep { display:inline-block; margin: 0 1.5mm; opacity: 0.55; }
   /* Crop marks for cutting after print */
   .cut-mark { position:absolute; width: 2mm; height: 2mm; }

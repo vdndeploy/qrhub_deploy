@@ -251,6 +251,39 @@ function buildLoaderHtml(vendorName) {
 <body><div class="wrap"><div class="spinner"></div><h1>Generazione cartellino…</h1><p>${safe}</p></div></body></html>`;
 }
 
+/**
+ * Convert a hex color to RGB ints. Tolerates 3-char and 6-char hex with or
+ * without leading "#". Returns null if the input is unparseable.
+ */
+function hexToRgb(hex) {
+  if (typeof hex !== 'string') return null;
+  let h = hex.trim().replace(/^#/, '');
+  if (h.length === 3) h = h.split('').map((c) => c + c).join('');
+  if (h.length !== 6 || !/^[0-9a-fA-F]{6}$/.test(h)) return null;
+  return {
+    r: parseInt(h.slice(0, 2), 16),
+    g: parseInt(h.slice(2, 4), 16),
+    b: parseInt(h.slice(4, 6), 16),
+  };
+}
+
+/**
+ * Mix the brand color with white at the given strength (0..1, where 0 = pure
+ * brand, 1 = pure white). Replaces the CSS color-mix() helper for print
+ * engines that don't support it yet (Safari macOS ≤15, several PDF
+ * rasterisers). The output is a 6-char hex string ready to embed in CSS.
+ */
+function softenHex(hex, mix = 0.45) {
+  const rgb = hexToRgb(hex);
+  if (!rgb) return '#ffd9c1';
+  const m = Math.max(0, Math.min(1, mix));
+  const r = Math.round(rgb.r + (255 - rgb.r) * m);
+  const g = Math.round(rgb.g + (255 - rgb.g) * m);
+  const b = Math.round(rgb.b + (255 - rgb.b) * m);
+  const toHex = (n) => n.toString(16).padStart(2, '0');
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+}
+
 function buildBadgeHtml({
   vendorName,
   role,
@@ -268,7 +301,15 @@ function buildBadgeHtml({
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;');
 
-  const cssVar = `:root{--brand:${esc(primaryColor)};--brand-soft:color-mix(in srgb, ${esc(primaryColor)} 65%, #fff)}`;
+  // Pre-compute the gradient stop in pure hex so we don't depend on the CSS
+  // color-mix() helper at print time. Many PDF/print engines drop unsupported
+  // CSS functions silently, which previously left the hero painted with the
+  // default UA background (white + dark crop marks → user reported "strisce
+  // nere"). Computing the value in JS guarantees a printable solid fallback.
+  const brandHex = primaryColor || '#F96815';
+  const brandSoftHex = softenHex(brandHex, 0.42);
+
+  const cssVar = `:root{--brand:${esc(brandHex)};--brand-soft:${esc(brandSoftHex)}}`;
   // CRITICAL: force background colors and images to print in Safari/Chrome.
   // Without this rule, "Save as PDF" produces a black-and-white badge.
   const printColorRule = `*{-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important;color-adjust:exact !important}`;
@@ -295,9 +336,15 @@ function buildBadgeHtml({
   }
   .hero {
     position:relative; height: 48mm;
-    background: ${bannerDataUrl
-      ? `url("${esc(bannerDataUrl)}") center/cover no-repeat, linear-gradient(135deg, var(--brand) 0%, var(--brand-soft) 100%)`
+    /* Solid brand color is printed first as a fallback so the badge keeps a
+       coloured header even when the rasteriser skips the gradient layer. */
+    background-color: var(--brand);
+    background-image: ${bannerDataUrl
+      ? `url("${esc(bannerDataUrl)}"), linear-gradient(135deg, var(--brand) 0%, var(--brand-soft) 100%)`
       : `linear-gradient(135deg, var(--brand) 0%, var(--brand-soft) 100%)`};
+    background-size: ${bannerDataUrl ? `cover, auto` : `auto, auto`};
+    background-position: ${bannerDataUrl ? `center, 0 0` : `0 0, 0 0`};
+    background-repeat: no-repeat, no-repeat;
     display:flex; align-items:flex-end; justify-content:center;
     overflow:hidden;
   }
@@ -305,7 +352,7 @@ function buildBadgeHtml({
     content:''; position:absolute; inset:0;
     background: ${bannerDataUrl
       ? `linear-gradient(to bottom, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.35) 100%)`
-      : `radial-gradient(circle at 20% 20%, rgba(255,255,255,0.18) 0%, transparent 60%)`};
+      : `radial-gradient(circle at 20% 20%, rgba(255,255,255,0.20) 0%, transparent 60%)`};
   }
   .hero-logo {
     position:absolute; top: 5mm; left: 5mm; z-index: 2;

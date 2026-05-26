@@ -341,6 +341,26 @@ const OrgSettings = () => {
 
   const removeLogo = () => setOrg(prev => ({ ...prev, logo_url: '', logo_public_id: '' }));
 
+  const handleLegalLogoUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setUploading(true);
+    const fd = new FormData();
+    fd.append('file', file);
+    fd.append('folder', 'uploads');
+    try {
+      const { data } = await axios.post(`${API}/upload`, fd, { withCredentials: true });
+      setOrg(prev => ({ ...prev, legal_logo_url: data.url, legal_logo_public_id: data.public_id }));
+      toast.success('Logo legale caricato. Ricorda di salvare.');
+    } catch {
+      toast.error('Errore upload');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const removeLegalLogo = () => setOrg(prev => ({ ...prev, legal_logo_url: '', legal_logo_public_id: '' }));
+
   const addDomain = async () => {
     const d = (newDomain || '').trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/$/, '');
     if (!d) return;
@@ -424,6 +444,10 @@ const OrgSettings = () => {
         legal_address: org.legal_address || '',
         privacy_contact_email: org.privacy_contact_email || '',
         privacy_policy_url: org.privacy_policy_url || '',
+        legal_logo_url: org.legal_logo_url || '',
+        legal_logo_public_id: org.legal_logo_public_id || '',
+        data_profiling_text: org.data_profiling_text || '',
+        terms_text: org.terms_text || '',
       }, { withCredentials: true });
       toast.success('Impostazioni salvate');
     } catch (e) {
@@ -725,6 +749,58 @@ const OrgSettings = () => {
             data-testid="org-legal-address-input"
             maxLength={500}
           />
+        </div>
+
+        <div className="border border-gray-200 dark:border-white/10 rounded-lg p-4 bg-gray-50/60 dark:bg-[#0f0f12]">
+          <Label className="font-semibold text-gray-800 dark:text-[#e6e6ea] flex items-center gap-2">
+            <ImgIcon className="h-4 w-4 text-[#D2FA46]" />
+            Logo titolare (per pagina privacy)
+          </Label>
+          <p className="text-xs text-gray-600 dark:text-[#8a8a92] mt-1 mb-3">
+            Logo dell'azienda <strong>vera e propria</strong> (titolare del trattamento) che compare
+            nella pagina <code className="bg-gray-100 dark:bg-[#1a1a1c] px-1 rounded">/v/[id]/privacy</code> al
+            posto del logo del franchising. Es. carica qui il logo di <em>"VDN SRL"</em>, non quello di WindTre o TIM.
+            Se vuoto, viene usato il logo del brand qui sopra.
+          </p>
+          <div className="flex items-center gap-3 flex-wrap">
+            {org.legal_logo_url ? (
+              <>
+                <img
+                  src={org.legal_logo_url}
+                  alt="logo legale"
+                  className="h-20 w-20 object-contain border rounded bg-white dark:bg-[#0a0a0b] p-2"
+                  data-testid="org-legal-logo-preview"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={removeLegalLogo}
+                  data-testid="org-legal-logo-remove"
+                >
+                  <X className="h-4 w-4 mr-1" />Rimuovi
+                </Button>
+              </>
+            ) : (
+              <label
+                htmlFor="legal-logo-upload"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-md border-2 border-dashed border-[#D2FA46] bg-white dark:bg-[#0a0a0b] hover:bg-[#D2FA46]/10 cursor-pointer text-[#D2FA46] text-sm font-medium"
+                data-testid="org-legal-logo-upload-label"
+              >
+                <Upload className={`h-4 w-4 ${uploading ? 'animate-pulse' : ''}`} />
+                {uploading ? 'Caricamento…' : 'Carica logo titolare'}
+                <input
+                  id="legal-logo-upload"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleLegalLogoUpload}
+                  className="hidden"
+                  disabled={uploading}
+                  data-testid="org-legal-logo-input"
+                />
+              </label>
+            )}
+          </div>
         </div>
 
         <div>

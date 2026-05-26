@@ -485,6 +485,11 @@ class OrganizationUpdate(BaseModel):
     legal_address: Optional[str] = Field(None, max_length=400)
     privacy_contact_email: Optional[str] = Field(None, max_length=200)
     privacy_policy_url: Optional[str] = Field(None, max_length=500)
+    # Logo of the legal entity (controller) — used on the public privacy/terms
+    # page in place of the franchising brand logo (`logo_url`). Lets users
+    # distinguish "WindTre store branding" from "VDN SRL the data controller".
+    legal_logo_url: Optional[str] = Field(None, max_length=600)
+    legal_logo_public_id: Optional[str] = Field(None, max_length=300)
     # Data profiling notice — editable per-org statement describing which third
     # parties may profile visitors after they tap on social/WhatsApp/Maps links
     # on the landing. Defaults to a reasonable Italian text that mentions Meta
@@ -988,6 +993,8 @@ def _org_to_response(o: dict) -> dict:
         'legal_address': o.get('legal_address', '') or '',
         'privacy_contact_email': o.get('privacy_contact_email', '') or '',
         'privacy_policy_url': o.get('privacy_policy_url', '') or '',
+        'legal_logo_url': o.get('legal_logo_url', '') or '',
+        'legal_logo_public_id': o.get('legal_logo_public_id', '') or '',
         'data_profiling_text': o.get('data_profiling_text', '') or '',
         'terms_text': o.get('terms_text', '') or '',
         'created_at': o.get('created_at', '')
@@ -1165,6 +1172,10 @@ async def update_organization(org_id: str, payload: OrganizationUpdate, user: di
         if purl and not purl.startswith(('http://', 'https://', '/')):
             purl = 'https://' + purl
         update['privacy_policy_url'] = purl[:500]
+    if payload.legal_logo_url is not None:
+        update['legal_logo_url'] = (payload.legal_logo_url or '').strip()[:600]
+    if payload.legal_logo_public_id is not None:
+        update['legal_logo_public_id'] = (payload.legal_logo_public_id or '').strip()[:300]
     if payload.data_profiling_text is not None:
         update['data_profiling_text'] = (payload.data_profiling_text or '').strip()[:4000]
     if payload.terms_text is not None:
@@ -1910,6 +1921,7 @@ async def get_vendor_privacy_info(vendor_id: str):
         {'_id': 0, 'name': 1, 'brand_name': 1, 'primary_color': 1, 'logo_url': 1,
          'legal_name': 1, 'vat_number': 1, 'legal_address': 1,
          'privacy_contact_email': 1, 'privacy_policy_url': 1,
+         'legal_logo_url': 1,
          'data_profiling_text': 1, 'terms_text': 1}
     ) or {}
     # GDPR M-bonus — completeness flag for public "trust badge".
@@ -1927,6 +1939,11 @@ async def get_vendor_privacy_info(vendor_id: str):
             'brand_name': org.get('brand_name', '') or org.get('name', ''),
             'primary_color': org.get('primary_color', '#F96815'),
             'logo_url': org.get('logo_url', ''),
+            # Logo of the legal entity (controller). When set, the privacy/
+            # terms page shows this instead of the franchising brand logo so
+            # visitors see the actual data controller (es. "VDN SRL") and
+            # not the franchise (es. "WindTre").
+            'legal_logo_url': org.get('legal_logo_url', '') or org.get('logo_url', ''),
         },
         'gdpr_status': {
             'controller_verified': has_all_required,

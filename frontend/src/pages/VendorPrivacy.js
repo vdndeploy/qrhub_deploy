@@ -68,8 +68,12 @@ const VendorPrivacy = () => {
     <div className="privacy-page" data-testid="privacy-page">
       <div className="privacy-container">
         <header className="privacy-header" style={{ borderBottomColor: accent }}>
-          {data.organization?.logo_url && (
-            <img src={data.organization.logo_url} alt="" className="privacy-logo" />
+          {(data.organization?.legal_logo_url || data.organization?.logo_url) && (
+            <img
+              src={data.organization.legal_logo_url || data.organization.logo_url}
+              alt={data.controller?.legal_name || data.organization?.brand_name || ''}
+              className="privacy-logo"
+            />
           )}
           <h1 data-testid="privacy-title">Informativa Privacy</h1>
           <p className="privacy-sub">

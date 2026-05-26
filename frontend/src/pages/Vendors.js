@@ -57,43 +57,38 @@ const Vendors = () => {
   });
 
   useEffect(() => {
-    fetchVendors();
-    fetchStores();
-    fetchOrganization();
+    let alive = true;
+    (async () => {
+      try {
+        await Promise.allSettled([fetchVendors(), fetchStores(), fetchOrganization()]);
+      } finally {
+        if (alive) setLoading(false);
+      }
+    })();
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const fetchStores = async () => {
+    try {
+      const { data } = await axios.get(`${API}/stores`, { withCredentials: true });
+      setStores(data);
+    } catch { /* best effort */ }
+  };
 
   const fetchOrganization = async () => {
     try {
-      const { data } = await axios.get(`${API}/my-organization`, {
-        withCredentials: true,
-      });
+      const { data } = await axios.get(`${API}/my-organization`, { withCredentials: true });
       setOrganization(data);
-    } catch {
-      // Org fetch is best-effort: super admins or first-login states are tolerated.
-    }
+    } catch { /* best effort */ }
   };
 
   const fetchVendors = async () => {
     try {
-      const { data } = await axios.get(`${API}/vendors`, {
-        withCredentials: true,
-      });
+      const { data } = await axios.get(`${API}/vendors`, { withCredentials: true });
       setVendors(data);
-    } catch (e) {
+    } catch {
       toast.error('Errore nel caricamento venditori');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchStores = async () => {
-    try {
-      const { data } = await axios.get(`${API}/stores`, {
-        withCredentials: true,
-      });
-      setStores(data);
-    } catch (e) {
-      console.error('Error fetching stores');
     }
   };
 

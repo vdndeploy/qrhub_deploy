@@ -1846,13 +1846,42 @@ async def delete_post(post_id: str, user: dict = Depends(get_current_user)):
 @api_router.get('/vendors', response_model=List[VendorResponse])
 async def get_vendors(user: dict = Depends(get_current_user)):
     vendors = await db.vendors.find(_tenant_filter(user), {'_id': 0}).to_list(1000)
+    if not vendors:
+        return vendors
+
+    # ── Batch analytics: a single $group instead of N count_documents queries.
+    vendor_ids = [v['id'] for v in vendors]
+    counts_cursor = db.analytics.aggregate([
+        {'$match': {'vendor_id': {'$in': vendor_ids}, 'event_type': 'page_view'}},
+        {'$group': {'_id': '$vendor_id', 'n': {'$sum': 1}}},
+    ])
+    counts_map = {c['_id']: c['n'] async for c in counts_cursor}
+
+    # ── Batch verified custom domains: one find() per *distinct* org_id, then
+    # keep only the oldest (most stable) so the landing_url stays deterministic.
+    org_ids = list({v.get('organization_id') for v in vendors if v.get('organization_id')})
+    domain_map = {}
+    if org_ids:
+        async for cd in db.vercel_domains.find(
+            {'organization_id': {'$in': org_ids}, 'verified': True},
+            {'_id': 0, 'organization_id': 1, 'domain': 1, 'created_at_local': 1}
+        ).sort('created_at_local', 1):
+            org_id = cd.get('organization_id')
+            if org_id and org_id not in domain_map and cd.get('domain'):
+                domain_map[org_id] = cd['domain']
+
     for v in vendors:
-        analytics = await db.analytics.count_documents({'vendor_id': v['id'], 'event_type': 'page_view'})
-        v['total_views'] = analytics
+        v['total_views'] = counts_map.get(v['id'], 0)
         v.setdefault('tiktok', '')
         v.setdefault('google_maps_url', '')
         v['has_credentials'] = bool(v.get('password_hash'))
-        v['landing_url'] = await _effective_landing_url(v)
+        org_id = v.get('organization_id')
+        domain = domain_map.get(org_id) if org_id else None
+        if domain:
+            landing_key = (v.get('slug') or '').strip() or v.get('id', '')
+            v['landing_url'] = f"https://{domain}/v/{landing_key}"
+        else:
+            v['landing_url'] = v.get('qr_url') or ''
         # Don't leak the hash via response (Pydantic VendorResponse ignores it anyway, but be explicit)
         v.pop('password_hash', None)
     return vendors

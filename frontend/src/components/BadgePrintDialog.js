@@ -11,9 +11,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Printer, X, ImagePlus, Trash2 } from 'lucide-react';
+import { Printer, X, ImagePlus, Trash2, FolderOpen } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'sonner';
+import MediaPicker from '@/components/MediaPicker';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 

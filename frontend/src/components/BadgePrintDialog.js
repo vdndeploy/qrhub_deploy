@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Printer, X } from 'lucide-react';
+import { Printer, X, ImagePlus, Trash2 } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'sonner';
 
@@ -23,14 +23,13 @@ const ROLE_PRESETS = [
   { value: '__custom__', label: 'Personalizzato…' },
 ];
 
-/**
- * Opens a print-ready HTML document in a new window with a vertical credit-card
- * style badge for a vendor. The user can preview, then Cmd/Ctrl+P → "Save as
- * PDF" to obtain a printable file. No client-side PDF library is needed.
- */
+// Recommended banner ratio matches the hero block: 86mm × 48mm ≈ 16:9.
+const BANNER_RECOMMENDED = '1024×576 px (rapporto 16:9)';
+
 const BadgePrintDialog = ({ open, onClose, vendor, organization, landingUrl }) => {
   const [rolePreset, setRolePreset] = useState('Store Specialist');
   const [customRole, setCustomRole] = useState('');
+  const [bannerDataUrl, setBannerDataUrl] = useState('');
   const [generating, setGenerating] = useState(false);
 
   const resolvedRole = useMemo(() => {
@@ -51,15 +50,31 @@ const BadgePrintDialog = ({ open, onClose, vendor, organization, landingUrl }) =
     });
   };
 
+  const handleBannerSelect = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      toast.error('Formato non valido — usa JPG o PNG');
+      return;
+    }
+    if (file.size > 4 * 1024 * 1024) {
+      toast.error('Massimo 4 MB');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => setBannerDataUrl(reader.result);
+    reader.onerror = () => toast.error('Errore nella lettura del file');
+    reader.readAsDataURL(file);
+  };
+
   const handleGenerate = async () => {
     if (!resolvedRole) {
       toast.error('Inserisci o seleziona un ruolo');
       return;
     }
-    // Safari (iOS + macOS) blocks any window.open() that runs after the first
-    // `await` in an async handler, even when triggered by a click. The fix is
-    // to open the window SYNCHRONOUSLY inside the user gesture, paint a quick
-    // loading screen, then swap in the real content once the QR arrives.
+    // Safari blocks any window.open() that runs after the first await in an
+    // async handler. We open the popup SYNCHRONOUSLY inside the user gesture
+    // and paint a quick loader while the QR fetch finishes.
     const win = window.open('about:blank', '_blank');
     if (!win) {
       toast.error('Il browser ha bloccato la finestra. Consenti i popup per qrhub.it');
@@ -79,26 +94,18 @@ const BadgePrintDialog = ({ open, onClose, vendor, organization, landingUrl }) =
         orgLogoUrl: organization?.logo_url || '',
         primaryColor: organization?.primary_color || '#F96815',
         qrDataUrl,
+        bannerDataUrl,
         landingUrl: landingUrl || vendor.landing_url || '',
       });
       if (win.closed) {
-        // User closed the loading tab before the QR finished downloading.
         toast.error('Finestra chiusa prima del completamento');
         return;
       }
       win.document.open();
       win.document.write(html);
       win.document.close();
-      // Auto-trigger native print once the new HTML (and its images) finish
-      // loading inside the popup. iOS Safari ignores window.print() reliably
-      // when called immediately after document.write, so we wait for `load`.
       win.addEventListener('load', () => {
-        try {
-          win.focus();
-          win.print();
-        } catch {
-          /* user can still press Cmd/Ctrl+P manually */
-        }
+        try { win.focus(); win.print(); } catch { /* manual print fallback */ }
       });
       onClose();
     } catch (e) {
@@ -118,29 +125,18 @@ const BadgePrintDialog = ({ open, onClose, vendor, organization, landingUrl }) =
             Stampa cartellino {vendor?.name}
           </DialogTitle>
           <DialogDescription>
-            Scegli il ruolo da stampare sul cartellino. Sarà generato un PDF
-            fronte/retro identico con QR code, logo e colori dell'organizzazione.
+            Genera un PDF fronte/retro identico con QR e colori dell'organizzazione.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
           <div>
             <Label className="text-sm font-semibold mb-2 block">Ruolo</Label>
-            <RadioGroup
-              value={rolePreset}
-              onValueChange={setRolePreset}
-              className="space-y-2"
-            >
+            <RadioGroup value={rolePreset} onValueChange={setRolePreset} className="space-y-2">
               {ROLE_PRESETS.map((r) => (
                 <div key={r.value} className="flex items-center gap-2">
-                  <RadioGroupItem
-                    value={r.value}
-                    id={`role-${r.value}`}
-                    data-testid={`role-${r.value}`}
-                  />
-                  <Label htmlFor={`role-${r.value}`} className="cursor-pointer font-normal">
-                    {r.label}
-                  </Label>
+                  <RadioGroupItem value={r.value} id={`role-${r.value}`} data-testid={`role-${r.value}`} />
+                  <Label htmlFor={`role-${r.value}`} className="cursor-pointer font-normal">{r.label}</Label>
                 </div>
               ))}
             </RadioGroup>
@@ -156,17 +152,54 @@ const BadgePrintDialog = ({ open, onClose, vendor, organization, landingUrl }) =
               />
             )}
           </div>
+
+          <div>
+            <Label className="text-sm font-semibold mb-2 block">Banner header (opzionale)</Label>
+            <p className="text-xs text-gray-500 dark:text-[#8a8a92] mb-2">
+              Sostituisce lo sfondo colorato in cima al cartellino. Consigliato: <strong>{BANNER_RECOMMENDED}</strong>, JPG/PNG.
+            </p>
+            {bannerDataUrl ? (
+              <div className="relative w-full rounded-lg overflow-hidden border border-gray-200 dark:border-white/10" data-testid="banner-preview-wrap">
+                <img src={bannerDataUrl} alt="banner" className="w-full h-24 object-cover" />
+                <button
+                  type="button"
+                  onClick={() => setBannerDataUrl('')}
+                  className="absolute top-1.5 right-1.5 bg-white/95 hover:bg-red-50 text-red-600 border border-red-200 rounded-md p-1 shadow-sm"
+                  title="Rimuovi banner"
+                  data-testid="banner-remove"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ) : (
+              <label
+                htmlFor="badge-banner-input"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-md border-2 border-dashed border-[#D2FA46] bg-white dark:bg-[#0a0a0b] hover:bg-[#D2FA46]/10 cursor-pointer text-[#D2FA46] text-sm font-medium"
+                data-testid="banner-upload-label"
+              >
+                <ImagePlus className="h-4 w-4" />
+                Carica banner
+                <input
+                  id="badge-banner-input"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleBannerSelect}
+                  className="hidden"
+                  data-testid="banner-upload-input"
+                />
+              </label>
+            )}
+          </div>
+
           <div className="rounded-lg border border-sky-200/60 dark:border-sky-500/20 bg-sky-50/50 dark:bg-sky-500/[0.04] p-3 text-xs text-sky-900 dark:text-sky-200">
-            <strong>Tip:</strong> dopo l'apertura della finestra, il browser
-            mostrerà direttamente la finestra di stampa. Seleziona{' '}
-            <em>"Salva come PDF"</em> come destinazione per ottenere il file.
+            <strong>Tip stampa:</strong> nella finestra di stampa attiva{' '}
+            <em>"Grafica di sfondo"</em> ({/* macOS */}Più impostazioni → Stampa sfondi) per
+            non perdere i colori del cartellino quando salvi come PDF.
           </div>
         </div>
 
         <DialogFooter className="gap-2">
-          <Button variant="outline" onClick={onClose}>
-            <X className="h-4 w-4 mr-1" />Annulla
-          </Button>
+          <Button variant="outline" onClick={onClose}><X className="h-4 w-4 mr-1" />Annulla</Button>
           <Button
             onClick={handleGenerate}
             disabled={generating || !resolvedRole}
@@ -182,19 +215,10 @@ const BadgePrintDialog = ({ open, onClose, vendor, organization, landingUrl }) =
   );
 };
 
-/**
- * Tiny HTML that shows a branded loading screen inside the popup while the
- * QR code is being fetched in the background. Keeps the popup "alive" so
- * mobile Safari doesn't blank/close it.
- */
 function buildLoaderHtml(vendorName) {
-  const safe = String(vendorName)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
+  const safe = String(vendorName).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   return `<!doctype html>
-<html lang="it"><head><meta charset="utf-8" />
-<title>Cartellino — ${safe}</title>
+<html lang="it"><head><meta charset="utf-8" /><title>Cartellino — ${safe}</title>
 <style>
   html,body{margin:0;padding:0;height:100%;background:#0a0a0b;color:#e6e6ea;font-family:'Helvetica Neue',Arial,sans-serif;display:flex;align-items:center;justify-content:center}
   .wrap{text-align:center;padding:24px}
@@ -203,19 +227,9 @@ function buildLoaderHtml(vendorName) {
   p{font-size:13px;color:#8a8a92;margin:0}
   @keyframes spin{to{transform:rotate(360deg)}}
 </style></head>
-<body><div class="wrap">
-  <div class="spinner"></div>
-  <h1>Generazione cartellino…</h1>
-  <p>${safe}</p>
-</div></body></html>`;
+<body><div class="wrap"><div class="spinner"></div><h1>Generazione cartellino…</h1><p>${safe}</p></div></body></html>`;
 }
 
-/**
- * Build a self-contained printable HTML document for two identical front/back
- * badges. Uses CSS @page for an 86×54mm landscape card (the canonical badge
- * size in Europe) wrapped inside a single A4 sheet so the user can cut along
- * the marks.
- */
 function buildBadgeHtml({
   vendorName,
   role,
@@ -223,9 +237,9 @@ function buildBadgeHtml({
   orgLogoUrl,
   primaryColor,
   qrDataUrl,
+  bannerDataUrl,
   landingUrl,
 }) {
-  // Escape user-provided strings to prevent HTML injection in the new window.
   const esc = (s) =>
     String(s ?? '')
       .replace(/&/g, '&amp;')
@@ -234,6 +248,9 @@ function buildBadgeHtml({
       .replace(/"/g, '&quot;');
 
   const cssVar = `:root{--brand:${esc(primaryColor)};--brand-soft:color-mix(in srgb, ${esc(primaryColor)} 65%, #fff)}`;
+  // CRITICAL: force background colors and images to print in Safari/Chrome.
+  // Without this rule, "Save as PDF" produces a black-and-white badge.
+  const printColorRule = `*{-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important;color-adjust:exact !important}`;
 
   return `<!doctype html>
 <html lang="it">
@@ -242,6 +259,7 @@ function buildBadgeHtml({
 <title>Cartellino — ${esc(vendorName)}</title>
 <style>
   ${cssVar}
+  ${printColorRule}
   @page { size: A4; margin: 14mm; }
   *,*::before,*::after { box-sizing: border-box; }
   html,body { margin:0; padding:0; background:#f0f0f0; font-family: 'Helvetica Neue', Arial, sans-serif; color:#1a1a1a; }
@@ -251,50 +269,38 @@ function buildBadgeHtml({
   }
   .badge {
     width: 86mm; height: 132mm; background:#fff; border-radius: 6mm; overflow:hidden;
-    position:relative; box-shadow: 0 0 0 0.4mm rgba(0,0,0,0.1);
+    position:relative; box-shadow: 0 0 0 0.4mm rgba(0,0,0,0.10);
     page-break-inside: avoid;
   }
   .hero {
     position:relative; height: 48mm;
-    background: linear-gradient(135deg, var(--brand) 0%, var(--brand-soft) 100%);
-    display:flex; align-items:center; justify-content:center;
+    background: ${bannerDataUrl
+      ? `url("${esc(bannerDataUrl)}") center/cover no-repeat, linear-gradient(135deg, var(--brand) 0%, var(--brand-soft) 100%)`
+      : `linear-gradient(135deg, var(--brand) 0%, var(--brand-soft) 100%)`};
+    display:flex; align-items:flex-end; justify-content:center;
     overflow:hidden;
   }
   .hero::before {
     content:''; position:absolute; inset:0;
-    background: radial-gradient(circle at 20% 20%, rgba(255,255,255,0.18) 0%, transparent 60%);
+    background: ${bannerDataUrl
+      ? `linear-gradient(to bottom, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.35) 100%)`
+      : `radial-gradient(circle at 20% 20%, rgba(255,255,255,0.18) 0%, transparent 60%)`};
   }
-  .hero::after {
-    content:''; position:absolute; right:-18mm; bottom:-18mm; width:42mm; height:42mm; border-radius:50%;
-    background: rgba(255,255,255,0.10);
+  .hero-logo {
+    position:absolute; top: 5mm; left: 5mm; z-index: 2;
+    display:flex; align-items:center; gap: 3mm;
   }
-  .org-strip {
-    position:absolute; top:0; left:0; right:0; padding: 4mm 5mm;
-    display:flex; align-items:center; justify-content:space-between; color:#fff;
-    font-size: 9pt; font-weight: 600; letter-spacing: 0.4pt; text-transform: uppercase;
-    z-index: 2;
-  }
-  .org-strip img {
-    height: 7mm; width:auto; filter: brightness(0) invert(1);
-  }
-  .hero-eyebrow {
-    color: rgba(255,255,255,0.92); font-size: 7pt; font-weight: 700; letter-spacing: 1.4pt;
-    text-transform: uppercase; text-align: center; position: relative; z-index:1;
-    margin-top: 14mm;
-  }
-  .role-badge {
-    display:inline-block; padding: 1.6mm 4mm; border-radius: 999px; background:rgba(255,255,255,0.92); color: var(--brand);
-    font-size: 8pt; font-weight: 800; letter-spacing: 0.6pt; text-transform: uppercase;
-    box-shadow: 0 0.8mm 2mm rgba(0,0,0,0.10);
-  }
-  .role-wrap {
-    position:absolute; left:0; right:0; bottom:-5mm; display:flex; justify-content:center; z-index:3;
+  .hero-logo img { height: 8mm; width:auto; filter: brightness(0) invert(1); opacity:0.95; }
+  .hero-logo span {
+    color: #fff; font-size: 8pt; font-weight: 700; letter-spacing: 0.6pt; text-transform: uppercase;
+    text-shadow: 0 0.4mm 1mm rgba(0,0,0,0.30);
   }
   .body {
-    padding: 9mm 6mm 4mm; display:flex; flex-direction:column; align-items:center; gap: 4mm;
+    padding: 9mm 6mm 18mm; display:flex; flex-direction:column; align-items:center; gap: 4mm;
+    text-align:center;
   }
   .vendor-name {
-    margin:0; font-size: 19pt; font-weight: 900; text-align:center; color:#0a0a0b;
+    margin:0; font-size: 19pt; font-weight: 900; color:#0a0a0b;
     letter-spacing: -0.3pt; line-height: 1.05; text-transform: uppercase;
   }
   .qr-wrap {
@@ -311,20 +317,16 @@ function buildBadgeHtml({
     font-size: 7pt; color:#555; font-weight: 600; letter-spacing: 0.4pt; text-transform: uppercase;
   }
   .footer {
-    position:absolute; left:0; right:0; bottom:0; padding: 3mm 5mm;
-    display:flex; align-items:center; justify-content:space-between;
-    font-size: 6.5pt; color:#666; border-top: 0.2mm solid #e5e5e5;
+    position:absolute; left:0; right:0; bottom:0;
+    padding: 4mm 5mm; text-align:center;
+    background: var(--brand);
+    color: #fff;
   }
-  .footer .url { font-family: 'Menlo', 'Courier New', monospace; color:#444; max-width: 50mm; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .footer .brand { color: var(--brand); font-weight: 800; letter-spacing: 0.6pt; text-transform: uppercase; font-size: 6.5pt;}
-  .meta-label {
-    font-size: 6.5pt; color:#888; letter-spacing: 0.5pt; text-transform: uppercase; font-weight: 600;
-    margin-top: 1mm;
-  }
+  .footer-role { font-size: 10pt; font-weight: 800; letter-spacing: 0.5pt; text-transform: uppercase; line-height:1.1; }
+  .footer-brand { font-size: 7.5pt; font-weight: 500; opacity: 0.92; margin-top: 1mm; letter-spacing: 0.3pt; }
+  .footer-sep { display:inline-block; margin: 0 1.5mm; opacity: 0.55; }
   /* Crop marks for cutting after print */
-  .cut-mark {
-    position:absolute; width: 2mm; height: 2mm; border-color: #999;
-  }
+  .cut-mark { position:absolute; width: 2mm; height: 2mm; }
   .cut-mark.tl { top:-1mm; left:-1mm; border-left: 0.2mm solid #999; border-top: 0.2mm solid #999; }
   .cut-mark.tr { top:-1mm; right:-1mm; border-right: 0.2mm solid #999; border-top: 0.2mm solid #999; }
   .cut-mark.bl { bottom:-1mm; left:-1mm; border-left: 0.2mm solid #999; border-bottom: 0.2mm solid #999; }
@@ -344,6 +346,7 @@ function buildBadgeHtml({
       background: var(--brand); color:#fff; border:0; padding: 8px 18px; border-radius: 999px;
       font-weight: 700; cursor:pointer; font-size: 13px;
     }
+    .toolbar small { display:block; color:#666; font-size:11px; margin-top:2px; }
   }
   @media print {
     .toolbar { display:none; }
@@ -353,18 +356,24 @@ function buildBadgeHtml({
 </head>
 <body>
   <div class="toolbar">
-    <span>Anteprima cartellino di <b>${esc(vendorName)}</b> — premi <kbd>Cmd/Ctrl + P</kbd> e seleziona "Salva come PDF"</span>
+    <div>
+      Anteprima cartellino di <b>${esc(vendorName)}</b>
+      <small>⚠️ Per mantenere i colori in PDF, attiva <em>"Grafica di sfondo"</em> nelle opzioni di stampa.</small>
+    </div>
     <button onclick="window.print()">Stampa / PDF</button>
   </div>
   <div class="sheet">
-    ${renderSide({ vendorName, role, orgBrand, orgLogoUrl, qrDataUrl, landingUrl, esc, side: 'Fronte' })}
-    ${renderSide({ vendorName, role, orgBrand, orgLogoUrl, qrDataUrl, landingUrl, esc, side: 'Retro' })}
+    ${renderSide({ vendorName, role, orgBrand, orgLogoUrl, qrDataUrl, landingUrl, esc })}
+    ${renderSide({ vendorName, role, orgBrand, orgLogoUrl, qrDataUrl, landingUrl, esc })}
   </div>
 </body>
 </html>`;
 }
 
-function renderSide({ vendorName, role, orgBrand, orgLogoUrl, qrDataUrl, landingUrl, esc, side }) {
+function renderSide({ vendorName, role, orgBrand, orgLogoUrl, qrDataUrl, esc }) {
+  const brandLine = orgBrand
+    ? `<div class="footer-brand">${esc(orgBrand)}</div>`
+    : '';
   return `
     <div class="badge">
       <span class="cut-mark tl"></span>
@@ -372,12 +381,11 @@ function renderSide({ vendorName, role, orgBrand, orgLogoUrl, qrDataUrl, landing
       <span class="cut-mark bl"></span>
       <span class="cut-mark br"></span>
       <div class="hero">
-        <div class="org-strip">
-          ${orgLogoUrl ? `<img src="${esc(orgLogoUrl)}" alt="${esc(orgBrand)}" crossorigin="anonymous" />` : `<span>${esc(orgBrand)}</span>`}
-          <span>${esc(side)}</span>
+        <div class="hero-logo">
+          ${orgLogoUrl
+            ? `<img src="${esc(orgLogoUrl)}" alt="${esc(orgBrand)}" crossorigin="anonymous" />`
+            : (orgBrand ? `<span>${esc(orgBrand)}</span>` : '')}
         </div>
-        <div class="hero-eyebrow">${esc(orgBrand)}</div>
-        <div class="role-wrap"><span class="role-badge">${esc(role)}</span></div>
       </div>
       <div class="body">
         <h1 class="vendor-name">${esc(vendorName)}</h1>
@@ -385,8 +393,8 @@ function renderSide({ vendorName, role, orgBrand, orgLogoUrl, qrDataUrl, landing
         <div class="scan-label">Inquadra per saperne di più</div>
       </div>
       <div class="footer">
-        <span class="url">${esc((landingUrl || '').replace(/^https?:\/\//, ''))}</span>
-        <span class="brand">${esc(orgBrand) || 'QRHub'}</span>
+        <div class="footer-role">${esc(role)}</div>
+        ${brandLine}
       </div>
     </div>
   `;

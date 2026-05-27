@@ -2,13 +2,14 @@ import { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
-  CartesianGrid, Legend,
+  CartesianGrid, Legend, Cell,
 } from 'recharts';
-import { QrCode, MessageCircle, Store as StoreIcon, TrendingUp } from 'lucide-react';
+import { QrCode, MessageCircle, Store as StoreIcon, TrendingUp, Flame } from 'lucide-react';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
-const COLORS = { scans: '#D2FA46', whatsapp: '#25D366' };
+const COLORS = { scans: '#D2FA46', whatsapp: '#25D366', peak: '#FB923C' };
+const PEAK_FACTOR = 1.2; // a day counts as "picco" when scans > 1.2x the rolling avg
 const PERIODS = [
   { value: 1,  label: 'Oggi' },
   { value: 7,  label: '7 giorni' },
@@ -56,10 +57,37 @@ const DailyCounterCard = () => {
       .finally(() => setLoading(false));
   }, [days, storeId]);
 
-  const chartData = useMemo(
-    () => (data?.series || []).map((r) => ({ ...r, label: fmtShort(r.date) })),
-    [data]
-  );
+  const chartData = useMemo(() => {
+    const series = data?.series || [];
+    if (!series.length) return [];
+    // Average of all days EXCEPT the last one (today) — we compare today
+    // (and any past day) against the rolling baseline of the rest.
+    const baseline = series.slice(0, -1);
+    const avg = baseline.length
+      ? baseline.reduce((s, r) => s + (r.scans || 0), 0) / baseline.length
+      : 0;
+    return series.map((r, i) => ({
+      ...r,
+      label: fmtShort(r.date),
+      isPeak: avg > 0 && (r.scans || 0) > avg * PEAK_FACTOR,
+      isToday: i === series.length - 1,
+    }));
+  }, [data]);
+
+  // Surface a banner when TODAY is a peak (useful as a "people counter" signal
+  // for the in-store team — they see at a glance that traffic is above the
+  // rolling average and can react with a campaign / push notification).
+  const peakBanner = useMemo(() => {
+    if (!chartData.length) return null;
+    const today = chartData[chartData.length - 1];
+    if (!today?.isPeak) return null;
+    const baseline = chartData.slice(0, -1);
+    const avg = baseline.length
+      ? baseline.reduce((s, r) => s + r.scans, 0) / baseline.length
+      : 0;
+    const delta = avg > 0 ? Math.round(((today.scans - avg) / avg) * 100) : 0;
+    return { scans: today.scans, avg: Math.round(avg), delta };
+  }, [chartData]);
   const totals = data?.totals || { scans: 0, whatsapp: 0, conversion_pct: 0 };
   const stores = data?.stores || [];
 
@@ -143,6 +171,26 @@ const DailyCounterCard = () => {
         />
       </div>
 
+      {peakBanner && (
+        <div
+          className="mb-4 flex items-center gap-3 p-3 rounded-2xl border-l-4 border-l-[#FB923C] bg-[#FB923C]/10 dark:bg-[#FB923C]/[0.07]"
+          data-testid="daily-counter-peak-banner"
+        >
+          <div className="p-2 rounded-xl bg-[#FB923C]/20 text-[#FB923C] flex-shrink-0">
+            <Flame className="h-5 w-5" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold text-gray-900 dark:text-white">
+              Picco oggi: <span className="text-[#FB923C]">+{peakBanner.delta}%</span>{' '}
+              vs media periodo
+            </p>
+            <p className="text-xs text-gray-600 dark:text-[#8a8a92]">
+              {peakBanner.scans} scansioni oggi · media periodo: {peakBanner.avg}
+            </p>
+          </div>
+        </div>
+      )}
+
       {loading ? (
         <div className="h-[280px] flex items-center justify-center text-sm text-gray-500 dark:text-[#6a6a72]">
           Caricamento…
@@ -180,9 +228,17 @@ const DailyCounterCard = () => {
             <Legend
               iconType="circle"
               wrapperStyle={{ fontSize: 12, paddingTop: 8 }}
-              formatter={(v) => (v === 'scans' ? 'Scansioni QR' : 'WhatsApp')}
+              payload={[
+                { value: 'Scansioni QR', type: 'circle', color: COLORS.scans },
+                { value: 'WhatsApp', type: 'circle', color: COLORS.whatsapp },
+                { value: 'Picco (>20% media)', type: 'circle', color: COLORS.peak },
+              ]}
             />
-            <Bar dataKey="scans" fill={COLORS.scans} radius={[6, 6, 0, 0]} maxBarSize={28} animationDuration={250} />
+            <Bar dataKey="scans" radius={[6, 6, 0, 0]} maxBarSize={28} animationDuration={250}>
+              {chartData.map((entry, i) => (
+                <Cell key={`s-${i}`} fill={entry.isPeak ? COLORS.peak : COLORS.scans} />
+              ))}
+            </Bar>
             <Bar dataKey="whatsapp" fill={COLORS.whatsapp} radius={[6, 6, 0, 0]} maxBarSize={28} animationDuration={250} />
           </BarChart>
         </ResponsiveContainer>

@@ -77,6 +77,98 @@ const BadgePrintDialog = ({ open, onClose, vendor, organization, landingUrl }) =
   };
 
   /**
+   * Render the entire hero (gradient + logo overlay) to ONE PNG dataURL via
+   * a single canvas. This sidesteps iOS Safari's habit of silently dropping
+   * absolutely-positioned <img> tags when saving to PDF on mobile — by
+   * collapsing everything into one bitmap, the print engine has only one
+   * raster image to handle (which it never drops). Returns dataURL or ''.
+   */
+  const generateHeroComposite = async ({ brand, brandSoft, bannerDataUrl, logoDataUrl }) => {
+    try {
+      const W = 1024;
+      const H = 512;
+      const cnv = document.createElement('canvas');
+      cnv.width = W;
+      cnv.height = H;
+      const ctx = cnv.getContext('2d');
+
+      // 1. Base: solid brand color (never visible if banner/gradient draw OK,
+      //    but a safety net against transparent pixels).
+      ctx.fillStyle = brand;
+      ctx.fillRect(0, 0, W, H);
+
+      if (bannerDataUrl) {
+        // 2a. User-uploaded banner → draw cover-fit, darken with overlay.
+        const banner = await loadImage(bannerDataUrl);
+        const r = Math.max(W / banner.width, H / banner.height);
+        const dw = banner.width * r;
+        const dh = banner.height * r;
+        ctx.drawImage(banner, (W - dw) / 2, (H - dh) / 2, dw, dh);
+        const ov = ctx.createLinearGradient(0, 0, 0, H);
+        ov.addColorStop(0, 'rgba(0,0,0,0.05)');
+        ov.addColorStop(1, 'rgba(0,0,0,0.35)');
+        ctx.fillStyle = ov;
+        ctx.fillRect(0, 0, W, H);
+      } else {
+        // 2b. No banner → draw the brand→brandSoft diagonal gradient.
+        const grad = ctx.createLinearGradient(0, 0, W, H);
+        grad.addColorStop(0, brand);
+        grad.addColorStop(1, brandSoft);
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, W, H);
+        // Top-left glassy highlight
+        const hl = ctx.createRadialGradient(W * 0.2, H * 0.2, 0, W * 0.2, H * 0.2, W * 0.6);
+        hl.addColorStop(0, 'rgba(255,255,255,0.22)');
+        hl.addColorStop(1, 'rgba(255,255,255,0)');
+        ctx.fillStyle = hl;
+        ctx.fillRect(0, 0, W, H);
+      }
+
+      // 3. Logo overlay top-left (only when we actually have one).
+      if (logoDataUrl) {
+        try {
+          const logo = await loadImage(logoDataUrl);
+          // Target box: 7mm tall on a 46mm hero → ~76 px on a 512-tall canvas.
+          // We size by height and keep aspect ratio.
+          const targetH = 80;
+          const ratio = logo.width / logo.height;
+          const targetW = targetH * ratio;
+          const x = 50;
+          const y = 50;
+          // Bright-tint the logo: many brand logos are dark/multicoloured and
+          // disappear on the brand-coloured hero. We composite the logo onto
+          // a white silhouette so it's always legible regardless of palette.
+          ctx.save();
+          // Draw the logo first
+          ctx.drawImage(logo, x, y, targetW, targetH);
+          // Re-tint using source-in: anything opaque becomes white
+          ctx.globalCompositeOperation = 'source-in';
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(x, y, targetW, targetH);
+          ctx.restore();
+        } catch {
+          /* logo failed → skip, hero already renders fine without it */
+        }
+      }
+
+      return cnv.toDataURL('image/jpeg', 0.88);
+    } catch {
+      return '';
+    }
+  };
+
+  /** Load an image from a URL or dataURL and resolve it once decoded. */
+  const loadImage = (src) =>
+    new Promise((resolve, reject) => {
+      const img = new Image();
+      // crossOrigin is OK for dataURLs and for our own backend assets.
+      img.crossOrigin = 'anonymous';
+      img.onload = () => resolve(img);
+      img.onerror = reject;
+      img.src = src;
+    });
+
+  /**
    * Render the brand-gradient hero background to a PNG dataURL using a
    * 2D canvas. PNG is the only image format every print engine renders
    * reliably (incl. iOS Safari "Save as PDF"), so the badge keeps the
@@ -222,17 +314,22 @@ const BadgePrintDialog = ({ open, onClose, vendor, organization, landingUrl }) =
         fetchQrDataUrl(),
         fetchImageAsDataUrl(organization?.logo_url || ''),
       ]);
-      const heroGradientDataUrl = generateHeroGradient(primaryColor, brandSoft);
+      // Compose hero (gradient/banner + tinted logo overlay) into ONE bitmap
+      // so iOS Safari can't drop sub-elements when saving to PDF.
+      const heroCompositeDataUrl = await generateHeroComposite({
+        brand: primaryColor,
+        brandSoft,
+        bannerDataUrl,
+        logoDataUrl: orgLogoDataUrl,
+      });
       const html = buildBadgeHtml({
         vendorName: vendor.name || 'Venditore',
         role: resolvedRole,
         orgBrand: organization?.brand_name || organization?.name || '',
-        orgLogoUrl: orgLogoDataUrl,
         primaryColor,
         brandSoft,
         qrDataUrl,
-        bannerDataUrl,
-        heroGradientDataUrl,
+        heroCompositeDataUrl,
         landingUrl: landingUrl || vendor.landing_url || '',
       });
       if (win.closed) {
@@ -431,12 +528,10 @@ function buildBadgeHtml({
   vendorName,
   role,
   orgBrand,
-  orgLogoUrl,
   primaryColor,
   brandSoft,
   qrDataUrl,
-  bannerDataUrl,
-  heroGradientDataUrl,
+  heroCompositeDataUrl,
   landingUrl,
 }) {
   const esc = (s) =>
@@ -448,11 +543,6 @@ function buildBadgeHtml({
 
   const brandHex = primaryColor || '#F96815';
   const brandSoftHex = brandSoft || softenHex(brandHex, 0.42);
-  // The hero gradient is a PNG dataURL generated client-side via <canvas>.
-  // Raster bitmaps print reliably on every engine (iOS Safari, mobile Chrome,
-  // wkhtmltopdf) — unlike CSS linear-gradient() or inline SVG, which several
-  // mobile PDF rasterisers silently drop, leaving the user with "black stripes".
-  const heroBg = heroGradientDataUrl || '';
 
   const cssVar = `:root{--brand:${esc(brandHex)};--brand-soft:${esc(brandSoftHex)}}`;
   // CRITICAL: force background colors and images to print in Safari/Chrome.
@@ -481,22 +571,17 @@ function buildBadgeHtml({
   }
   .hero {
     position:relative; height: 46mm;
-    /* Solid brand color base, in case the print engine drops the foreground
-       gradient/banner image (older mobile rasterisers). */
     background-color: var(--brand);
-    display:flex; align-items:flex-end; justify-content:center;
     overflow:hidden;
   }
   .hero-bg {
-    position: absolute; inset: 0; width: 100%; height: 100%;
+    position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+    width: 100%; height: 100%;
     object-fit: cover; display: block;
-    pointer-events: none; z-index: 0;
-  }
-  .hero-overlay {
-    position: absolute; inset: 0; pointer-events: none; z-index: 1;
-    background: linear-gradient(to bottom, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.35) 100%);
+    pointer-events: none;
   }
   .hero::before { content: none; }
+  .hero-logo, .hero-overlay { display: none; }
   .hero-logo {
     position:absolute; top: 5mm; left: 5mm; z-index: 2;
     display:flex; align-items:center; gap: 3mm;
@@ -581,21 +666,20 @@ function buildBadgeHtml({
     <button onclick="window.print()">Stampa / PDF</button>
   </div>
   <div class="sheet">
-    ${renderSide({ vendorName, role, orgBrand, orgLogoUrl, qrDataUrl, landingUrl, esc, heroBg, bannerDataUrl })}
-    ${renderSide({ vendorName, role, orgBrand, orgLogoUrl, qrDataUrl, landingUrl, esc, heroBg, bannerDataUrl })}
+    ${renderSide({ vendorName, role, orgBrand, qrDataUrl, landingUrl, esc, heroCompositeDataUrl })}
+    ${renderSide({ vendorName, role, orgBrand, qrDataUrl, landingUrl, esc, heroCompositeDataUrl })}
   </div>
 </body>
 </html>`;
 }
 
-function renderSide({ vendorName, role, orgBrand, orgLogoUrl, qrDataUrl, esc, heroBg, bannerDataUrl }) {
+function renderSide({ vendorName, role, orgBrand, qrDataUrl, esc, heroCompositeDataUrl }) {
   const brandLine = orgBrand
     ? `<div class="footer-brand">${esc(orgBrand)}</div>`
     : '';
-  // Pick the hero "fill image": the user-uploaded banner has priority, then
-  // the canvas-generated gradient PNG. Both are PNG dataURLs so they print on
-  // every device.
-  const heroFill = bannerDataUrl || heroBg || '';
+  // Single <img> for the whole hero. width/height attributes are required by
+  // iOS Safari's print engine — without them the image is dropped from the
+  // PDF, producing the "black banner" the user reported.
   return `
     <div class="badge">
       <span class="cut-mark tl"></span>
@@ -603,13 +687,9 @@ function renderSide({ vendorName, role, orgBrand, orgLogoUrl, qrDataUrl, esc, he
       <span class="cut-mark bl"></span>
       <span class="cut-mark br"></span>
       <div class="hero">
-        ${heroFill ? `<img class="hero-bg" src="${esc(heroFill)}" alt="" />` : ''}
-        ${bannerDataUrl ? `<div class="hero-overlay"></div>` : ''}
-        <div class="hero-logo">
-          ${orgLogoUrl
-            ? `<img src="${esc(orgLogoUrl)}" alt="${esc(orgBrand)}" />`
-            : (orgBrand ? `<span>${esc(orgBrand)}</span>` : '')}
-        </div>
+        ${heroCompositeDataUrl
+          ? `<img class="hero-bg" src="${esc(heroCompositeDataUrl)}" width="100%" height="100%" alt="" />`
+          : ''}
       </div>
       <div class="body">
         <h1 class="vendor-name">${esc(vendorName)}</h1>

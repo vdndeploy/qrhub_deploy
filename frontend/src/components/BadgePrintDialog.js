@@ -609,13 +609,14 @@ function buildBadgeHtml({ badgeBitmap }) {
   *,*::before,*::after { box-sizing: border-box; }
   html,body { margin: 0; padding: 0; background: #f0f0f0; }
   .sheet {
-    width: 182mm; margin: 0 auto; padding: 8mm;
-    display: flex; flex-direction: row; flex-wrap: wrap; gap: 10mm;
-    justify-content: center;
+    width: 182mm; margin: 0 auto; padding: 0;
+    display: flex; flex-direction: row; flex-wrap: nowrap; gap: 6mm;
+    justify-content: center; align-items: flex-start;
   }
   .badge {
     width: 86mm; height: 132mm; display: block;
     page-break-inside: avoid;
+    flex: 0 0 86mm;
   }
   .badge img {
     width: 86mm; height: 132mm; display: block;

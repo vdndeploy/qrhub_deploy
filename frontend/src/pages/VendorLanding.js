@@ -295,7 +295,13 @@ const VendorLanding = () => {
         window.matchMedia('(display-mode: minimal-ui)').matches ||
         window.navigator.standalone === true ||
         document.referrer.startsWith('android-app://');
-      if (isStandalone) return;
+      if (isStandalone) {
+        // Mark <body> so our CSS can apply iOS safe-area-inset padding to the
+        // sticky header & bottom banners (iOS Safari ignores the
+        // `(display-mode: standalone)` media query, so we need a JS hook).
+        document.body.classList.add('qrhub-pwa-standalone');
+        return;
+      }
 
       window.addEventListener('beforeinstallprompt', (e) => {
         e.preventDefault();

@@ -1,5 +1,19 @@
 @import url('https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700;900&display=swap');
 .vendor-landing{font-family:'Source Sans 3',-apple-system,BlinkMacSystemFont,sans-serif;background:#FFF;min-height:100vh;color:#1A1A1A;--brand-color:#F96815;--brand-color-soft:color-mix(in srgb,var(--brand-color) 65%,#fff)}
+/* iOS PWA safe-area: when launched as a standalone app, iPhones with a notch
+   or dynamic island would otherwise overlap our sticky header and bottom
+   banners. We add the safe-area-inset padding ONLY in standalone mode so
+   regular Safari/desktop layout is unaffected. */
+@media (display-mode: standalone){
+  .vendor-header{padding-top:calc(16px + env(safe-area-inset-top))}
+  .cookie-banner,#ios-banner{padding-bottom:calc(16px + env(safe-area-inset-bottom))}
+  #install-banner{padding-top:calc(16px + env(safe-area-inset-top))}
+}
+/* iOS Safari < 17 reports display-mode standalone via `navigator.standalone`,
+   not via the media query. We fall back to a body class set from JS. */
+body.qrhub-pwa-standalone .vendor-header{padding-top:calc(16px + env(safe-area-inset-top))}
+body.qrhub-pwa-standalone .cookie-banner,body.qrhub-pwa-standalone #ios-banner{padding-bottom:calc(16px + env(safe-area-inset-bottom))}
+body.qrhub-pwa-standalone #install-banner{padding-top:calc(16px + env(safe-area-inset-top))}
 .vendor-loading,.vendor-error{min-height:100vh;display:flex;align-items:center;justify-content:center;font-size:1.25rem;color:#666}
 .loading-spinner{width:48px;height:48px;border:4px solid #f3f3f3;border-top:4px solid var(--brand-color);border-radius:50%;animation:spin 1s linear infinite}
 @keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}

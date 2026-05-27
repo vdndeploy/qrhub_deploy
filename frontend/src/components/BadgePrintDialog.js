@@ -24,8 +24,18 @@ const ROLE_PRESETS = [
   { value: '__custom__', label: 'Personalizzato…' },
 ];
 
-// Recommended banner ratio matches the hero block: 86mm × 48mm ≈ 16:9.
 const BANNER_RECOMMENDED = '1024×576 px (rapporto 16:9)';
+
+// Badge geometry (in pixels @ 10 px/mm — 1×1 mm = 10×10 px).
+// Final canvas is 860 × 1320 px (covers 86 × 132 mm credit-card tall format).
+const PX = 10;
+const BADGE = {
+  W: 86 * PX,            // 860
+  H: 132 * PX,           // 1320
+  HERO_H: 46 * PX,       // 460
+  FOOTER_H: 26 * PX,     // 260
+  RADIUS: 6 * PX,        // 60
+};
 
 const BadgePrintDialog = ({ open, onClose, vendor, organization, landingUrl }) => {
   const [rolePreset, setRolePreset] = useState('Store Specialist');
@@ -53,17 +63,11 @@ const BadgePrintDialog = ({ open, onClose, vendor, organization, landingUrl }) =
     });
   };
 
-  /**
-   * Fetch an arbitrary image URL and return its dataURL. Used to inline the
-   * organization logo into the printable popup — iOS Safari refuses to fetch
-   * cross-origin images from a freshly-opened popup and would otherwise show
-   * the logo as a broken placeholder in the saved PDF.
-   */
   const fetchImageAsDataUrl = async (url) => {
     if (!url) return '';
     try {
       const r = await fetch(url, { mode: 'cors' });
-      if (!r.ok) return url; // fall back to remote URL
+      if (!r.ok) return '';
       const blob = await r.blob();
       return await new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -72,96 +76,13 @@ const BadgePrintDialog = ({ open, onClose, vendor, organization, landingUrl }) =
         reader.readAsDataURL(blob);
       });
     } catch {
-      return url;
-    }
-  };
-
-  /**
-   * Render the entire hero (gradient + logo overlay) to ONE PNG dataURL via
-   * a single canvas. This sidesteps iOS Safari's habit of silently dropping
-   * absolutely-positioned <img> tags when saving to PDF on mobile — by
-   * collapsing everything into one bitmap, the print engine has only one
-   * raster image to handle (which it never drops). Returns dataURL or ''.
-   */
-  const generateHeroComposite = async ({ brand, brandSoft, bannerDataUrl, logoDataUrl }) => {
-    try {
-      const W = 1024;
-      const H = 512;
-      const cnv = document.createElement('canvas');
-      cnv.width = W;
-      cnv.height = H;
-      const ctx = cnv.getContext('2d');
-
-      // 1. Base: solid brand color (never visible if banner/gradient draw OK,
-      //    but a safety net against transparent pixels).
-      ctx.fillStyle = brand;
-      ctx.fillRect(0, 0, W, H);
-
-      if (bannerDataUrl) {
-        // 2a. User-uploaded banner → draw cover-fit, darken with overlay.
-        const banner = await loadImage(bannerDataUrl);
-        const r = Math.max(W / banner.width, H / banner.height);
-        const dw = banner.width * r;
-        const dh = banner.height * r;
-        ctx.drawImage(banner, (W - dw) / 2, (H - dh) / 2, dw, dh);
-        const ov = ctx.createLinearGradient(0, 0, 0, H);
-        ov.addColorStop(0, 'rgba(0,0,0,0.05)');
-        ov.addColorStop(1, 'rgba(0,0,0,0.35)');
-        ctx.fillStyle = ov;
-        ctx.fillRect(0, 0, W, H);
-      } else {
-        // 2b. No banner → draw the brand→brandSoft diagonal gradient.
-        const grad = ctx.createLinearGradient(0, 0, W, H);
-        grad.addColorStop(0, brand);
-        grad.addColorStop(1, brandSoft);
-        ctx.fillStyle = grad;
-        ctx.fillRect(0, 0, W, H);
-        // Top-left glassy highlight
-        const hl = ctx.createRadialGradient(W * 0.2, H * 0.2, 0, W * 0.2, H * 0.2, W * 0.6);
-        hl.addColorStop(0, 'rgba(255,255,255,0.22)');
-        hl.addColorStop(1, 'rgba(255,255,255,0)');
-        ctx.fillStyle = hl;
-        ctx.fillRect(0, 0, W, H);
-      }
-
-      // 3. Logo overlay top-left (only when we actually have one).
-      if (logoDataUrl) {
-        try {
-          const logo = await loadImage(logoDataUrl);
-          // Target box: 7mm tall on a 46mm hero → ~76 px on a 512-tall canvas.
-          // We size by height and keep aspect ratio.
-          const targetH = 80;
-          const ratio = logo.width / logo.height;
-          const targetW = targetH * ratio;
-          const x = 50;
-          const y = 50;
-          // Bright-tint the logo: many brand logos are dark/multicoloured and
-          // disappear on the brand-coloured hero. We composite the logo onto
-          // a white silhouette so it's always legible regardless of palette.
-          ctx.save();
-          // Draw the logo first
-          ctx.drawImage(logo, x, y, targetW, targetH);
-          // Re-tint using source-in: anything opaque becomes white
-          ctx.globalCompositeOperation = 'source-in';
-          ctx.fillStyle = '#ffffff';
-          ctx.fillRect(x, y, targetW, targetH);
-          ctx.restore();
-        } catch {
-          /* logo failed → skip, hero already renders fine without it */
-        }
-      }
-
-      return cnv.toDataURL('image/jpeg', 0.88);
-    } catch {
       return '';
     }
   };
 
-  /** Load an image from a URL or dataURL and resolve it once decoded. */
   const loadImage = (src) =>
     new Promise((resolve, reject) => {
       const img = new Image();
-      // crossOrigin is OK for dataURLs and for our own backend assets.
       img.crossOrigin = 'anonymous';
       img.onload = () => resolve(img);
       img.onerror = reject;
@@ -169,40 +90,9 @@ const BadgePrintDialog = ({ open, onClose, vendor, organization, landingUrl }) =
     });
 
   /**
-   * Render the brand-gradient hero background to a PNG dataURL using a
-   * 2D canvas. PNG is the only image format every print engine renders
-   * reliably (incl. iOS Safari "Save as PDF"), so the badge keeps the
-   * gradient look on every device.
-   */
-  const generateHeroGradient = (brand, brandSoft) => {
-    try {
-      const cnv = document.createElement('canvas');
-      cnv.width = 800;
-      cnv.height = 400;
-      const ctx = cnv.getContext('2d');
-      const grad = ctx.createLinearGradient(0, 0, cnv.width, cnv.height);
-      grad.addColorStop(0, brand);
-      grad.addColorStop(1, brandSoft);
-      ctx.fillStyle = grad;
-      ctx.fillRect(0, 0, cnv.width, cnv.height);
-      // Soft top-left highlight for a glassy feel
-      const hl = ctx.createRadialGradient(160, 80, 0, 160, 80, 480);
-      hl.addColorStop(0, 'rgba(255,255,255,0.22)');
-      hl.addColorStop(1, 'rgba(255,255,255,0)');
-      ctx.fillStyle = hl;
-      ctx.fillRect(0, 0, cnv.width, cnv.height);
-      return cnv.toDataURL('image/png');
-    } catch {
-      return '';
-    }
-  };
-
-  /**
-   * Resize and compress an uploaded image to a manageable JPEG dataURL so the
-   * printable popup never exceeds the size budget that mobile rasterisers
-   * silently drop (iOS Safari "Save as PDF" caps inline images around 1-2 MB).
-   * We target the canonical hero aspect ratio (2:1) at 1024×512 — way enough
-   * resolution for a 86×46 mm badge header even on glossy print.
+   * Resize/compress uploaded banner so memory usage stays low and the popup
+   * doesn't choke when iOS Safari prints. Returns a JPEG dataURL at 2:1
+   * ratio (matches the badge hero geometry).
    */
   const resizeImageToBannerDataUrl = (file) =>
     new Promise((resolve, reject) => {
@@ -211,21 +101,18 @@ const BadgePrintDialog = ({ open, onClose, vendor, organization, landingUrl }) =
         const img = new Image();
         img.onload = () => {
           try {
-            const targetW = 1024;
-            const targetH = 512;
+            const W = 1024;
+            const H = 512;
             const cnv = document.createElement('canvas');
-            cnv.width = targetW;
-            cnv.height = targetH;
+            cnv.width = W;
+            cnv.height = H;
             const ctx = cnv.getContext('2d');
-            // Cover-fit (like CSS object-fit: cover) so the badge hero is full-bleed
-            const r = Math.max(targetW / img.width, targetH / img.height);
+            const r = Math.max(W / img.width, H / img.height);
             const w = img.width * r;
             const h = img.height * r;
-            ctx.drawImage(img, (targetW - w) / 2, (targetH - h) / 2, w, h);
+            ctx.drawImage(img, (W - w) / 2, (H - h) / 2, w, h);
             resolve(cnv.toDataURL('image/jpeg', 0.85));
-          } catch (err) {
-            reject(err);
-          }
+          } catch (err) { reject(err); }
         };
         img.onerror = reject;
         img.src = reader.result;
@@ -237,28 +124,16 @@ const BadgePrintDialog = ({ open, onClose, vendor, organization, landingUrl }) =
   const handleBannerSelect = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (!file.type.startsWith('image/')) {
-      toast.error('Formato non valido — usa JPG o PNG');
-      return;
-    }
-    if (file.size > 4 * 1024 * 1024) {
-      toast.error('Massimo 4 MB');
-      return;
-    }
+    if (!file.type.startsWith('image/')) return toast.error('Formato non valido — usa JPG o PNG');
+    if (file.size > 4 * 1024 * 1024) return toast.error('Massimo 4 MB');
     setUploading(true);
     try {
-      // Two parallel jobs:
-      //  1. Upload the original file to Cloudinary so it's reusable later
-      //     from "Sfoglia caricati".
-      //  2. Resize+compress locally so the printable popup gets a small
-      //     dataURL (≈40-80 KB) instead of a multi-MB blob, which mobile PDF
-      //     rasterisers silently drop (= black banner in the saved PDF).
       const fd = new FormData();
       fd.append('file', file);
       fd.append('folder', 'uploads');
       const up = axios.post(`${API}/upload`, fd, { withCredentials: true });
-      const resizePromise = resizeImageToBannerDataUrl(file);
-      const [, resized] = await Promise.all([up, resizePromise]);
+      const resized = await resizeImageToBannerDataUrl(file);
+      await up;
       setBannerDataUrl(resized);
       toast.success('Banner caricato e salvato in libreria');
     } catch {
@@ -269,10 +144,6 @@ const BadgePrintDialog = ({ open, onClose, vendor, organization, landingUrl }) =
   };
 
   const handleBannerFromLibrary = async (item) => {
-    // Fetch the remote URL, then resize+compress so the printable popup gets
-    // a lightweight dataURL (mobile PDF rasterisers drop oversized inline
-    // images). We pipe the blob through the same canvas resize used by
-    // freshly-uploaded files.
     try {
       const res = await fetch(item.url, { mode: 'cors' });
       if (!res.ok) throw new Error('fetch failed');
@@ -282,11 +153,179 @@ const BadgePrintDialog = ({ open, onClose, vendor, organization, landingUrl }) =
       setBannerDataUrl(resized);
       toast.success('Banner selezionato');
     } catch {
-      // Last-resort fallback: original URL. The popup might still drop it
-      // on iOS, but at least desktop browsers will print it correctly.
       setBannerDataUrl(item.url);
       toast.success('Banner selezionato');
     }
+  };
+
+  /**
+   * Render the ENTIRE badge as a single canvas → JPEG dataURL.
+   * iOS Safari "Save as PDF" reliably prints a single <img> tag with explicit
+   * width/height attributes; everything else (CSS gradients, positioned
+   * inner images, absolute overlays) is dropped. So we collapse the whole
+   * badge into one bitmap.
+   */
+  const renderBadgeBitmap = async ({
+    vendorName, role, brand, brandSoft, brandName, logoDataUrl,
+    bannerDataUrl: bannerSrc, qrDataUrl,
+  }) => {
+    const { W, H, HERO_H, FOOTER_H, RADIUS } = BADGE;
+    const cnv = document.createElement('canvas');
+    cnv.width = W;
+    cnv.height = H;
+    const ctx = cnv.getContext('2d');
+
+    // Card background — rounded white
+    ctx.fillStyle = '#ffffff';
+    roundRect(ctx, 0, 0, W, H, RADIUS);
+    ctx.fill();
+
+    // Clip everything to the rounded card so the hero & footer don't bleed
+    ctx.save();
+    roundRect(ctx, 0, 0, W, H, RADIUS);
+    ctx.clip();
+
+    // ── HERO ────────────────────────────────────────────────────────
+    if (bannerSrc) {
+      try {
+        const img = await loadImage(bannerSrc);
+        const r = Math.max(W / img.width, HERO_H / img.height);
+        const dw = img.width * r;
+        const dh = img.height * r;
+        ctx.drawImage(img, (W - dw) / 2, (HERO_H - dh) / 2, dw, dh);
+        // Slight darken overlay so white logo stays legible
+        const ov = ctx.createLinearGradient(0, 0, 0, HERO_H);
+        ov.addColorStop(0, 'rgba(0,0,0,0.05)');
+        ov.addColorStop(1, 'rgba(0,0,0,0.35)');
+        ctx.fillStyle = ov;
+        ctx.fillRect(0, 0, W, HERO_H);
+      } catch {
+        drawBrandGradient(ctx, brand, brandSoft, W, HERO_H);
+      }
+    } else {
+      drawBrandGradient(ctx, brand, brandSoft, W, HERO_H);
+    }
+
+    // Logo overlay (top-left, white tinted)
+    if (logoDataUrl) {
+      try {
+        const logo = await loadImage(logoDataUrl);
+        const targetH = 80;
+        const ratio = logo.width / logo.height;
+        const targetW = Math.min(targetH * ratio, 280);
+        const x = 50;
+        const y = 50;
+        // Draw logo on offscreen canvas, then tint to white via source-in
+        const tmp = document.createElement('canvas');
+        tmp.width = targetW;
+        tmp.height = targetH;
+        const tctx = tmp.getContext('2d');
+        tctx.drawImage(logo, 0, 0, targetW, targetH);
+        tctx.globalCompositeOperation = 'source-in';
+        tctx.fillStyle = '#ffffff';
+        tctx.fillRect(0, 0, targetW, targetH);
+        // Soft shadow so it pops on light gradients
+        ctx.save();
+        ctx.shadowColor = 'rgba(0,0,0,0.25)';
+        ctx.shadowBlur = 8;
+        ctx.shadowOffsetY = 2;
+        ctx.drawImage(tmp, x, y);
+        ctx.restore();
+      } catch { /* skip logo if it fails */ }
+    } else if (brandName) {
+      // Fallback: render brand name text top-left in white
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '700 28px -apple-system, "Helvetica Neue", Arial, sans-serif';
+      ctx.textBaseline = 'top';
+      ctx.shadowColor = 'rgba(0,0,0,0.25)';
+      ctx.shadowBlur = 6;
+      ctx.shadowOffsetY = 2;
+      ctx.fillText(brandName.toUpperCase(), 50, 60);
+      ctx.shadowBlur = 0;
+      ctx.shadowOffsetY = 0;
+    }
+
+    // ── BODY (white area) — vendor name + QR + scan label ───────────
+    const bodyTop = HERO_H;
+    const bodyBottom = H - FOOTER_H;
+    const bodyH = bodyBottom - bodyTop;
+    const bodyCenterY = bodyTop + bodyH / 2;
+    const cx = W / 2;
+
+    // Vendor name (uppercase) above the QR
+    ctx.fillStyle = '#0a0a0b';
+    ctx.font = '900 42px -apple-system, "Helvetica Neue", Arial, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const nameY = bodyTop + 60;
+    ctx.fillText((vendorName || '').toUpperCase(), cx, nameY);
+
+    // QR block — centered between name and scan label
+    const qrSize = 360;
+    const qrPad = 40;
+    const qrX = cx - qrSize / 2;
+    const qrY = nameY + 50;
+    // White rounded card behind QR with soft shadow
+    ctx.save();
+    ctx.shadowColor = 'rgba(0,0,0,0.10)';
+    ctx.shadowBlur = 20;
+    ctx.shadowOffsetY = 6;
+    ctx.fillStyle = '#ffffff';
+    roundRect(ctx, qrX - qrPad, qrY - qrPad, qrSize + 2 * qrPad, qrSize + 2 * qrPad, 32);
+    ctx.fill();
+    ctx.restore();
+    // Soft brand ring
+    ctx.strokeStyle = brandSoft;
+    ctx.lineWidth = 3;
+    roundRect(ctx, qrX - qrPad, qrY - qrPad, qrSize + 2 * qrPad, qrSize + 2 * qrPad, 32);
+    ctx.stroke();
+    // QR image
+    if (qrDataUrl) {
+      try {
+        const qr = await loadImage(qrDataUrl);
+        ctx.drawImage(qr, qrX, qrY, qrSize, qrSize);
+      } catch { /* skip QR if it fails */ }
+    }
+    // Corner decorations (brand color)
+    drawCorner(ctx, qrX - qrPad, qrY - qrPad, 36, 8, brand, 'tl');
+    drawCorner(ctx, qrX + qrSize + qrPad, qrY + qrSize + qrPad, 36, 8, brand, 'br');
+
+    // Scan label
+    ctx.fillStyle = '#666666';
+    ctx.font = '600 18px -apple-system, "Helvetica Neue", Arial, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('INQUADRA PER SAPERNE DI PIÙ', cx, qrY + qrSize + qrPad + 30);
+
+    // ── FOOTER (light grey, centred role + brand name) ──────────────
+    const footerTop = H - FOOTER_H;
+    ctx.fillStyle = '#f5f5f7';
+    ctx.fillRect(0, footerTop, W, FOOTER_H);
+    ctx.strokeStyle = '#e0e0e3';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(0, footerTop);
+    ctx.lineTo(W, footerTop);
+    ctx.stroke();
+
+    // Role text in brand color, uppercase, centered
+    ctx.fillStyle = brand;
+    ctx.font = '800 28px -apple-system, "Helvetica Neue", Arial, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const footerCenter = footerTop + FOOTER_H / 2;
+    ctx.fillText((role || '').toUpperCase(), cx, footerCenter - 16);
+
+    // Brand name underneath, grey
+    if (brandName) {
+      ctx.fillStyle = '#666666';
+      ctx.font = '500 20px -apple-system, "Helvetica Neue", Arial, sans-serif';
+      ctx.fillText(brandName, cx, footerCenter + 22);
+    }
+
+    ctx.restore();
+
+    return cnv.toDataURL('image/jpeg', 0.92);
   };
 
   const handleGenerate = async () => {
@@ -294,9 +333,7 @@ const BadgePrintDialog = ({ open, onClose, vendor, organization, landingUrl }) =
       toast.error('Inserisci o seleziona un ruolo');
       return;
     }
-    // Safari blocks any window.open() that runs after the first await in an
-    // async handler. We open the popup SYNCHRONOUSLY inside the user gesture
-    // and paint a quick loader while the QR fetch finishes.
+    // Open popup synchronously to keep Safari user-gesture context.
     const win = window.open('about:blank', '_blank');
     if (!win) {
       toast.error('Il browser ha bloccato la finestra. Consenti i popup per qrhub.it');
@@ -314,24 +351,18 @@ const BadgePrintDialog = ({ open, onClose, vendor, organization, landingUrl }) =
         fetchQrDataUrl(),
         fetchImageAsDataUrl(organization?.logo_url || ''),
       ]);
-      // Compose hero (gradient/banner + tinted logo overlay) into ONE bitmap
-      // so iOS Safari can't drop sub-elements when saving to PDF.
-      const heroCompositeDataUrl = await generateHeroComposite({
-        brand: primaryColor,
-        brandSoft,
-        bannerDataUrl,
-        logoDataUrl: orgLogoDataUrl,
-      });
-      const html = buildBadgeHtml({
+      const badgeBitmap = await renderBadgeBitmap({
         vendorName: vendor.name || 'Venditore',
         role: resolvedRole,
-        orgBrand: organization?.brand_name || organization?.name || '',
-        primaryColor,
+        brand: primaryColor,
         brandSoft,
+        brandName: organization?.brand_name || organization?.name || '',
+        logoDataUrl: orgLogoDataUrl,
+        bannerDataUrl,
         qrDataUrl,
-        heroCompositeDataUrl,
-        landingUrl: landingUrl || vendor.landing_url || '',
       });
+      const html = buildBadgeHtml({ badgeBitmap });
+
       if (win.closed) {
         toast.error('Finestra chiusa prima del completamento');
         return;
@@ -343,7 +374,7 @@ const BadgePrintDialog = ({ open, onClose, vendor, organization, landingUrl }) =
         try { win.focus(); win.print(); } catch { /* manual print fallback */ }
       });
       onClose();
-    } catch (e) {
+    } catch {
       if (!win.closed) win.close();
       toast.error('Errore nella generazione del cartellino');
     } finally {
@@ -360,7 +391,7 @@ const BadgePrintDialog = ({ open, onClose, vendor, organization, landingUrl }) =
             Stampa cartellino {vendor?.name}
           </DialogTitle>
           <DialogDescription>
-            Genera un PDF fronte/retro identico con QR e colori dell'organizzazione.
+            Genera un PDF fronte/retro con QR e colori dell'organizzazione.
           </DialogDescription>
         </DialogHeader>
 
@@ -391,7 +422,7 @@ const BadgePrintDialog = ({ open, onClose, vendor, organization, landingUrl }) =
           <div>
             <Label className="text-sm font-semibold mb-2 block">Banner header (opzionale)</Label>
             <p className="text-xs text-gray-500 dark:text-[#8a8a92] mb-2">
-              Sostituisce lo sfondo colorato in cima al cartellino. Consigliato: <strong>{BANNER_RECOMMENDED}</strong>, JPG/PNG.
+              Sostituisce lo sfondo colorato. Consigliato: <strong>{BANNER_RECOMMENDED}</strong>, JPG/PNG.
             </p>
             {bannerDataUrl ? (
               <div className="relative w-full rounded-lg overflow-hidden border border-gray-200 dark:border-white/10" data-testid="banner-preview-wrap">
@@ -445,14 +476,16 @@ const BadgePrintDialog = ({ open, onClose, vendor, organization, landingUrl }) =
           </div>
 
           <div className="rounded-lg border border-sky-200/60 dark:border-sky-500/20 bg-sky-50/50 dark:bg-sky-500/[0.04] p-3 text-xs text-sky-900 dark:text-sky-200">
-            <strong>Tip stampa:</strong> nella finestra di stampa attiva{' '}
-            <em>"Grafica di sfondo"</em> ({/* macOS */}Più impostazioni → Stampa sfondi) per
-            non perdere i colori del cartellino quando salvi come PDF.
+            <strong>Tip stampa:</strong> il cartellino è renderizzato come bitmap unica
+            per garantire colori e logo su qualsiasi stampante. Nessuna opzione
+            "Grafica di sfondo" richiesta.
           </div>
         </div>
 
         <DialogFooter className="gap-2">
-          <Button variant="outline" onClick={onClose}><X className="h-4 w-4 mr-1" />Annulla</Button>
+          <Button variant="outline" onClick={onClose}>
+            <X className="h-4 w-4 mr-1" />Annulla
+          </Button>
           <Button
             onClick={handleGenerate}
             disabled={generating || !resolvedRole}
@@ -476,25 +509,52 @@ const BadgePrintDialog = ({ open, onClose, vendor, organization, landingUrl }) =
   );
 };
 
-function buildLoaderHtml(vendorName) {
-  const safe = String(vendorName).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  return `<!doctype html>
-<html lang="it"><head><meta charset="utf-8" /><title>Cartellino — ${safe}</title>
-<style>
-  html,body{margin:0;padding:0;height:100%;background:#0a0a0b;color:#e6e6ea;font-family:'Helvetica Neue',Arial,sans-serif;display:flex;align-items:center;justify-content:center}
-  .wrap{text-align:center;padding:24px}
-  .spinner{width:48px;height:48px;border:4px solid rgba(210,250,70,0.15);border-top-color:#D2FA46;border-radius:50%;animation:spin 0.9s linear infinite;margin:0 auto 18px}
-  h1{font-size:16px;font-weight:700;margin:0 0 4px}
-  p{font-size:13px;color:#8a8a92;margin:0}
-  @keyframes spin{to{transform:rotate(360deg)}}
-</style></head>
-<body><div class="wrap"><div class="spinner"></div><h1>Generazione cartellino…</h1><p>${safe}</p></div></body></html>`;
+// ── Pure helpers ─────────────────────────────────────────────────────
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
 }
 
-/**
- * Convert a hex color to RGB ints. Tolerates 3-char and 6-char hex with or
- * without leading "#". Returns null if the input is unparseable.
- */
+function drawBrandGradient(ctx, brand, brandSoft, W, H) {
+  const g = ctx.createLinearGradient(0, 0, W, H);
+  g.addColorStop(0, brand);
+  g.addColorStop(1, brandSoft);
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+  const hl = ctx.createRadialGradient(W * 0.2, H * 0.2, 0, W * 0.2, H * 0.2, W * 0.7);
+  hl.addColorStop(0, 'rgba(255,255,255,0.22)');
+  hl.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = hl;
+  ctx.fillRect(0, 0, W, H);
+}
+
+function drawCorner(ctx, x, y, size, weight, color, kind) {
+  ctx.strokeStyle = color;
+  ctx.lineWidth = weight;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  if (kind === 'tl') {
+    ctx.moveTo(x, y + size);
+    ctx.lineTo(x, y);
+    ctx.lineTo(x + size, y);
+  } else if (kind === 'br') {
+    ctx.moveTo(x, y - size);
+    ctx.lineTo(x, y);
+    ctx.lineTo(x - size, y);
+  }
+  ctx.stroke();
+}
+
 function hexToRgb(hex) {
   if (typeof hex !== 'string') return null;
   let h = hex.trim().replace(/^#/, '');
@@ -507,13 +567,7 @@ function hexToRgb(hex) {
   };
 }
 
-/**
- * Mix the brand color with white at the given strength (0..1, where 0 = pure
- * brand, 1 = pure white). Replaces the CSS color-mix() helper for print
- * engines that don't support it yet (Safari macOS ≤15, several PDF
- * rasterisers). The output is a 6-char hex string ready to embed in CSS.
- */
-function softenHex(hex, mix = 0.45) {
+function softenHex(hex, mix = 0.42) {
   const rgb = hexToRgb(hex);
   if (!rgb) return '#ffd9c1';
   const m = Math.max(0, Math.min(1, mix));
@@ -524,184 +578,80 @@ function softenHex(hex, mix = 0.45) {
   return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
 }
 
-function buildBadgeHtml({
-  vendorName,
-  role,
-  orgBrand,
-  primaryColor,
-  brandSoft,
-  qrDataUrl,
-  heroCompositeDataUrl,
-  landingUrl,
-}) {
-  const esc = (s) =>
-    String(s ?? '')
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;');
+function buildLoaderHtml(vendorName) {
+  const safe = String(vendorName).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return `<!doctype html>
+<html lang="it"><head><meta charset="utf-8" /><title>Cartellino — ${safe}</title>
+<style>
+  html,body{margin:0;padding:0;height:100%;background:#0a0a0b;color:#e6e6ea;font-family:-apple-system,Arial,sans-serif;display:flex;align-items:center;justify-content:center}
+  .wrap{text-align:center;padding:24px}
+  .spinner{width:48px;height:48px;border:4px solid rgba(210,250,70,0.15);border-top-color:#D2FA46;border-radius:50%;animation:spin 0.9s linear infinite;margin:0 auto 18px}
+  h1{font-size:16px;font-weight:700;margin:0 0 4px}
+  p{font-size:13px;color:#8a8a92;margin:0}
+  @keyframes spin{to{transform:rotate(360deg)}}
+</style></head>
+<body><div class="wrap"><div class="spinner"></div><h1>Generazione cartellino…</h1><p>${safe}</p></div></body></html>`;
+}
 
-  const brandHex = primaryColor || '#F96815';
-  const brandSoftHex = brandSoft || softenHex(brandHex, 0.42);
-
-  const cssVar = `:root{--brand:${esc(brandHex)};--brand-soft:${esc(brandSoftHex)}}`;
-  // CRITICAL: force background colors and images to print in Safari/Chrome.
-  // Without this rule, "Save as PDF" produces a black-and-white badge.
-  const printColorRule = `*{-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important;color-adjust:exact !important}`;
-
+/**
+ * Print HTML: two identical static <img> tags side by side (front/back).
+ * No position:absolute, no CSS gradients, no overlays. The whole badge is
+ * already baked into the bitmap, which iOS Safari prints reliably.
+ */
+function buildBadgeHtml({ badgeBitmap }) {
   return `<!doctype html>
 <html lang="it">
 <head>
 <meta charset="utf-8" />
-<title>Cartellino — ${esc(vendorName)}</title>
+<title>Cartellino</title>
 <style>
-  ${cssVar}
-  ${printColorRule}
   @page { size: A4; margin: 14mm; }
   *,*::before,*::after { box-sizing: border-box; }
-  html,body { margin:0; padding:0; background:#f0f0f0; font-family: 'Helvetica Neue', Arial, sans-serif; color:#1a1a1a; }
+  html,body { margin: 0; padding: 0; background: #f0f0f0; }
   .sheet {
     width: 182mm; margin: 0 auto; padding: 8mm;
-    display: grid; grid-template-columns: 86mm 86mm; gap: 10mm; justify-content:center;
+    display: flex; flex-direction: row; flex-wrap: wrap; gap: 10mm;
+    justify-content: center;
   }
   .badge {
-    width: 86mm; height: 132mm; background:#fff; border-radius: 6mm; overflow:hidden;
-    position:relative; box-shadow: 0 0 0 0.4mm rgba(0,0,0,0.10);
+    width: 86mm; height: 132mm; display: block;
     page-break-inside: avoid;
   }
-  .hero {
-    position:relative; height: 46mm;
-    background-color: var(--brand);
-    overflow:hidden;
+  .badge img {
+    width: 86mm; height: 132mm; display: block;
+    border-radius: 6mm;
   }
-  .hero-bg {
-    position: absolute; top: 0; left: 0; right: 0; bottom: 0;
-    width: 100%; height: 100%;
-    object-fit: cover; display: block;
-    pointer-events: none;
-  }
-  .hero::before { content: none; }
-  .hero-logo, .hero-overlay { display: none; }
-  .hero-logo {
-    position:absolute; top: 5mm; left: 5mm; z-index: 2;
-    display:flex; align-items:center; gap: 3mm;
-  }
-  .hero-logo img { height: 8mm; width:auto; filter: brightness(0) invert(1); opacity:0.95; }
-  .hero-logo span {
-    color: #fff; font-size: 8pt; font-weight: 700; letter-spacing: 0.6pt; text-transform: uppercase;
-    text-shadow: 0 0.4mm 1mm rgba(0,0,0,0.30);
-  }
-  .body {
-    position: absolute; top: 46mm; left: 0; right: 0; bottom: 26mm;
-    padding: 3mm 6mm; display:flex; flex-direction:column; align-items:center;
-    justify-content: center; gap: 3mm; text-align:center;
-  }
-  .vendor-name {
-    margin:0; font-size: 14pt; font-weight: 900; color:#0a0a0b;
-    letter-spacing: -0.2pt; line-height: 1; text-transform: uppercase;
-  }
-  .qr-wrap {
-    position:relative; padding: 4mm; background:#fff; border-radius: 5mm;
-    box-shadow:
-      0 0 0 0.35mm var(--brand-soft),
-      0 1.5mm 5mm rgba(0,0,0,0.08),
-      0 0.3mm 1.2mm rgba(0,0,0,0.04);
-  }
-  .qr-wrap::before, .qr-wrap::after {
-    content:''; position:absolute; width: 4mm; height: 4mm; border: 0.5mm solid var(--brand);
-    border-radius: 0.8mm;
-  }
-  .qr-wrap::before { top:-0.5mm; left:-0.5mm; border-right:0; border-bottom:0; border-top-left-radius: 2.2mm; }
-  .qr-wrap::after { bottom:-0.5mm; right:-0.5mm; border-left:0; border-top:0; border-bottom-right-radius: 2.2mm; }
-  .qr-wrap img { display:block; width: 36mm; height: 36mm; border-radius: 1.6mm; }
-  .scan-label {
-    font-size: 6.5pt; color:#666; font-weight: 600; letter-spacing: 0.4pt; text-transform: uppercase;
-  }
-  .footer {
-    position:absolute; left:0; right:0; bottom:0; height: 26mm;
-    padding: 4mm 5mm 6mm; text-align:center;
-    background: #f5f5f7;
-    border-top: 0.25mm solid #e0e0e3;
-    color: #1a1a1a;
-    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1.5mm;
-  }
-  .footer-role { font-size: 10pt; font-weight: 800; letter-spacing: 0.5pt; text-transform: uppercase; line-height:1.1; color: var(--brand); }
-  .footer-brand { font-size: 7.5pt; font-weight: 500; color:#666; letter-spacing: 0.3pt; }
-  .footer-sep { display:inline-block; margin: 0 1.5mm; opacity: 0.55; }
-  /* Crop marks for cutting after print */
-  .cut-mark { position:absolute; width: 2mm; height: 2mm; }
-  .cut-mark.tl { top:-1mm; left:-1mm; border-left: 0.2mm solid #999; border-top: 0.2mm solid #999; }
-  .cut-mark.tr { top:-1mm; right:-1mm; border-right: 0.2mm solid #999; border-top: 0.2mm solid #999; }
-  .cut-mark.bl { bottom:-1mm; left:-1mm; border-left: 0.2mm solid #999; border-bottom: 0.2mm solid #999; }
-  .cut-mark.br { bottom:-1mm; right:-1mm; border-right: 0.2mm solid #999; border-bottom: 0.2mm solid #999; }
-
   @media screen {
     body { padding: 20px 0; }
-    .sheet { background:#fff; box-shadow: 0 4px 20px rgba(0,0,0,0.12); }
+    .sheet { background: #fff; box-shadow: 0 4px 20px rgba(0,0,0,0.12); }
     .toolbar {
       max-width: 182mm; margin: 0 auto 16px; padding: 12px 20px;
-      background:#fff; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.08);
-      display:flex; align-items:center; justify-content:space-between; gap: 16px;
-      font-size: 13px; color:#333;
+      background: #fff; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+      display: flex; align-items: center; justify-content: space-between; gap: 16px;
+      font-size: 13px; color: #333;
     }
-    .toolbar b { color: var(--brand); }
     .toolbar button {
-      background: var(--brand); color:#fff; border:0; padding: 8px 18px; border-radius: 999px;
-      font-weight: 700; cursor:pointer; font-size: 13px;
+      background: #0a0a0b; color: #D2FA46; border: 0; padding: 8px 18px; border-radius: 999px;
+      font-weight: 700; cursor: pointer; font-size: 13px;
     }
-    .toolbar small { display:block; color:#666; font-size:11px; margin-top:2px; }
   }
   @media print {
-    .toolbar { display:none; }
-    body { background:#fff; padding: 0; }
+    .toolbar { display: none; }
+    body { background: #fff; padding: 0; }
   }
 </style>
 </head>
 <body>
   <div class="toolbar">
-    <div>
-      Anteprima cartellino di <b>${esc(vendorName)}</b>
-      <small>⚠️ Per mantenere i colori in PDF, attiva <em>"Grafica di sfondo"</em> nelle opzioni di stampa.</small>
-    </div>
+    <span>Anteprima cartellino — premi <kbd>Cmd/Ctrl + P</kbd> e salva come PDF</span>
     <button onclick="window.print()">Stampa / PDF</button>
   </div>
   <div class="sheet">
-    ${renderSide({ vendorName, role, orgBrand, qrDataUrl, landingUrl, esc, heroCompositeDataUrl })}
-    ${renderSide({ vendorName, role, orgBrand, qrDataUrl, landingUrl, esc, heroCompositeDataUrl })}
+    <div class="badge"><img src="${badgeBitmap}" width="100%" height="100%" alt="cartellino" /></div>
+    <div class="badge"><img src="${badgeBitmap}" width="100%" height="100%" alt="cartellino" /></div>
   </div>
 </body>
 </html>`;
-}
-
-function renderSide({ vendorName, role, orgBrand, qrDataUrl, esc, heroCompositeDataUrl }) {
-  const brandLine = orgBrand
-    ? `<div class="footer-brand">${esc(orgBrand)}</div>`
-    : '';
-  // Single <img> for the whole hero. width/height attributes are required by
-  // iOS Safari's print engine — without them the image is dropped from the
-  // PDF, producing the "black banner" the user reported.
-  return `
-    <div class="badge">
-      <span class="cut-mark tl"></span>
-      <span class="cut-mark tr"></span>
-      <span class="cut-mark bl"></span>
-      <span class="cut-mark br"></span>
-      <div class="hero">
-        ${heroCompositeDataUrl
-          ? `<img class="hero-bg" src="${esc(heroCompositeDataUrl)}" width="100%" height="100%" alt="" />`
-          : ''}
-      </div>
-      <div class="body">
-        <h1 class="vendor-name">${esc(vendorName)}</h1>
-        <div class="qr-wrap"><img src="${esc(qrDataUrl)}" alt="QR code" /></div>
-        <div class="scan-label">Inquadra per saperne di più</div>
-      </div>
-      <div class="footer">
-        <div class="footer-role">${esc(role)}</div>
-        ${brandLine}
-      </div>
-    </div>
-  `;
 }
 
 export default BadgePrintDialog;

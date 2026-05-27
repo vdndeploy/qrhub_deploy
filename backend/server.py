@@ -2731,7 +2731,7 @@ def _cloudinary_resize(url: str, size: int) -> str:
 
 
 @app.get('/api/manifest/v/{vendor_id}')
-async def vendor_manifest(vendor_id: str):
+async def vendor_manifest(vendor_id: str, request: Request):
     """Per-vendor PWA manifest. Lets the org show its own icon when a visitor
     saves the landing as an app on their phone home screen (instead of the
     QRHub default favicon)."""
@@ -2748,11 +2748,26 @@ async def vendor_manifest(vendor_id: str):
     icon_url = (org.get('pwa_icon_url') or '').strip() or (org.get('logo_url') or '').strip()
     brand = (org.get('brand_name') or '').strip() or (org.get('name') or '').strip() or 'QRHub'
     landing_key = (vendor.get('slug') or '').strip() or vendor['id']
+
+    # Build absolute start_url / scope so that iOS doesn't resolve them
+    # against the backend origin (qrhub.fly.dev) after Vercel rewrites the
+    # /api/* route. We honour X-Forwarded-Host (set by Vercel) and fall back
+    # to the Host header, finally to the request URL. Without this the PWA
+    # would launch on qrhub.fly.dev/v/... which returns 404 "Not Found".
+    fwd_proto = request.headers.get('x-forwarded-proto', 'https')
+    fwd_host = (
+        request.headers.get('x-forwarded-host')
+        or request.headers.get('host')
+        or 'qrhub-app.vercel.app'
+    )
+    base = f"{fwd_proto}://{fwd_host}"
+
     manifest = {
         'name': f"{brand} · {vendor.get('name', '')}".strip(' ·'),
         'short_name': vendor.get('name', '') or brand,
-        'start_url': f"/v/{landing_key}",
-        'scope': f"/v/{landing_key}",
+        'start_url': f"{base}/v/{landing_key}",
+        'scope': f"{base}/v/{landing_key}",
+        'id': f"/v/{landing_key}",
         'display': 'standalone',
         'background_color': '#ffffff',
         'theme_color': org.get('primary_color') or '#F96815',

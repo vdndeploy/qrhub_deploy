@@ -35,6 +35,32 @@ Il progetto **QRHub** è una piattaforma multi-tenant open source (MIT) che perm
 - Hosting free-tier sostenibile (≤256MB RAM, 512MB DB, 25 credits Cloudinary/mese)
 - Open source MIT, no-profit
 
+### 2026-05-27 — Icona PWA personalizzata per organizzazione
+
+- **Obiettivo**: quando un visitatore salva la landing del venditore sulla home del telefono ("Aggiungi a Home" / "Salva come app"), deve apparire l'icona del brand dell'org, non quella di default QRHub.
+- **Backend** (`backend/server.py`):
+  - `OrganizationUpdate` model: aggiunti campi `pwa_icon_url` + `pwa_icon_public_id` (max 600/300 char) — accettati da `PUT /api/organizations/{id}`.
+  - `_org_to_response()`: i nuovi campi vengono restituiti dal GET org.
+  - Endpoint pubblico `GET /api/manifest/v/{vendor_id}` → restituisce un `manifest.json` per-vendor con `name`, `short_name`, `start_url`, `scope`, `theme_color = org.primary_color`, e array `icons` con varianti 192×192, 512×512 e 512×512 maskable.
+  - Funzione `_cloudinary_resize(url, size)` inietta una trasformazione `c_pad,b_white,w_X,h_X,f_png` nell'URL Cloudinary per servire l'icona alle dimensioni esatte dichiarate (Android/iOS richiedono il match preciso).
+  - Endpoint pubblico `GET /api/vendors/{id}`: aggiunto `organization.pwa_icon_url` (con fallback automatico su `logo_url` quando l'org non l'ha ancora caricato).
+- **Frontend `OrgSettings.js`**:
+  - Card "Icona app (salva sul telefono)" nella sezione GDPR controller: uploader Cloudinary identico al pattern `legal_logo_url`, preview rotonda 80×80, descrizione "PNG quadrato 512×512 px su sfondo opaco".
+  - Persistenza tramite `handleSave()` che ora invia anche `pwa_icon_url` + `pwa_icon_public_id`.
+  - `testid`: `org-pwa-icon-upload-label`, `org-pwa-icon-input`, `org-pwa-icon-preview`, `org-pwa-icon-remove`.
+- **Frontend `VendorLanding.js`** — iniezione dinamica nel `<head>` quando la landing si monta:
+  - `<link rel="manifest" data-qrhub-manifest>` → `${API}/api/manifest/v/${vendor.id}` (Android usa questo).
+  - `<link rel="apple-touch-icon" data-qrhub-apple>` → `org.pwa_icon_url || org.logo_url` (iOS ignora il manifest e legge questo).
+  - `<meta name="theme-color" data-qrhub-theme>` → `org.primary_color` (status bar standalone).
+  - `<meta name="apple-mobile-web-app-capable" content="yes">` + `<meta name="apple-mobile-web-app-title" content="{vendor.name}">`.
+  - Cleanup completo on unmount: rimuove tutti i tag iniettati per evitare leak del manifest del vendor sull'host admin quando l'utente naviga via.
+- **Test E2E (curl + playwright)** — VERIFIED:
+  1. `PUT /api/organizations/{id}` con `pwa_icon_url` → persiste e ritorna nel GET ✅
+  2. `GET /api/vendors/{id}` → `organization.pwa_icon_url` esposto con fallback su logo_url ✅
+  3. `GET /api/manifest/v/{vendor_id}` → JSON con 3 icone (192/512/512-maskable) e Cloudinary resize attivo ✅
+  4. Render landing su Playwright: `link[data-qrhub-manifest]`, `link[data-qrhub-apple]`, `meta[data-qrhub-theme]`, `meta[apple-mobile-web-app-title]` tutti correttamente iniettati ✅
+
+
 ### 2026-05-24 — Feature "Stampa cartellino" (Print Badge) + UI fixes
 
 - **Stampa cartellino fronte/retro** (`components/BadgePrintDialog.js` nuovo + `pages/Vendors.js`):

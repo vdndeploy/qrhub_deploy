@@ -336,7 +336,7 @@ function buildBadgeHtml({
     page-break-inside: avoid;
   }
   .hero {
-    position:relative; height: 48mm;
+    position:relative; height: 46mm;
     /* Solid brand color is printed first as a fallback so the badge keeps a
        coloured header even when the rasteriser skips the gradient layer. */
     background-color: var(--brand);
@@ -365,31 +365,30 @@ function buildBadgeHtml({
     text-shadow: 0 0.4mm 1mm rgba(0,0,0,0.30);
   }
   .body {
-    position: absolute; top: 48mm; left: 0; right: 0; bottom: 30mm;
-    padding: 4mm 6mm; display:flex; flex-direction:column; align-items:center;
-    justify-content: center; gap: 4mm; text-align:center;
+    position: absolute; top: 46mm; left: 0; right: 0; bottom: 26mm;
+    padding: 3mm 6mm; display:flex; flex-direction:column; align-items:center;
+    justify-content: center; gap: 3mm; text-align:center;
   }
   .vendor-name {
-    margin:0; font-size: 17pt; font-weight: 900; color:#0a0a0b;
-    letter-spacing: -0.3pt; line-height: 1.05; text-transform: uppercase;
+    margin:0; font-size: 14pt; font-weight: 900; color:#0a0a0b;
+    letter-spacing: -0.2pt; line-height: 1; text-transform: uppercase;
   }
   .qr-wrap {
-    position:relative; padding: 5mm; background:#fff; border-radius: 6mm;
+    position:relative; padding: 4mm; background:#fff; border-radius: 5mm;
     box-shadow:
-      0 0 0 0.4mm var(--brand-soft),
-      0 2mm 6mm rgba(0,0,0,0.08),
-      0 0.4mm 1.5mm rgba(0,0,0,0.04);
+      0 0 0 0.35mm var(--brand-soft),
+      0 1.5mm 5mm rgba(0,0,0,0.08),
+      0 0.3mm 1.2mm rgba(0,0,0,0.04);
   }
   .qr-wrap::before, .qr-wrap::after {
-    content:''; position:absolute; width: 4.5mm; height: 4.5mm; border: 0.6mm solid var(--brand);
-    border-radius: 1mm;
+    content:''; position:absolute; width: 4mm; height: 4mm; border: 0.5mm solid var(--brand);
+    border-radius: 0.8mm;
   }
-  .qr-wrap::before { top:-0.6mm; left:-0.6mm; border-right:0; border-bottom:0; border-top-left-radius: 2.5mm; }
-  .qr-wrap::after { bottom:-0.6mm; right:-0.6mm; border-left:0; border-top:0; border-bottom-right-radius: 2.5mm; }
-  .qr-wrap img { display:block; width: 42mm; height: 42mm; border-radius: 2mm; }
+  .qr-wrap::before { top:-0.5mm; left:-0.5mm; border-right:0; border-bottom:0; border-top-left-radius: 2.2mm; }
+  .qr-wrap::after { bottom:-0.5mm; right:-0.5mm; border-left:0; border-top:0; border-bottom-right-radius: 2.2mm; }
+  .qr-wrap img { display:block; width: 36mm; height: 36mm; border-radius: 1.6mm; }
   .scan-label {
-    font-size: 7pt; color:#666; font-weight: 600; letter-spacing: 0.4pt; text-transform: uppercase;
-    margin-top: 1mm;
+    font-size: 6.5pt; color:#666; font-weight: 600; letter-spacing: 0.4pt; text-transform: uppercase;
   }
   .footer {
     position:absolute; left:0; right:0; bottom:0; height: 26mm;

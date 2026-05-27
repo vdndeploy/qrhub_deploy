@@ -323,17 +323,20 @@ const Posts = () => {
       )}
 
       <Dialog open={editing !== null} onOpenChange={(v) => !v && cancelEdit()}>
-        <DialogContent className="max-w-3xl w-[95vw] max-h-[90vh] overflow-y-auto p-4 sm:p-6" data-testid="post-edit-dialog">
-          <DialogHeader>
+        <DialogContent
+          className="max-w-3xl w-[95vw] p-0 gap-0 max-h-[92dvh] sm:max-h-[88vh] flex flex-col overflow-hidden"
+          data-testid="post-edit-dialog"
+        >
+          <DialogHeader className="px-4 sm:px-6 pt-5 pb-4 pr-12 border-b border-gray-100 dark:border-white/10 flex-shrink-0">
             <DialogTitle>
               {editing === 'new' ? 'Nuovo Annuncio' : 'Modifica Annuncio'}
             </DialogTitle>
-            <DialogDescription>
+            <DialogDescription className="text-xs sm:text-sm">
               L'annuncio sarà mostrato nel carosello della landing di ogni venditore dei negozi selezionati.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4">
+          <div className="flex-1 min-h-0 overflow-y-auto px-4 sm:px-6 py-4 space-y-4">
             <div>
               <Label>Pubblica sui negozi</Label>
               <div className="mt-1.5">
@@ -368,16 +371,16 @@ const Posts = () => {
             <div>
               <Label>Media (immagine o video)</Label>
               <div className="flex gap-2 flex-wrap">
-                <Button type="button" variant="outline"
+                <Button type="button" variant="outline" size="sm"
                         onClick={() => document.getElementById('multi-post-media-upload').click()}
                         disabled={uploading}>
                   <Upload className="h-4 w-4 mr-2" />{uploading ? 'Caricamento…' : 'Carica File'}
                 </Button>
-                <Button type="button" variant="outline" onClick={() => setPickerOpen(true)} disabled={uploading}>
-                  <FolderOpen className="h-4 w-4 mr-2" />Scegli dalla libreria
+                <Button type="button" variant="outline" size="sm" onClick={() => setPickerOpen(true)} disabled={uploading}>
+                  <FolderOpen className="h-4 w-4 mr-2" />Libreria
                 </Button>
                 {form.media_url && (
-                  <Button type="button" variant="ghost" onClick={removeMedia}>
+                  <Button type="button" variant="ghost" size="sm" onClick={removeMedia}>
                     <X className="h-4 w-4 mr-1" />Rimuovi
                   </Button>
                 )}
@@ -396,20 +399,22 @@ const Posts = () => {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
+              <div className="min-w-0">
                 <Label>Testo Bottone CTA</Label>
                 <Input
                   value={form.cta_text}
                   onChange={(e) => setForm({ ...form, cta_text: e.target.value })}
                   placeholder="Es. Scopri di più"
+                  className="w-full"
                 />
               </div>
-              <div>
+              <div className="min-w-0">
                 <Label>Messaggio WhatsApp CTA</Label>
                 <Input
                   value={form.cta_whatsapp_message}
                   onChange={(e) => setForm({ ...form, cta_whatsapp_message: e.target.value })}
                   placeholder="Ciao, info su…"
+                  className="w-full"
                 />
               </div>
             </div>
@@ -423,32 +428,46 @@ const Posts = () => {
                 L'annuncio sarà visibile solo nell'intervallo. Lascia vuoto per "sempre attivo".
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
+                <div className="min-w-0">
                   <Label className="text-xs">Inizio</Label>
                   <Input type="datetime-local"
                           value={toLocalInput(form.start_at)}
-                          onChange={(e) => setForm({ ...form, start_at: fromLocalInput(e.target.value) })} />
+                          onChange={(e) => setForm({ ...form, start_at: fromLocalInput(e.target.value) })}
+                          className="w-full" />
                 </div>
-                <div>
+                <div className="min-w-0">
                   <Label className="text-xs">Fine</Label>
                   <Input type="datetime-local"
                           value={toLocalInput(form.end_at)}
-                          onChange={(e) => setForm({ ...form, end_at: fromLocalInput(e.target.value) })} />
+                          onChange={(e) => setForm({ ...form, end_at: fromLocalInput(e.target.value) })}
+                          className="w-full" />
                 </div>
               </div>
             </div>
+          </div>
 
-            <div className="flex justify-end gap-2 pt-2">
-              <Button variant="outline" onClick={cancelEdit}>Annulla</Button>
-              <Button
-                onClick={handleSave}
-                disabled={saving || form.store_ids.length === 0}
-                className="bg-[#D2FA46] hover:bg-[#bce63d] text-[#0a0a0b]"
-                data-testid="post-save-button"
-              >
-                {saving ? 'Salvataggio…' : (editing === 'new' ? `Pubblica su ${form.store_ids.length || 0} negozi` : 'Salva')}
-              </Button>
-            </div>
+          {/* Sticky footer — keeps Save/Cancel always reachable on small
+              screens. pb-[env(safe-area-inset-bottom)] avoids overlap with
+              the iPhone home indicator. */}
+          <div
+            className="flex-shrink-0 flex flex-col-reverse sm:flex-row justify-end gap-2 px-4 sm:px-6 py-3 border-t border-gray-100 dark:border-white/10 bg-white dark:bg-[#131316]"
+            style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom))' }}
+          >
+            <Button variant="outline" onClick={cancelEdit} className="h-11 sm:h-10" data-testid="post-cancel-button">
+              Annulla
+            </Button>
+            <Button
+              onClick={handleSave}
+              disabled={saving || form.store_ids.length === 0}
+              className="bg-[#D2FA46] hover:bg-[#bce63d] text-[#0a0a0b] h-11 sm:h-10 font-semibold"
+              data-testid="post-save-button"
+            >
+              {saving
+                ? 'Salvataggio…'
+                : (editing === 'new'
+                    ? `Pubblica su ${form.store_ids.length || 0} ${form.store_ids.length === 1 ? 'negozio' : 'negozi'}`
+                    : 'Salva')}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

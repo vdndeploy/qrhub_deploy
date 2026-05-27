@@ -361,6 +361,26 @@ const OrgSettings = () => {
 
   const removeLegalLogo = () => setOrg(prev => ({ ...prev, legal_logo_url: '', legal_logo_public_id: '' }));
 
+  const handlePwaIconUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setUploading(true);
+    const fd = new FormData();
+    fd.append('file', file);
+    fd.append('folder', 'uploads');
+    try {
+      const { data } = await axios.post(`${API}/upload`, fd, { withCredentials: true });
+      setOrg(prev => ({ ...prev, pwa_icon_url: data.url, pwa_icon_public_id: data.public_id }));
+      toast.success('Icona app caricata. Ricorda di salvare.');
+    } catch {
+      toast.error('Errore upload');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const removePwaIcon = () => setOrg(prev => ({ ...prev, pwa_icon_url: '', pwa_icon_public_id: '' }));
+
   const addDomain = async () => {
     const d = (newDomain || '').trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/$/, '');
     if (!d) return;
@@ -446,6 +466,8 @@ const OrgSettings = () => {
         privacy_policy_url: org.privacy_policy_url || '',
         legal_logo_url: org.legal_logo_url || '',
         legal_logo_public_id: org.legal_logo_public_id || '',
+        pwa_icon_url: org.pwa_icon_url || '',
+        pwa_icon_public_id: org.pwa_icon_public_id || '',
         data_profiling_text: org.data_profiling_text || '',
         terms_text: org.terms_text || '',
       }, { withCredentials: true });
@@ -797,6 +819,57 @@ const OrgSettings = () => {
                   className="hidden"
                   disabled={uploading}
                   data-testid="org-legal-logo-input"
+                />
+              </label>
+            )}
+          </div>
+        </div>
+
+        <div className="border border-gray-200 dark:border-white/10 rounded-lg p-4 bg-gray-50/60 dark:bg-[#0f0f12]">
+          <Label className="font-semibold text-gray-800 dark:text-[#e6e6ea] flex items-center gap-2">
+            <ImgIcon className="h-4 w-4 text-[#D2FA46]" />
+            Icona app (salva sul telefono)
+          </Label>
+          <p className="text-xs text-gray-600 dark:text-[#8a8a92] mt-1 mb-3">
+            Icona che apparirà sulla home dei telefoni dei clienti quando salvano la
+            landing del venditore come app (PWA). Consigliato: <strong>PNG quadrato 512×512 px</strong>{' '}
+            su sfondo opaco. Se vuoto viene usato il logo brand qui sopra.
+          </p>
+          <div className="flex items-center gap-3 flex-wrap">
+            {org.pwa_icon_url ? (
+              <>
+                <img
+                  src={org.pwa_icon_url}
+                  alt="icona PWA"
+                  className="h-20 w-20 object-contain border rounded-2xl bg-white dark:bg-[#0a0a0b] p-2"
+                  data-testid="org-pwa-icon-preview"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={removePwaIcon}
+                  data-testid="org-pwa-icon-remove"
+                >
+                  <X className="h-4 w-4 mr-1" />Rimuovi
+                </Button>
+              </>
+            ) : (
+              <label
+                htmlFor="pwa-icon-upload"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-md border-2 border-dashed border-[#D2FA46] bg-white dark:bg-[#0a0a0b] hover:bg-[#D2FA46]/10 cursor-pointer text-[#D2FA46] text-sm font-medium"
+                data-testid="org-pwa-icon-upload-label"
+              >
+                <Upload className={`h-4 w-4 ${uploading ? 'animate-pulse' : ''}`} />
+                {uploading ? 'Caricamento…' : 'Carica icona app'}
+                <input
+                  id="pwa-icon-upload"
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  onChange={handlePwaIconUpload}
+                  className="hidden"
+                  disabled={uploading}
+                  data-testid="org-pwa-icon-input"
                 />
               </label>
             )}

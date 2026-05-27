@@ -1,5 +1,5 @@
 from fastapi import FastAPI, APIRouter, HTTPException, Depends, Request, Response, Header, UploadFile, File, Form
-from fastapi.responses import StreamingResponse, Response as FastAPIResponse, HTMLResponse
+from fastapi.responses import StreamingResponse, Response as FastAPIResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
@@ -490,6 +490,11 @@ class OrganizationUpdate(BaseModel):
     # distinguish "WindTre store branding" from "VDN SRL the data controller".
     legal_logo_url: Optional[str] = Field(None, max_length=600)
     legal_logo_public_id: Optional[str] = Field(None, max_length=300)
+    # PWA icon (512×512 recommended) shown when a visitor saves the vendor
+    # landing as an app on their phone home screen. Falls back to logo_url if
+    # not set so the org doesn't have to upload twice.
+    pwa_icon_url: Optional[str] = Field(None, max_length=600)
+    pwa_icon_public_id: Optional[str] = Field(None, max_length=300)
     # Data profiling notice — editable per-org statement describing which third
     # parties may profile visitors after they tap on social/WhatsApp/Maps links
     # on the landing. Defaults to a reasonable Italian text that mentions Meta
@@ -995,6 +1000,8 @@ def _org_to_response(o: dict) -> dict:
         'privacy_policy_url': o.get('privacy_policy_url', '') or '',
         'legal_logo_url': o.get('legal_logo_url', '') or '',
         'legal_logo_public_id': o.get('legal_logo_public_id', '') or '',
+        'pwa_icon_url': o.get('pwa_icon_url', '') or '',
+        'pwa_icon_public_id': o.get('pwa_icon_public_id', '') or '',
         'data_profiling_text': o.get('data_profiling_text', '') or '',
         'terms_text': o.get('terms_text', '') or '',
         'created_at': o.get('created_at', '')
@@ -1176,6 +1183,10 @@ async def update_organization(org_id: str, payload: OrganizationUpdate, user: di
         update['legal_logo_url'] = (payload.legal_logo_url or '').strip()[:600]
     if payload.legal_logo_public_id is not None:
         update['legal_logo_public_id'] = (payload.legal_logo_public_id or '').strip()[:300]
+    if payload.pwa_icon_url is not None:
+        update['pwa_icon_url'] = (payload.pwa_icon_url or '').strip()[:600]
+    if payload.pwa_icon_public_id is not None:
+        update['pwa_icon_public_id'] = (payload.pwa_icon_public_id or '').strip()[:300]
     if payload.data_profiling_text is not None:
         update['data_profiling_text'] = (payload.data_profiling_text or '').strip()[:4000]
     if payload.terms_text is not None:
@@ -2127,7 +2138,7 @@ async def get_vendor_public(vendor_id: str):
     if real_vendor and real_vendor.get('organization_id'):
         org = await db.organizations.find_one(
             {'id': real_vendor['organization_id']},
-            {'_id': 0, 'brand_name': 1, 'primary_color': 1, 'logo_url': 1,
+            {'_id': 0, 'brand_name': 1, 'primary_color': 1, 'logo_url': 1, 'pwa_icon_url': 1,
               'cookie_banner_enabled': 1, 'cookie_banner_text': 1, 'cookie_banner_link': 1,
               'landing_headline': 1, 'name': 1,
               'legal_name': 1, 'vat_number': 1, 'legal_address': 1,
@@ -2143,6 +2154,9 @@ async def get_vendor_public(vendor_id: str):
                 'brand_name': org.get('brand_name', ''),
                 'primary_color': org.get('primary_color', '#F96815'),
                 'logo_url': org.get('logo_url', ''),
+                # PWA icon (512×512). Falls back to logo_url so existing orgs
+                # keep working without re-uploading.
+                'pwa_icon_url': (org.get('pwa_icon_url') or '').strip() or org.get('logo_url', ''),
                 'landing_headline': (org.get('landing_headline') or '').strip(),
                 'cookie_banner': {
                     'enabled': True,
@@ -2704,6 +2718,60 @@ def _build_og_html(vendor: dict, org: dict, request_url_base: str) -> str:
   <p><a href="{redirect_target}" style="color:{e(primary_color)};font-weight:600;text-decoration:none">Apri la landing &rarr;</a></p>
 </body>
 </html>'''
+
+
+def _cloudinary_resize(url: str, size: int) -> str:
+    """Inject a Cloudinary `c_pad,b_white,w_X,h_X` transform into a delivery
+    URL so the PWA icon is served at the exact pixel size the manifest
+    declares. Falls back to the raw URL if it isn't a Cloudinary one."""
+    if not url or '/upload/' not in url or 'res.cloudinary.com' not in url:
+        return url
+    transform = f"c_pad,b_white,w_{size},h_{size},f_png"
+    return url.replace('/upload/', f"/upload/{transform}/", 1)
+
+
+@app.get('/api/manifest/v/{vendor_id}')
+async def vendor_manifest(vendor_id: str):
+    """Per-vendor PWA manifest. Lets the org show its own icon when a visitor
+    saves the landing as an app on their phone home screen (instead of the
+    QRHub default favicon)."""
+    vendor = await _resolve_vendor_doc(vendor_id)
+    if not vendor:
+        raise HTTPException(status_code=404, detail='Vendor not found')
+    org = {}
+    if vendor.get('organization_id'):
+        org = await db.organizations.find_one(
+            {'id': vendor['organization_id']},
+            {'_id': 0, 'brand_name': 1, 'name': 1, 'primary_color': 1,
+             'pwa_icon_url': 1, 'logo_url': 1}
+        ) or {}
+    icon_url = (org.get('pwa_icon_url') or '').strip() or (org.get('logo_url') or '').strip()
+    brand = (org.get('brand_name') or '').strip() or (org.get('name') or '').strip() or 'QRHub'
+    landing_key = (vendor.get('slug') or '').strip() or vendor['id']
+    manifest = {
+        'name': f"{brand} · {vendor.get('name', '')}".strip(' ·'),
+        'short_name': vendor.get('name', '') or brand,
+        'start_url': f"/v/{landing_key}",
+        'scope': f"/v/{landing_key}",
+        'display': 'standalone',
+        'background_color': '#ffffff',
+        'theme_color': org.get('primary_color') or '#F96815',
+        'icons': [],
+    }
+    if icon_url:
+        # Provide both 192 and 512 — Android requires at least these two sizes
+        # to honour the icon (otherwise it falls back to a generated globe).
+        manifest['icons'] = [
+            {'src': _cloudinary_resize(icon_url, 192), 'sizes': '192x192',
+             'type': 'image/png', 'purpose': 'any'},
+            {'src': _cloudinary_resize(icon_url, 512), 'sizes': '512x512',
+             'type': 'image/png', 'purpose': 'any'},
+            {'src': _cloudinary_resize(icon_url, 512), 'sizes': '512x512',
+             'type': 'image/png', 'purpose': 'maskable'},
+        ]
+    return JSONResponse(content=manifest, headers={'Cache-Control': 'public, max-age=300'})
+
+
 
 
 @app.get('/og/v/{vendor_id}', response_class=HTMLResponse)

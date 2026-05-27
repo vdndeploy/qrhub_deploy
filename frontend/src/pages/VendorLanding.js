@@ -170,6 +170,74 @@ const VendorLanding = () => {
     } catch { return false; }
   };
 
+  // Inject per-vendor PWA manifest + Apple touch icon as soon as we know who
+  // the vendor is. Android reads <link rel=manifest> for the home-screen
+  // shortcut icon, iOS reads <link rel=apple-touch-icon>. Both override
+  // QRHub's default favicon so the customer sees the org's own logo on
+  // their phone after "Add to Home Screen".
+  useEffect(() => {
+    if (!vendor?.id) return;
+    const apiBase = process.env.REACT_APP_BACKEND_URL || '';
+    const manifestHref = `${apiBase}/api/manifest/v/${vendor.id}`;
+    const iconUrl = vendor.organization?.pwa_icon_url || vendor.organization?.logo_url || '';
+    const themeColor = vendor.organization?.primary_color || '#F96815';
+
+    // Manifest
+    let manifestLink = document.querySelector('link[data-qrhub-manifest]');
+    if (!manifestLink) {
+      manifestLink = document.createElement('link');
+      manifestLink.rel = 'manifest';
+      manifestLink.setAttribute('data-qrhub-manifest', '1');
+      document.head.appendChild(manifestLink);
+    }
+    manifestLink.href = manifestHref;
+
+    // Apple touch icon (iOS picks this one — it ignores the manifest icons)
+    let appleIcon = document.querySelector('link[data-qrhub-apple]');
+    if (!appleIcon) {
+      appleIcon = document.createElement('link');
+      appleIcon.rel = 'apple-touch-icon';
+      appleIcon.setAttribute('data-qrhub-apple', '1');
+      document.head.appendChild(appleIcon);
+    }
+    appleIcon.href = iconUrl;
+
+    // Theme color = brand color (status bar tint when app is launched standalone)
+    let themeMeta = document.querySelector('meta[data-qrhub-theme]');
+    if (!themeMeta) {
+      themeMeta = document.createElement('meta');
+      themeMeta.name = 'theme-color';
+      themeMeta.setAttribute('data-qrhub-theme', '1');
+      document.head.appendChild(themeMeta);
+    }
+    themeMeta.content = themeColor;
+
+    // Apple-specific tags for fullscreen behaviour
+    let mobileWebApp = document.querySelector('meta[name="apple-mobile-web-app-capable"]');
+    if (!mobileWebApp) {
+      mobileWebApp = document.createElement('meta');
+      mobileWebApp.name = 'apple-mobile-web-app-capable';
+      mobileWebApp.content = 'yes';
+      document.head.appendChild(mobileWebApp);
+    }
+    let mobileWebTitle = document.querySelector('meta[name="apple-mobile-web-app-title"]');
+    if (!mobileWebTitle) {
+      mobileWebTitle = document.createElement('meta');
+      mobileWebTitle.name = 'apple-mobile-web-app-title';
+      document.head.appendChild(mobileWebTitle);
+    }
+    mobileWebTitle.content = vendor.name || vendor.organization?.brand_name || 'Contatto';
+
+    // Cleanup on unmount: restore platform manifest to avoid leaking the
+    // vendor PWA when the user navigates away (e.g. to /privacy then back
+    // to /login on the admin host).
+    return () => {
+      if (manifestLink && manifestLink.parentNode) manifestLink.parentNode.removeChild(manifestLink);
+      if (appleIcon && appleIcon.parentNode) appleIcon.parentNode.removeChild(appleIcon);
+      if (themeMeta && themeMeta.parentNode) themeMeta.parentNode.removeChild(themeMeta);
+    };
+  }, [vendor?.id, vendor?.organization?.pwa_icon_url, vendor?.organization?.logo_url, vendor?.organization?.primary_color, vendor?.name, vendor?.organization?.brand_name]);
+
   const trackPageView = async () => {
     if (isPreviewSession()) return;
     try {

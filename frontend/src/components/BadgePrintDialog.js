@@ -27,13 +27,13 @@ const ROLE_PRESETS = [
 const BANNER_RECOMMENDED = '1024×576 px (rapporto 16:9)';
 
 // Badge geometry (in pixels @ 10 px/mm — 1×1 mm = 10×10 px).
-// Final canvas is 860 × 1320 px (covers 86 × 132 mm credit-card tall format).
+// Final canvas is 800 × 1200 px (covers 80 × 120 mm credit-card tall format).
 const PX = 10;
 const BADGE = {
-  W: 86 * PX,            // 860
-  H: 132 * PX,           // 1320
-  HERO_H: 46 * PX,       // 460
-  FOOTER_H: 26 * PX,     // 260
+  W: 80 * PX,            // 800
+  H: 120 * PX,           // 1200
+  HERO_H: 32 * PX,       // 320 — header banner più stretto in altezza
+  FOOTER_H: 22 * PX,     // 220
   RADIUS: 6 * PX,        // 60
 };
 
@@ -603,24 +603,24 @@ function buildBadgeHtml({ badgeBitmap }) {
   *,*::before,*::after { box-sizing: border-box; }
   html,body { margin: 0; padding: 0; background: #f0f0f0; }
   .sheet {
-    width: 182mm; margin: 0 auto; padding: 0;
+    width: 170mm; margin: 0 auto; padding: 0;
     display: flex; flex-direction: row; flex-wrap: nowrap; gap: 6mm;
     justify-content: center; align-items: flex-start;
   }
   .badge {
-    width: 86mm; height: 132mm; display: block;
+    width: 80mm; height: 120mm; display: block;
     page-break-inside: avoid;
-    flex: 0 0 86mm;
+    flex: 0 0 80mm;
   }
   .badge img {
-    width: 86mm; height: 132mm; display: block;
+    width: 80mm; height: 120mm; display: block;
     border-radius: 6mm;
   }
   @media screen {
     body { padding: 20px 0; }
     .sheet { background: #fff; box-shadow: 0 4px 20px rgba(0,0,0,0.12); }
     .toolbar {
-      max-width: 182mm; margin: 0 auto 16px; padding: 12px 20px;
+      max-width: 170mm; margin: 0 auto 16px; padding: 12px 20px;
       background: #fff; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.08);
       display: flex; align-items: center; justify-content: space-between; gap: 16px;
       font-size: 13px; color: #333;

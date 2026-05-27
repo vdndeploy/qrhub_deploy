@@ -257,14 +257,14 @@ const BadgePrintDialog = ({ open, onClose, vendor, organization, landingUrl }) =
     ctx.font = '900 42px -apple-system, "Helvetica Neue", Arial, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    const nameY = bodyTop + 60;
+    const nameY = bodyTop + 55;
     ctx.fillText((vendorName || '').toUpperCase(), cx, nameY);
 
     // QR block — centered between name and scan label
     const qrSize = 360;
     const qrPad = 40;
     const qrX = cx - qrSize / 2;
-    const qrY = nameY + 50;
+    const qrY = nameY + 95;
     // White rounded card behind QR with soft shadow
     ctx.save();
     ctx.shadowColor = 'rgba(0,0,0,0.10)';

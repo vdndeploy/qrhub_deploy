@@ -2772,6 +2772,82 @@ async def vendor_manifest(vendor_id: str):
     return JSONResponse(content=manifest, headers={'Cache-Control': 'public, max-age=300'})
 
 
+@app.get('/api/icon/v/{vendor_id}/{size}.png')
+async def vendor_icon(vendor_id: str, size: str):
+    """Per-vendor PWA icon proxied through the backend.
+
+    iOS Safari needs the apple-touch-icon URL to be served from the same
+    origin as the page (or at least to be a real image that responds 200
+    when the page is first parsed). Cloudinary CDN works fine on Android
+    but iOS sometimes refuses cross-origin URLs at "Add to Home Screen"
+    time. Serving the resized PNG through our own domain (via Vercel
+    /api rewrite → Fly) sidesteps the issue.
+    """
+    try:
+        n = int(size)
+    except ValueError:
+        raise HTTPException(status_code=400, detail='Invalid size')
+    if n not in (192, 512):
+        raise HTTPException(status_code=400, detail='Unsupported icon size')
+
+    vendor = await _resolve_vendor_doc(vendor_id)
+    if not vendor:
+        raise HTTPException(status_code=404, detail='Vendor not found')
+    org = {}
+    if vendor.get('organization_id'):
+        org = await db.organizations.find_one(
+            {'id': vendor['organization_id']},
+            {'_id': 0, 'pwa_icon_url': 1, 'logo_url': 1, 'primary_color': 1}
+        ) or {}
+    icon_url = (org.get('pwa_icon_url') or '').strip() or (org.get('logo_url') or '').strip()
+    brand_hex = (org.get('primary_color') or '#ffffff').strip() or '#ffffff'
+
+    # Pre-resize via Cloudinary to keep the download cheap.
+    if icon_url and 'res.cloudinary.com' in icon_url and '/upload/' in icon_url:
+        icon_url = icon_url.replace(
+            '/upload/',
+            f"/upload/c_pad,b_white,w_{n},h_{n},f_png/",
+            1,
+        )
+    icon_bytes = await _fetch_image_bytes(icon_url)
+
+    # Build a square PNG sized exactly n×n. If no source icon, fall back to
+    # a solid brand-color square (still better than the blank globe iOS shows
+    # without an explicit apple-touch-icon).
+    def _build_icon():
+        from PIL import Image, ImageColor
+        if icon_bytes:
+            try:
+                src = Image.open(BytesIO(icon_bytes)).convert('RGBA')
+                # Letterbox to square white background
+                canvas = Image.new('RGBA', (n, n), (255, 255, 255, 255))
+                ratio = min(n / src.width, n / src.height)
+                new_w = max(1, int(src.width * ratio))
+                new_h = max(1, int(src.height * ratio))
+                src = src.resize((new_w, new_h), Image.LANCZOS)
+                canvas.paste(src, ((n - new_w) // 2, (n - new_h) // 2), src)
+                buf = BytesIO()
+                canvas.convert('RGB').save(buf, format='PNG', optimize=True)
+                return buf.getvalue()
+            except Exception:
+                pass
+        try:
+            bg = ImageColor.getrgb(brand_hex)
+        except Exception:
+            bg = (255, 255, 255)
+        img = Image.new('RGB', (n, n), bg)
+        buf = BytesIO()
+        img.save(buf, format='PNG', optimize=True)
+        return buf.getvalue()
+
+    png = await asyncio.to_thread(_build_icon)
+    return FastAPIResponse(
+        content=png,
+        media_type='image/png',
+        headers={'Cache-Control': 'public, max-age=86400'},  # 24h
+    )
+
+
 
 
 # iOS Splash Screen sizes (portrait). These 8 cover ~99% of in-use iPhones

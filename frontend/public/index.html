@@ -14,6 +14,51 @@
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="description" content="QRHub — la piattaforma multi-tenant per landing page QR, post a carosello e analytics privacy-first." />
+        <!--
+        Static PWA manifest + apple-touch-icon for vendor landings.
+        Runs BEFORE React boots so that iOS Safari (which reads these tags
+        at "Add to Home Screen" time and does NOT wait for React's useEffect
+        injection) can recognize the page as an installable PWA. Without
+        this, iOS 17+ falls back to the "Safari WebClip" mode that shows
+        the browser chrome around the saved icon.
+        -->
+        <script>
+        (function(){
+          try {
+            var m = window.location.pathname.match(/^\/v\/([^\/?#]+)/);
+            if (!m) return;
+            var vid = m[1];
+            // Manifest — Vercel rewrites /api/* to qrhub.fly.dev/api/*
+            var ml = document.createElement('link');
+            ml.rel = 'manifest';
+            ml.setAttribute('data-qrhub-manifest-static', '1');
+            ml.href = '/api/manifest/v/' + vid;
+            document.head.appendChild(ml);
+            // Apple touch icon (iOS picks this one for the home screen icon)
+            // Falls back to a 512×512 PNG generated server-side from the
+            // org's pwa_icon_url / logo_url (with white pad).
+            var ai = document.createElement('link');
+            ai.rel = 'apple-touch-icon';
+            ai.setAttribute('data-qrhub-apple-static', '1');
+            ai.sizes = '192x192';
+            ai.href = '/api/icon/v/' + vid + '/192.png';
+            document.head.appendChild(ai);
+            var ai2 = document.createElement('link');
+            ai2.rel = 'apple-touch-icon';
+            ai2.setAttribute('data-qrhub-apple-static', '1');
+            ai2.sizes = '512x512';
+            ai2.href = '/api/icon/v/' + vid + '/512.png';
+            document.head.appendChild(ai2);
+            // apple-mobile-web-app-title — used as the icon label on iOS.
+            // Default to host org name; React refines later when vendor loaded.
+            var t = document.createElement('meta');
+            t.name = 'apple-mobile-web-app-title';
+            t.setAttribute('data-qrhub-title-static', '1');
+            t.content = 'Contatto';
+            document.head.appendChild(t);
+          } catch(e){}
+        })();
+        </script>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@600&display=swap" rel="stylesheet" />

@@ -254,14 +254,33 @@ const VendorLanding = () => {
 
   const setupPWA = () => {
     try {
+      // The visitor already opened this landing from the saved PWA on their
+      // home screen — never re-prompt to install (neither Android nor iOS).
+      // We check both signals: Chrome/Android/desktop expose `display-mode:
+      // standalone`, while iOS Safari only exposes the legacy
+      // `navigator.standalone` flag and ignores the media query.
+      const isStandalone =
+        window.matchMedia('(display-mode: standalone)').matches ||
+        window.matchMedia('(display-mode: fullscreen)').matches ||
+        window.matchMedia('(display-mode: minimal-ui)').matches ||
+        window.navigator.standalone === true ||
+        document.referrer.startsWith('android-app://');
+      if (isStandalone) return;
+
       window.addEventListener('beforeinstallprompt', (e) => {
         e.preventDefault();
         setDeferredPrompt(e);
         setTimeout(() => setShowAndroidBanner(true), 1500);
       });
+      // Auto-hide both banners if the app gets installed while the page is
+      // open (rare but possible: user accepts the prompt → display-mode flips).
+      window.addEventListener('appinstalled', () => {
+        setShowAndroidBanner(false);
+        setShowIosBanner(false);
+        setDeferredPrompt(null);
+      });
       const isIos = /iPhone|iPad|iPod/.test(navigator.userAgent);
-      const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
-      if (isIos && !isStandalone) setTimeout(() => setShowIosBanner(true), 1500);
+      if (isIos) setTimeout(() => setShowIosBanner(true), 1500);
     } catch (e) {}
   };
 

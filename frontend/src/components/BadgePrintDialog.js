@@ -248,15 +248,15 @@ const BadgePrintDialog = ({ open, onClose, vendor, organization, landingUrl }) =
 
     // Vendor name (uppercase) above the QR
     ctx.fillStyle = '#0a0a0b';
-    ctx.font = '900 42px -apple-system, "Helvetica Neue", Arial, sans-serif';
+    ctx.font = '900 60px -apple-system, "Helvetica Neue", Arial, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    const nameY = bodyTop + 55;
+    const nameY = bodyTop + 120;
     ctx.fillText((vendorName || '').toUpperCase(), cx, nameY);
 
     // QR block — centered between name and scan label
-    const qrSize = 360;
-    const qrPad = 40;
+    const qrSize = 340;
+    const qrPad = 36;
     const qrX = cx - qrSize / 2;
     const qrY = nameY + 95;
     // White rounded card behind QR with soft shadow

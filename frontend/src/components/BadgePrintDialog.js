@@ -33,6 +33,7 @@ const BadgePrintDialog = ({ open, onClose, vendor, organization, landingUrl }) =
   const [bannerDataUrl, setBannerDataUrl] = useState('');
   const [pickerOpen, setPickerOpen] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [uploading, setUploading] = useState(false);
 
   const resolvedRole = useMemo(() => {
     if (rolePreset === '__custom__') return customRole.trim();
@@ -52,7 +53,7 @@ const BadgePrintDialog = ({ open, onClose, vendor, organization, landingUrl }) =
     });
   };
 
-  const handleBannerSelect = (e) => {
+  const handleBannerSelect = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (!file.type.startsWith('image/')) {
@@ -63,10 +64,30 @@ const BadgePrintDialog = ({ open, onClose, vendor, organization, landingUrl }) =
       toast.error('Massimo 4 MB');
       return;
     }
-    const reader = new FileReader();
-    reader.onload = () => setBannerDataUrl(reader.result);
-    reader.onerror = () => toast.error('Errore nella lettura del file');
-    reader.readAsDataURL(file);
+    // Upload to Cloudinary so the banner is reusable from "Sfoglia caricati"
+    // next time, instead of living only in the local FileReader memory. We
+    // also keep an inline dataURL of the same file so the printable popup
+    // doesn't fight cross-origin policies when rendering the PDF.
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('folder', 'uploads');
+      const up = axios.post(`${API}/upload`, fd, { withCredentials: true });
+      const localDataPromise = new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      const [, localData] = await Promise.all([up, localDataPromise]);
+      setBannerDataUrl(localData);
+      toast.success('Banner caricato e salvato in libreria');
+    } catch {
+      toast.error('Errore upload del banner');
+    } finally {
+      setUploading(false);
+    }
   };
 
   const handleGenerate = async () => {
@@ -177,17 +198,22 @@ const BadgePrintDialog = ({ open, onClose, vendor, organization, landingUrl }) =
               <div className="flex flex-wrap gap-2">
                 <label
                   htmlFor="badge-banner-input"
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-md border-2 border-dashed border-[#D2FA46] bg-white dark:bg-[#0a0a0b] hover:bg-[#D2FA46]/10 cursor-pointer text-[#D2FA46] text-sm font-medium"
+                  className={`inline-flex items-center gap-2 px-4 py-2 rounded-md border-2 border-dashed text-sm font-medium ${
+                    uploading
+                      ? 'border-gray-300 dark:border-white/15 bg-gray-100 dark:bg-[#1a1a1c] text-gray-400 cursor-wait'
+                      : 'border-[#D2FA46] bg-white dark:bg-[#0a0a0b] hover:bg-[#D2FA46]/10 text-[#D2FA46] cursor-pointer'
+                  }`}
                   data-testid="banner-upload-label"
                 >
-                  <ImagePlus className="h-4 w-4" />
-                  Carica nuovo
+                  <ImagePlus className={`h-4 w-4 ${uploading ? 'animate-pulse' : ''}`} />
+                  {uploading ? 'Caricamento…' : 'Carica nuovo'}
                   <input
                     id="badge-banner-input"
                     type="file"
                     accept="image/*"
                     onChange={handleBannerSelect}
                     className="hidden"
+                    disabled={uploading}
                     data-testid="banner-upload-input"
                   />
                 </label>
@@ -197,6 +223,7 @@ const BadgePrintDialog = ({ open, onClose, vendor, organization, landingUrl }) =
                   onClick={() => setPickerOpen(true)}
                   className="h-auto py-2 text-sm"
                   data-testid="banner-browse-library"
+                  disabled={uploading}
                 >
                   <FolderOpen className="h-4 w-4 mr-1.5" />
                   Sfoglia caricati
@@ -310,6 +337,26 @@ function buildBadgeHtml({
   const brandHex = primaryColor || '#F96815';
   const brandSoftHex = softenHex(brandHex, 0.42);
 
+  // Build a tiny SVG that draws the same diagonal gradient used by the hero.
+  // We embed it as an <img> data-URI so iOS Safari prints it reliably (CSS
+  // gradients are dropped by several mobile/PDF rasterisers, which previously
+  // produced black stripes in the saved PDF).
+  const heroGradientSvg = encodeURIComponent(
+    `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 100' preserveAspectRatio='none'>` +
+    `<defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'>` +
+    `<stop offset='0%' stop-color='${brandHex}'/>` +
+    `<stop offset='100%' stop-color='${brandSoftHex}'/>` +
+    `</linearGradient>` +
+    `<radialGradient id='h' cx='20%' cy='20%' r='60%'>` +
+    `<stop offset='0%' stop-color='#ffffff' stop-opacity='0.22'/>` +
+    `<stop offset='100%' stop-color='#ffffff' stop-opacity='0'/>` +
+    `</radialGradient></defs>` +
+    `<rect width='200' height='100' fill='url(%23g)'/>` +
+    `<rect width='200' height='100' fill='url(%23h)'/>` +
+    `</svg>`
+  );
+  const heroGradientDataUri = `data:image/svg+xml;charset=utf-8,${heroGradientSvg}`;
+
   const cssVar = `:root{--brand:${esc(brandHex)};--brand-soft:${esc(brandSoftHex)}}`;
   // CRITICAL: force background colors and images to print in Safari/Chrome.
   // Without this rule, "Save as PDF" produces a black-and-white badge.
@@ -337,23 +384,29 @@ function buildBadgeHtml({
   }
   .hero {
     position:relative; height: 46mm;
-    /* Solid brand color is printed first as a fallback so the badge keeps a
-       coloured header even when the rasteriser skips the gradient layer. */
+    /* Solid brand color is the base. We layer either the user-uploaded banner
+       OR a built-in SVG gradient on top. CSS linear-gradient() is dropped by
+       iOS Safari and many PDF rasterisers (produces "black stripes"), so for
+       the no-banner case we render the gradient as an <svg> <img> element
+       further down — img tags are always printed reliably. */
     background-color: var(--brand);
-    background-image: ${bannerDataUrl
-      ? `url("${esc(bannerDataUrl)}"), linear-gradient(135deg, var(--brand) 0%, var(--brand-soft) 100%)`
-      : `linear-gradient(135deg, var(--brand) 0%, var(--brand-soft) 100%)`};
-    background-size: ${bannerDataUrl ? `cover, auto` : `auto, auto`};
-    background-position: ${bannerDataUrl ? `center, 0 0` : `0 0, 0 0`};
-    background-repeat: no-repeat, no-repeat;
+    background-image: ${bannerDataUrl ? `url("${esc(bannerDataUrl)}")` : 'none'};
+    background-size: ${bannerDataUrl ? `cover` : `auto`};
+    background-position: ${bannerDataUrl ? `center` : `0 0`};
+    background-repeat: no-repeat;
     display:flex; align-items:flex-end; justify-content:center;
     overflow:hidden;
+  }
+  .hero-grad {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    object-fit: cover; display: ${bannerDataUrl ? 'none' : 'block'};
+    pointer-events: none;
   }
   .hero::before {
     content:''; position:absolute; inset:0;
     background: ${bannerDataUrl
       ? `linear-gradient(to bottom, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.35) 100%)`
-      : `radial-gradient(circle at 20% 20%, rgba(255,255,255,0.20) 0%, transparent 60%)`};
+      : 'transparent'};
   }
   .hero-logo {
     position:absolute; top: 5mm; left: 5mm; z-index: 2;
@@ -439,14 +492,14 @@ function buildBadgeHtml({
     <button onclick="window.print()">Stampa / PDF</button>
   </div>
   <div class="sheet">
-    ${renderSide({ vendorName, role, orgBrand, orgLogoUrl, qrDataUrl, landingUrl, esc })}
-    ${renderSide({ vendorName, role, orgBrand, orgLogoUrl, qrDataUrl, landingUrl, esc })}
+    ${renderSide({ vendorName, role, orgBrand, orgLogoUrl, qrDataUrl, landingUrl, esc, heroGradientDataUri, bannerDataUrl })}
+    ${renderSide({ vendorName, role, orgBrand, orgLogoUrl, qrDataUrl, landingUrl, esc, heroGradientDataUri, bannerDataUrl })}
   </div>
 </body>
 </html>`;
 }
 
-function renderSide({ vendorName, role, orgBrand, orgLogoUrl, qrDataUrl, esc }) {
+function renderSide({ vendorName, role, orgBrand, orgLogoUrl, qrDataUrl, esc, heroGradientDataUri, bannerDataUrl }) {
   const brandLine = orgBrand
     ? `<div class="footer-brand">${esc(orgBrand)}</div>`
     : '';
@@ -457,6 +510,7 @@ function renderSide({ vendorName, role, orgBrand, orgLogoUrl, qrDataUrl, esc }) 
       <span class="cut-mark bl"></span>
       <span class="cut-mark br"></span>
       <div class="hero">
+        ${!bannerDataUrl ? `<img class="hero-grad" src="${heroGradientDataUri}" alt="" />` : ''}
         <div class="hero-logo">
           ${orgLogoUrl
             ? `<img src="${esc(orgLogoUrl)}" alt="${esc(orgBrand)}" crossorigin="anonymous" />`

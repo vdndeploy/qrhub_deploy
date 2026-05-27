@@ -419,7 +419,7 @@ const Posts = () => {
               </div>
             </div>
 
-            <div className="border rounded-lg p-3 bg-gray-50 dark:bg-[#0a0a0b]/50">
+            <div className="border rounded-lg p-3 bg-gray-50 dark:bg-[#0a0a0b]/50 overflow-hidden">
               <div className="flex items-center gap-2 mb-2">
                 <Clock className="h-4 w-4 text-[#D2FA46]" />
                 <span className="text-sm font-medium">Programmazione (opzionale)</span>
@@ -427,20 +427,20 @@ const Posts = () => {
               <p className="text-xs text-gray-500 dark:text-[#6a6a72] mb-3">
                 L'annuncio sarà visibile solo nell'intervallo. Lascia vuoto per "sempre attivo".
               </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="min-w-0">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full">
+                <div className="min-w-0 w-full">
                   <Label className="text-xs">Inizio</Label>
                   <Input type="datetime-local"
                           value={toLocalInput(form.start_at)}
                           onChange={(e) => setForm({ ...form, start_at: fromLocalInput(e.target.value) })}
-                          className="w-full" />
+                          className="w-full max-w-full text-sm" />
                 </div>
-                <div className="min-w-0">
+                <div className="min-w-0 w-full">
                   <Label className="text-xs">Fine</Label>
                   <Input type="datetime-local"
                           value={toLocalInput(form.end_at)}
                           onChange={(e) => setForm({ ...form, end_at: fromLocalInput(e.target.value) })}
-                          className="w-full" />
+                          className="w-full max-w-full text-sm" />
                 </div>
               </div>
             </div>

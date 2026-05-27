@@ -3369,6 +3369,27 @@ async def seed_admin():
     except Exception as e:
         logger.warning(f'GDPR copy backfill skipped: {e}')
 
+    # 2d. Backfill `group_id` for legacy posts created before multi-store
+    # support. Each legacy post becomes its own 1-item group (group_id = id)
+    # so the new multi-store endpoints (PUT/DELETE /api/posts/group/{id}) can
+    # locate it. Idempotent: only runs on docs missing the field.
+    try:
+        legacy_posts = db.posts.find(
+            {'group_id': {'$exists': False}}, {'_id': 0, 'id': 1}
+        )
+        n_backfilled = 0
+        async for p in legacy_posts:
+            pid = p.get('id')
+            if pid:
+                await db.posts.update_one(
+                    {'id': pid}, {'$set': {'group_id': pid}}
+                )
+                n_backfilled += 1
+        if n_backfilled:
+            logger.info(f'Posts group_id backfill: {n_backfilled} docs')
+    except Exception as e:
+        logger.warning(f'Posts group_id backfill skipped: {e}')
+
     # 2b. One-time anonymization: rename any legacy "VDN" / "vdn" / "WindTre" branded org to generic "Demo"
     try:
         await db.organizations.update_many(

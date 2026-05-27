@@ -1719,6 +1719,7 @@ def _post_doc_to_response(p: dict) -> dict:
     return {
         'id': p.get('id', ''),
         'store_id': p.get('store_id', ''),
+        'group_id': p.get('group_id', '') or p.get('id', ''),
         'title': p.get('title', '') or '',
         'text': p.get('text', '') or '',
         'media_url': p.get('media_url', '') or '',
@@ -1786,6 +1787,7 @@ async def create_post(store_id: str, post: PostCreate, user: dict = Depends(get_
     doc = {
         'id': post_id,
         'store_id': store_id,
+        'group_id': post_id,  # solo-store post: gruppo = se stesso
         'organization_id': user.get('organization_id'),
         'title': post.title or '',
         'text': post.text or '',
@@ -1851,6 +1853,224 @@ async def delete_post(post_id: str, user: dict = Depends(get_current_user)):
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail='Post non trovato')
     return {'message': 'Post eliminato'}
+
+
+# ──────────────────────────────────────────────────────────────────
+# Multi-store posts ("annuncio unico per più negozi")
+# ──────────────────────────────────────────────────────────────────
+# Model: each multi-store announcement becomes N `posts` documents (one per
+# store) sharing a common `group_id`. This keeps the per-store landing/post
+# rendering, scheduling, and reorder logic untouched while allowing the admin
+# to create/update/delete the announcement as a single logical entity.
+class MultiStorePostCreate(BaseModel):
+    store_ids: List[str] = Field(..., min_length=1, max_length=200)
+    title: Optional[str] = ''
+    text: Optional[str] = ''
+    media_url: Optional[str] = ''
+    media_public_id: Optional[str] = ''
+    media_resource_type: Optional[str] = ''
+    aspect_ratio: Optional[float] = None
+    cta_text: Optional[str] = ''
+    cta_whatsapp_message: Optional[str] = ''
+    start_at: Optional[str] = None
+    end_at: Optional[str] = None
+
+
+class MultiStorePostUpdate(BaseModel):
+    # store_ids: full target set of stores. Stores added → new posts inserted
+    # at end-of-carousel of each new store. Stores removed → posts deleted
+    # only for those stores. Stores already in the group → fields updated.
+    store_ids: List[str] = Field(..., min_length=1, max_length=200)
+    title: Optional[str] = ''
+    text: Optional[str] = ''
+    media_url: Optional[str] = ''
+    media_public_id: Optional[str] = ''
+    media_resource_type: Optional[str] = ''
+    aspect_ratio: Optional[float] = None
+    cta_text: Optional[str] = ''
+    cta_whatsapp_message: Optional[str] = ''
+    start_at: Optional[str] = None
+    end_at: Optional[str] = None
+
+
+async def _validate_stores_in_tenant(store_ids: List[str], user: dict) -> List[dict]:
+    """Return store docs filtered to the user's tenant. Raises 404 if any
+    requested id doesn't belong to the tenant — preventing cross-tenant leaks."""
+    qf = _tenant_filter(user, {'id': {'$in': store_ids}})
+    docs = await db.stores.find(qf, {'_id': 0, 'id': 1, 'name': 1}).to_list(500)
+    found_ids = {d['id'] for d in docs}
+    missing = [s for s in store_ids if s not in found_ids]
+    if missing:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Negozi non trovati o non accessibili: {', '.join(missing[:5])}"
+        )
+    return docs
+
+
+@api_router.get('/posts')
+async def list_org_posts_grouped(user: dict = Depends(get_current_user)):
+    """Return all posts of the current tenant, grouped by `group_id`. Used by
+    the admin dashboard to manage multi-store announcements as single rows.
+
+    Each group contains: the announcement payload (taken from the first
+    document — they share content) + the list of stores it's published to.
+    """
+    qf = _tenant_filter(user)
+    posts = await db.posts.find(qf, {'_id': 0}).sort('created_at', -1).to_list(5000)
+    if not posts:
+        return []
+
+    # Map of store_id → name for quick join (only stores in the tenant).
+    store_ids_set = {p.get('store_id', '') for p in posts if p.get('store_id')}
+    store_docs = await db.stores.find(
+        _tenant_filter(user, {'id': {'$in': list(store_ids_set)}}),
+        {'_id': 0, 'id': 1, 'name': 1}
+    ).to_list(1000)
+    store_name = {s['id']: s.get('name', '') for s in store_docs}
+
+    groups: dict = {}
+    for p in posts:
+        gid = p.get('group_id') or p.get('id')
+        if gid not in groups:
+            base = _post_doc_to_response(p)
+            base['group_id'] = gid
+            base['stores'] = []
+            # Strip the per-document fields that don't apply at group level.
+            base.pop('id', None)
+            base.pop('store_id', None)
+            base.pop('position', None)
+            groups[gid] = base
+        groups[gid]['stores'].append({
+            'store_id': p.get('store_id', ''),
+            'store_name': store_name.get(p.get('store_id', ''), ''),
+            'post_id': p.get('id', ''),
+            'position': p.get('position', 0),
+        })
+
+    return list(groups.values())
+
+
+@api_router.post('/posts')
+async def create_multi_store_post(payload: MultiStorePostCreate,
+                                  user: dict = Depends(get_current_user)):
+    """Create a single announcement on N stores at once."""
+    store_ids = list({s for s in payload.store_ids if s})  # dedupe
+    if not store_ids:
+        raise HTTPException(status_code=400, detail='Seleziona almeno un negozio')
+    await _validate_stores_in_tenant(store_ids, user)
+
+    group_id = str(ObjectId())
+    now_iso = datetime.now(timezone.utc).isoformat()
+    org_id = user.get('organization_id')
+    inserted = []
+    for sid in store_ids:
+        # Per-store position = current count of posts in that store (append).
+        pos = await db.posts.count_documents({'store_id': sid})
+        doc = {
+            'id': str(ObjectId()),
+            'store_id': sid,
+            'group_id': group_id,
+            'organization_id': org_id,
+            'title': payload.title or '',
+            'text': payload.text or '',
+            'media_url': payload.media_url or '',
+            'media_public_id': payload.media_public_id or '',
+            'media_resource_type': payload.media_resource_type or '',
+            'aspect_ratio': payload.aspect_ratio,
+            'cta_text': payload.cta_text or '',
+            'cta_whatsapp_message': payload.cta_whatsapp_message or '',
+            'position': pos,
+            'start_at': payload.start_at or None,
+            'end_at': payload.end_at or None,
+            'created_at': now_iso,
+        }
+        await db.posts.insert_one(doc.copy())
+        inserted.append(sid)
+    return {'group_id': group_id, 'stores_count': len(inserted)}
+
+
+@api_router.put('/posts/group/{group_id}')
+async def update_multi_store_post(group_id: str, payload: MultiStorePostUpdate,
+                                   user: dict = Depends(get_current_user)):
+    """Update a multi-store announcement.
+
+    Diff logic:
+    - stores in group AND in payload  → update content
+    - stores in payload but NOT in group → insert new post (at end-of-carousel)
+    - stores in group but NOT in payload → delete those posts
+    """
+    target_ids = list({s for s in payload.store_ids if s})
+    if not target_ids:
+        raise HTTPException(status_code=400, detail='Seleziona almeno un negozio')
+    await _validate_stores_in_tenant(target_ids, user)
+
+    existing = await db.posts.find(
+        _tenant_filter(user, {'group_id': group_id}),
+        {'_id': 0, 'id': 1, 'store_id': 1, 'position': 1}
+    ).to_list(500)
+    if not existing:
+        raise HTTPException(status_code=404, detail='Annuncio non trovato')
+
+    existing_by_store = {p['store_id']: p for p in existing}
+    update_content = {
+        'title': payload.title or '',
+        'text': payload.text or '',
+        'media_url': payload.media_url or '',
+        'media_public_id': payload.media_public_id or '',
+        'media_resource_type': payload.media_resource_type or '',
+        'aspect_ratio': payload.aspect_ratio,
+        'cta_text': payload.cta_text or '',
+        'cta_whatsapp_message': payload.cta_whatsapp_message or '',
+        'start_at': payload.start_at or None,
+        'end_at': payload.end_at or None,
+    }
+    # 1. UPDATE existing posts in the group (all stores share the same content)
+    await db.posts.update_many(
+        {'group_id': group_id, **_tenant_filter(user)},
+        {'$set': update_content},
+    )
+    # 2. INSERT for stores newly added
+    new_stores = [s for s in target_ids if s not in existing_by_store]
+    org_id = user.get('organization_id')
+    now_iso = datetime.now(timezone.utc).isoformat()
+    for sid in new_stores:
+        pos = await db.posts.count_documents({'store_id': sid})
+        doc = {
+            'id': str(ObjectId()),
+            'store_id': sid,
+            'group_id': group_id,
+            'organization_id': org_id,
+            'position': pos,
+            'created_at': now_iso,
+            **update_content,
+        }
+        await db.posts.insert_one(doc.copy())
+    # 3. DELETE for stores removed
+    removed_stores = [s for s in existing_by_store if s not in target_ids]
+    if removed_stores:
+        await db.posts.delete_many({
+            'group_id': group_id,
+            'store_id': {'$in': removed_stores},
+            **_tenant_filter(user),
+        })
+    return {
+        'group_id': group_id,
+        'updated': len(existing) - len(removed_stores),
+        'added': len(new_stores),
+        'removed': len(removed_stores),
+    }
+
+
+@api_router.delete('/posts/group/{group_id}')
+async def delete_multi_store_post(group_id: str,
+                                   user: dict = Depends(get_current_user)):
+    result = await db.posts.delete_many(
+        _tenant_filter(user, {'group_id': group_id})
+    )
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail='Annuncio non trovato')
+    return {'deleted_count': result.deleted_count}
 
 
 

@@ -14,7 +14,8 @@ import Legal from './Legal';
 import MyAccount from './MyAccount';
 import Dpa from './Dpa';
 import Audit from './Audit';
-import { LogOut, BarChart3, Users, Settings as SettingsIcon, Store, FolderOpen, Building2, Sliders, FileText, UserCircle, AlertTriangle, Sun, Moon, Shield } from 'lucide-react';
+import Posts from './Posts';
+import { LogOut, BarChart3, Users, Settings as SettingsIcon, Store, FolderOpen, Building2, Sliders, FileText, UserCircle, AlertTriangle, Sun, Moon, Shield, Megaphone } from 'lucide-react';
 import { useTheme } from '@/hooks/useTheme';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -141,6 +142,17 @@ const Dashboard = () => {
                   <span className="ml-1 sm:ml-0 text-xs sm:text-sm">Venditori</span>
                 </Button>
               </Link>
+              <Link to="/dashboard/posts" className="flex-shrink-0">
+                <Button
+                  variant={isActive('/dashboard/posts') ? 'default' : 'ghost'}
+                  size="sm"
+                  className={isActive('/dashboard/posts') ? 'bg-[#D2FA46] hover:bg-[#bce63d] text-[#0a0a0b]' : ''}
+                  data-testid="nav-posts"
+                >
+                  <Megaphone className="h-4 w-4 sm:mr-2" />
+                  <span className="ml-1 sm:ml-0 text-xs sm:text-sm">Annunci</span>
+                </Button>
+              </Link>
               <Link to="/dashboard/media" className="flex-shrink-0">
                 <Button
                   variant={isActive('/dashboard/media') || isActive('/dashboard/files') ? 'default' : 'ghost'}
@@ -236,6 +248,7 @@ const Dashboard = () => {
           <Route index element={isSuper ? <Navigate to="/dashboard/organizations" replace /> : <Overview />} />
           <Route path="stores" element={<Stores />} />
           <Route path="vendors" element={<Vendors />} />
+          <Route path="posts" element={<Posts />} />
           <Route path="files" element={<Files />} />
           <Route path="media" element={<Files />} />
           <Route path="organization" element={<OrgSettings />} />

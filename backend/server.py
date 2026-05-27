@@ -2774,6 +2774,149 @@ async def vendor_manifest(vendor_id: str):
 
 
 
+# iOS Splash Screen sizes (portrait). These 8 cover ~99% of in-use iPhones
+# (2019-2024). iOS picks the matching one via the apple-touch-startup-image
+# media query at PWA launch time.
+IOS_SPLASH_SIZES = [
+    # (pixel_w, pixel_h, css_w, css_h, ratio, label)
+    (640,  1136, 320, 568, 2, 'iPhone SE / 8'),
+    (750,  1334, 375, 667, 2, 'iPhone 8 Plus'),
+    (828,  1792, 414, 896, 2, 'iPhone XR / 11'),
+    (1125, 2436, 375, 812, 3, 'iPhone X / XS / 11 Pro / 12 mini / 13 mini'),
+    (1170, 2532, 390, 844, 3, 'iPhone 12 / 13 / 14'),
+    (1179, 2556, 393, 852, 3, 'iPhone 14 Pro / 15 / 15 Pro'),
+    (1242, 2688, 414, 896, 3, 'iPhone XS Max / 11 Pro Max'),
+    (1290, 2796, 430, 932, 3, 'iPhone 14 Pro Max / 15 Pro Max / 16 Pro Max'),
+]
+
+
+async def _fetch_image_bytes(url: str) -> bytes | None:
+    if not url:
+        return None
+    try:
+        async with httpx.AsyncClient(timeout=8.0, follow_redirects=True) as c:
+            r = await c.get(url)
+            if r.status_code == 200 and r.content:
+                return r.content
+    except Exception:
+        pass
+    return None
+
+
+def _render_splash_png(width: int, height: int, icon_bytes: bytes | None,
+                       brand_hex: str, brand_name: str) -> bytes:
+    """Build a single iOS splash PNG: solid brand-colored background with the
+    org icon centered. Pure Pillow — no external service dependency."""
+    from PIL import Image, ImageDraw
+    # Background
+    try:
+        from PIL import ImageColor
+        bg = ImageColor.getrgb(brand_hex or '#ffffff')
+    except Exception:
+        bg = (255, 255, 255)
+    # Use white background for light bg, brand color stays as-is
+    img = Image.new('RGB', (width, height), bg)
+    # Center the icon at ~38% of the shorter side, with a soft rounded "card"
+    if icon_bytes:
+        try:
+            icon = Image.open(BytesIO(icon_bytes)).convert('RGBA')
+            short_side = min(width, height)
+            target = int(short_side * 0.38)
+            # Preserve square ratio for the icon canvas
+            icon_ratio = icon.width / icon.height if icon.height else 1
+            if icon_ratio >= 1:
+                new_w = target
+                new_h = int(target / icon_ratio)
+            else:
+                new_h = target
+                new_w = int(target * icon_ratio)
+            icon = icon.resize((new_w, new_h), Image.LANCZOS)
+            # Paste centered using alpha channel
+            paste_x = (width - new_w) // 2
+            paste_y = (height - new_h) // 2
+            img.paste(icon, (paste_x, paste_y), icon)
+        except Exception:
+            pass
+    else:
+        # Fallback: render the brand initial in white
+        try:
+            draw = ImageDraw.Draw(img)
+            initial = (brand_name or 'Q').strip()[:1].upper()
+            # System font fallback (Pillow doesn't ship custom fonts)
+            from PIL import ImageFont
+            font_size = max(40, min(width, height) // 4)
+            try:
+                font = ImageFont.truetype(
+                    '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
+                    font_size,
+                )
+            except Exception:
+                font = ImageFont.load_default()
+            bbox = draw.textbbox((0, 0), initial, font=font)
+            tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]
+            draw.text(((width - tw) / 2 - bbox[0],
+                       (height - th) / 2 - bbox[1]),
+                      initial, fill='white', font=font)
+        except Exception:
+            pass
+    buf = BytesIO()
+    img.save(buf, format='PNG', optimize=True)
+    return buf.getvalue()
+
+
+@app.get('/api/splash/v/{vendor_id}/{size}.png')
+async def vendor_splash(vendor_id: str, size: str):
+    """Per-vendor iOS PWA splash screen.
+
+    `size` is `WxH` (e.g. `1170x2532`). Only sizes in IOS_SPLASH_SIZES are
+    accepted so we can't be abused as a free image transformer.
+    """
+    try:
+        w_str, h_str = size.lower().split('x', 1)
+        width = int(w_str)
+        height = int(h_str)
+    except (ValueError, AttributeError):
+        raise HTTPException(status_code=400, detail='Invalid size')
+    if not any(s[0] == width and s[1] == height for s in IOS_SPLASH_SIZES):
+        raise HTTPException(status_code=400, detail='Unsupported splash size')
+
+    vendor = await _resolve_vendor_doc(vendor_id)
+    if not vendor:
+        raise HTTPException(status_code=404, detail='Vendor not found')
+    org = {}
+    if vendor.get('organization_id'):
+        org = await db.organizations.find_one(
+            {'id': vendor['organization_id']},
+            {'_id': 0, 'pwa_icon_url': 1, 'logo_url': 1,
+             'primary_color': 1, 'brand_name': 1, 'name': 1}
+        ) or {}
+    icon_url = (org.get('pwa_icon_url') or '').strip() or (org.get('logo_url') or '').strip()
+    brand_hex = (org.get('primary_color') or '#ffffff').strip() or '#ffffff'
+    brand_name = (org.get('brand_name') or '').strip() or (org.get('name') or '').strip() or 'QRHub'
+
+    # Pre-resize via Cloudinary to keep our render cheap (avoid downloading a
+    # 4MB original when we only need it at ~38% splash size).
+    if icon_url and 'res.cloudinary.com' in icon_url and '/upload/' in icon_url:
+        target_side = int(min(width, height) * 0.5)
+        icon_url = icon_url.replace(
+            '/upload/',
+            f"/upload/c_pad,b_white,w_{target_side},h_{target_side},f_png/",
+            1,
+        )
+    icon_bytes = await _fetch_image_bytes(icon_url)
+
+    png = await asyncio.to_thread(
+        _render_splash_png, width, height, icon_bytes, brand_hex, brand_name,
+    )
+    return FastAPIResponse(
+        content=png,
+        media_type='image/png',
+        headers={'Cache-Control': 'public, max-age=86400'},  # 24h
+    )
+
+
+
+
 @app.get('/og/v/{vendor_id}', response_class=HTMLResponse)
 async def og_vendor_preview(vendor_id: str, request: Request):
     """Server-rendered preview page consumed by social-media crawlers."""

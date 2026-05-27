@@ -228,6 +228,35 @@ const VendorLanding = () => {
     }
     mobileWebTitle.content = vendor.name || vendor.organization?.brand_name || 'Contatto';
 
+    // iOS Splash Screens — inject 8 <link rel="apple-touch-startup-image">
+    // entries, one per supported iPhone size. iOS picks the one that matches
+    // the device's media query and shows it during PWA launch instead of a
+    // blank white screen. The PNG is generated server-side with the org's
+    // PWA icon centered on the brand color.
+    const SPLASH_SIZES = [
+      { w: 640,  h: 1136, cssW: 320, cssH: 568, dpr: 2 },
+      { w: 750,  h: 1334, cssW: 375, cssH: 667, dpr: 2 },
+      { w: 828,  h: 1792, cssW: 414, cssH: 896, dpr: 2 },
+      { w: 1125, h: 2436, cssW: 375, cssH: 812, dpr: 3 },
+      { w: 1170, h: 2532, cssW: 390, cssH: 844, dpr: 3 },
+      { w: 1179, h: 2556, cssW: 393, cssH: 852, dpr: 3 },
+      { w: 1242, h: 2688, cssW: 414, cssH: 896, dpr: 3 },
+      { w: 1290, h: 2796, cssW: 430, cssH: 932, dpr: 3 },
+    ];
+    const splashLinks = [];
+    SPLASH_SIZES.forEach(({ w, h, cssW, cssH, dpr }) => {
+      const link = document.createElement('link');
+      link.rel = 'apple-touch-startup-image';
+      link.setAttribute('data-qrhub-splash', '1');
+      link.media =
+        `(device-width: ${cssW}px) and (device-height: ${cssH}px) ` +
+        `and (-webkit-device-pixel-ratio: ${dpr}) ` +
+        `and (orientation: portrait)`;
+      link.href = `${apiBase}/api/splash/v/${vendor.id}/${w}x${h}.png`;
+      document.head.appendChild(link);
+      splashLinks.push(link);
+    });
+
     // Cleanup on unmount: restore platform manifest to avoid leaking the
     // vendor PWA when the user navigates away (e.g. to /privacy then back
     // to /login on the admin host).
@@ -235,6 +264,7 @@ const VendorLanding = () => {
       if (manifestLink && manifestLink.parentNode) manifestLink.parentNode.removeChild(manifestLink);
       if (appleIcon && appleIcon.parentNode) appleIcon.parentNode.removeChild(appleIcon);
       if (themeMeta && themeMeta.parentNode) themeMeta.parentNode.removeChild(themeMeta);
+      splashLinks.forEach((l) => { if (l && l.parentNode) l.parentNode.removeChild(l); });
     };
   }, [vendor?.id, vendor?.organization?.pwa_icon_url, vendor?.organization?.logo_url, vendor?.organization?.primary_color, vendor?.name, vendor?.organization?.brand_name]);
 

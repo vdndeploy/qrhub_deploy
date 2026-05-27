@@ -105,6 +105,43 @@ const BadgePrintDialog = ({ open, onClose, vendor, organization, landingUrl }) =
     }
   };
 
+  /**
+   * Resize and compress an uploaded image to a manageable JPEG dataURL so the
+   * printable popup never exceeds the size budget that mobile rasterisers
+   * silently drop (iOS Safari "Save as PDF" caps inline images around 1-2 MB).
+   * We target the canonical hero aspect ratio (2:1) at 1024×512 — way enough
+   * resolution for a 86×46 mm badge header even on glossy print.
+   */
+  const resizeImageToBannerDataUrl = (file) =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const img = new Image();
+        img.onload = () => {
+          try {
+            const targetW = 1024;
+            const targetH = 512;
+            const cnv = document.createElement('canvas');
+            cnv.width = targetW;
+            cnv.height = targetH;
+            const ctx = cnv.getContext('2d');
+            // Cover-fit (like CSS object-fit: cover) so the badge hero is full-bleed
+            const r = Math.max(targetW / img.width, targetH / img.height);
+            const w = img.width * r;
+            const h = img.height * r;
+            ctx.drawImage(img, (targetW - w) / 2, (targetH - h) / 2, w, h);
+            resolve(cnv.toDataURL('image/jpeg', 0.85));
+          } catch (err) {
+            reject(err);
+          }
+        };
+        img.onerror = reject;
+        img.src = reader.result;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+
   const handleBannerSelect = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -116,29 +153,47 @@ const BadgePrintDialog = ({ open, onClose, vendor, organization, landingUrl }) =
       toast.error('Massimo 4 MB');
       return;
     }
-    // Upload to Cloudinary so the banner is reusable from "Sfoglia caricati"
-    // next time, instead of living only in the local FileReader memory. We
-    // also keep an inline dataURL of the same file so the printable popup
-    // doesn't fight cross-origin policies when rendering the PDF.
     setUploading(true);
     try {
+      // Two parallel jobs:
+      //  1. Upload the original file to Cloudinary so it's reusable later
+      //     from "Sfoglia caricati".
+      //  2. Resize+compress locally so the printable popup gets a small
+      //     dataURL (≈40-80 KB) instead of a multi-MB blob, which mobile PDF
+      //     rasterisers silently drop (= black banner in the saved PDF).
       const fd = new FormData();
       fd.append('file', file);
       fd.append('folder', 'uploads');
       const up = axios.post(`${API}/upload`, fd, { withCredentials: true });
-      const localDataPromise = new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
-      const [, localData] = await Promise.all([up, localDataPromise]);
-      setBannerDataUrl(localData);
+      const resizePromise = resizeImageToBannerDataUrl(file);
+      const [, resized] = await Promise.all([up, resizePromise]);
+      setBannerDataUrl(resized);
       toast.success('Banner caricato e salvato in libreria');
     } catch {
       toast.error('Errore upload del banner');
     } finally {
       setUploading(false);
+    }
+  };
+
+  const handleBannerFromLibrary = async (item) => {
+    // Fetch the remote URL, then resize+compress so the printable popup gets
+    // a lightweight dataURL (mobile PDF rasterisers drop oversized inline
+    // images). We pipe the blob through the same canvas resize used by
+    // freshly-uploaded files.
+    try {
+      const res = await fetch(item.url, { mode: 'cors' });
+      if (!res.ok) throw new Error('fetch failed');
+      const blob = await res.blob();
+      const file = new File([blob], 'lib-banner', { type: blob.type || 'image/jpeg' });
+      const resized = await resizeImageToBannerDataUrl(file);
+      setBannerDataUrl(resized);
+      toast.success('Banner selezionato');
+    } catch {
+      // Last-resort fallback: original URL. The popup might still drop it
+      // on iOS, but at least desktop browsers will print it correctly.
+      setBannerDataUrl(item.url);
+      toast.success('Banner selezionato');
     }
   };
 

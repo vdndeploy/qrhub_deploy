@@ -2,8 +2,17 @@
 <html lang="en">
     <head>
         <meta charset="utf-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
         <meta name="theme-color" content="#000000" />
+        <!--
+        PWA standalone mode (iOS Safari + Chrome Android).
+        These must be in the static HTML — iOS reads them only at "Add to
+        Home Screen" time. If injected later via JS the saved icon opens
+        with the Safari toolbar instead of as a fullscreen app.
+        -->
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="description" content="QRHub — la piattaforma multi-tenant per landing page QR, post a carosello e analytics privacy-first." />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />

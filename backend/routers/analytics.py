@@ -465,3 +465,94 @@ async def get_analytics_overview(user: dict = Depends(get_current_user)):
         'total_clicks': total_clicks,
         'vendor_stats': vendor_stats
     }
+
+
+
+@router.get('/analytics/daily-counter')
+async def get_daily_counter(
+    store_id: Optional[str] = None,
+    days: int = 30,
+    user: dict = Depends(get_current_user),
+):
+    """Daily counter KPI — scans (QR page_view) and WhatsApp clicks aggregated
+    by day, optionally filtered by store. Used in the dashboard as an
+    in-store "people counter": each scan ≈ a customer interaction, each
+    WhatsApp click ≈ a conversation started.
+
+    Returns: { series: [{date, scans, whatsapp}], totals: {scans, whatsapp},
+               stores: [{id, name}] }
+    """
+    days = max(1, min(int(days or 30), 180))
+    tz_utc = timezone.utc
+    today = datetime.now(tz_utc).date()
+    start_date = today - timedelta(days=days - 1)
+    start_iso = datetime(start_date.year, start_date.month, start_date.day,
+                          tzinfo=tz_utc).isoformat()
+
+    # Build vendor scope: tenant first, then optional store filter.
+    vendor_filter = _tenant_filter(user)
+    if store_id:
+        # Validate the store belongs to the user's tenant (super admin is
+        # unrestricted by _tenant_filter).
+        store_check = await db.stores.find_one(
+            {'id': store_id, **vendor_filter}, {'_id': 1}
+        ) if not _is_super_admin(user) else \
+            await db.stores.find_one({'id': store_id}, {'_id': 1})
+        if not store_check:
+            raise HTTPException(status_code=404, detail='Store not found')
+        vendor_filter = {**vendor_filter, 'store_id': store_id}
+
+    vendor_docs = await db.vendors.find(
+        vendor_filter, {'_id': 0, 'id': 1}
+    ).to_list(10000)
+    vendor_ids = [v['id'] for v in vendor_docs]
+
+    # Stores list for the dropdown — always scoped to user's tenant.
+    store_docs = await db.stores.find(
+        _tenant_filter(user), {'_id': 0, 'id': 1, 'name': 1}
+    ).sort('name', 1).to_list(1000)
+    stores = [{'id': s['id'], 'name': s.get('name', '')} for s in store_docs]
+
+    # Empty series if no vendors match (e.g. brand-new store).
+    series = []
+    for i in range(days):
+        d = start_date + timedelta(days=i)
+        series.append({'date': d.isoformat(), 'scans': 0, 'whatsapp': 0})
+    date_index = {row['date']: row for row in series}
+
+    if vendor_ids:
+        pipeline = [
+            {'$match': {
+                'vendor_id': {'$in': vendor_ids},
+                'event_type': {'$in': ['page_view', 'whatsapp_click']},
+                'timestamp': {'$gte': start_iso},
+            }},
+            {'$group': {
+                '_id': {
+                    'day': {'$substr': ['$timestamp', 0, 10]},
+                    'type': '$event_type',
+                },
+                'n': {'$sum': 1},
+            }},
+        ]
+        async for row in db.analytics.aggregate(pipeline):
+            day = row['_id']['day']
+            etype = row['_id']['type']
+            n = row['n']
+            if day in date_index:
+                key = 'scans' if etype == 'page_view' else 'whatsapp'
+                date_index[day][key] = n
+
+    totals = {
+        'scans': sum(r['scans'] for r in series),
+        'whatsapp': sum(r['whatsapp'] for r in series),
+    }
+    conversion = round((totals['whatsapp'] / totals['scans'] * 100), 1) if totals['scans'] else 0.0
+
+    return {
+        'series': series,
+        'totals': {**totals, 'conversion_pct': conversion},
+        'stores': stores,
+        'days': days,
+        'store_id': store_id or '',
+    }

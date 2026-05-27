@@ -3,6 +3,7 @@ import axios from 'axios';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { Eye, MousePointerClick, Users } from 'lucide-react';
 import AnalyticsDetailed from './AnalyticsDetailed';
+import DailyCounterCard from '@/components/DailyCounterCard';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -80,6 +81,10 @@ const Overview = () => {
             value={stats?.total_clicks}
             testid="stat-clicks"
           />
+        </div>
+
+        <div className="mt-6">
+          <DailyCounterCard />
         </div>
 
         {chartData.length > 0 && (

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { toast } from 'sonner';
 import {
   Plus, Trash2, Edit, Upload, X, Image as ImgIcon, Video, Calendar, Clock, FolderOpen,
-  Megaphone, Store as StoreIcon, CheckSquare, Square, Search,
+  Megaphone, Store as StoreIcon, CheckSquare, Square, Search, MoveUp, MoveDown,
 } from 'lucide-react';
 import MediaPicker from '@/components/MediaPicker';
 
@@ -125,10 +126,14 @@ const StoreMultiSelect = ({ stores, value, onChange }) => {
 };
 
 const Posts = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const filterStoreId = searchParams.get('store') || '';
+
   const [groups, setGroups] = useState([]);
+  const [storePosts, setStorePosts] = useState([]); // posts for filterStoreId, ordered
   const [stores, setStores] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [editing, setEditing] = useState(null); // null | 'new' | groupObj
+  const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(emptyForm());
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -137,22 +142,59 @@ const Posts = () => {
   const fetchAll = useCallback(async () => {
     setLoading(true);
     try {
-      const [g, s] = await Promise.all([
+      const calls = [
         axios.get(`${API}/posts`, { withCredentials: true }),
         axios.get(`${API}/stores`, { withCredentials: true }),
-      ]);
+      ];
+      if (filterStoreId) {
+        calls.push(axios.get(`${API}/stores/${filterStoreId}/posts`, { withCredentials: true }));
+      }
+      const [g, s, sp] = await Promise.all(calls);
       setGroups(g.data);
       setStores(s.data);
+      if (sp) setStorePosts(sp.data); else setStorePosts([]);
     } catch (e) {
       toast.error('Errore caricamento');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [filterStoreId]);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
-  const openNew = () => { setForm(emptyForm()); setEditing('new'); };
+  const setStoreFilter = (sid) => {
+    if (sid) {
+      setSearchParams({ store: sid }, { replace: true });
+    } else {
+      setSearchParams({}, { replace: true });
+    }
+  };
+
+  const movePost = async (idx, dir) => {
+    const next = [...storePosts];
+    const target = idx + dir;
+    if (target < 0 || target >= next.length) return;
+    [next[idx], next[target]] = [next[target], next[idx]];
+    setStorePosts(next);
+    try {
+      await axios.post(
+        `${API}/stores/${filterStoreId}/posts/reorder`,
+        { post_ids: next.map(p => p.id) },
+        { withCredentials: true }
+      );
+    } catch {
+      toast.error('Errore riordino');
+      fetchAll();
+    }
+  };
+
+  const openNew = () => {
+    const form0 = emptyForm();
+    // Pre-fill store_ids if filtering by store
+    if (filterStoreId) form0.store_ids = [filterStoreId];
+    setForm(form0);
+    setEditing('new');
+  };
   const openEdit = (g) => {
     setForm({
       title: g.title || '', text: g.text || '',
@@ -165,6 +207,18 @@ const Posts = () => {
     });
     setEditing(g);
   };
+  // Open the edit dialog from a single per-store post by looking up its group
+  const openEditFromStorePost = (post) => {
+    const group = groups.find(g => g.group_id === post.group_id || g.stores?.some(s => s.post_id === post.id));
+    if (group) openEdit(group);
+    else toast.error('Annuncio non trovato');
+  };
+
+  // Group-by-store stats for the dropdown badge counts
+  const storeFilterName = useMemo(() => {
+    if (!filterStoreId) return '';
+    return stores.find(s => s.id === filterStoreId)?.name || '';
+  }, [stores, filterStoreId]);
   const cancelEdit = () => { setEditing(null); setForm(emptyForm()); };
 
   const handleUpload = async (e) => {
@@ -253,8 +307,112 @@ const Posts = () => {
         </Button>
       </div>
 
+      <div className="flex items-center gap-2 flex-wrap text-sm">
+        <div className="flex items-center gap-2 bg-gray-100 dark:bg-[#1a1a1c] rounded-full p-0.5">
+          <button
+            type="button"
+            onClick={() => setStoreFilter('')}
+            data-testid="posts-filter-all"
+            className={`px-3 py-1.5 rounded-full text-xs font-medium transition ${
+              !filterStoreId
+                ? 'bg-white dark:bg-[#0a0a0b] text-gray-900 dark:text-white shadow-sm'
+                : 'text-gray-500 dark:text-[#8a8a92] hover:text-gray-900 dark:hover:text-white'
+            }`}
+          >
+            Tutti i negozi
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              if (!filterStoreId && stores.length > 0) setStoreFilter(stores[0].id);
+            }}
+            data-testid="posts-filter-bystore-toggle"
+            className={`px-3 py-1.5 rounded-full text-xs font-medium transition ${
+              filterStoreId
+                ? 'bg-white dark:bg-[#0a0a0b] text-gray-900 dark:text-white shadow-sm'
+                : 'text-gray-500 dark:text-[#8a8a92] hover:text-gray-900 dark:hover:text-white'
+            }`}
+          >
+            Ordina per negozio
+          </button>
+        </div>
+        {filterStoreId && (
+          <div className="relative">
+            <StoreIcon className="h-4 w-4 text-gray-500 dark:text-[#8a8a92] absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <select
+              value={filterStoreId}
+              onChange={(e) => setStoreFilter(e.target.value)}
+              data-testid="posts-filter-store-select"
+              className="pl-8 pr-3 py-1.5 text-sm rounded-full border border-gray-200 dark:border-white/10 bg-white dark:bg-[#1a1a1c] text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#D2FA46]/40"
+            >
+              {stores.map((s) => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
+            </select>
+          </div>
+        )}
+        {filterStoreId && (
+          <span className="text-xs text-gray-500 dark:text-[#8a8a92]">
+            Usa le frecce ↑↓ per riordinare il carosello di <strong>{storeFilterName}</strong>
+          </span>
+        )}
+      </div>
+
       {loading ? (
         <div className="text-center py-12 text-sm text-gray-500 dark:text-[#6a6a72]">Caricamento…</div>
+      ) : filterStoreId ? (
+        // ─── PER-STORE MODE: linear ordered list with up/down arrows ───
+        storePosts.length === 0 ? (
+          <div className="border border-dashed rounded-3xl py-16 text-center bg-white dark:bg-[#131316]">
+            <Megaphone className="h-10 w-10 text-gray-300 mx-auto mb-3" />
+            <p className="text-sm text-gray-500 dark:text-[#6a6a72]">
+              Nessun annuncio per questo negozio.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-2" data-testid="posts-list-bystore">
+            {storePosts.map((p, i) => (
+              <div
+                key={p.id}
+                className="bg-white dark:bg-[#131316] border border-gray-200 dark:border-white/10 rounded-2xl p-3 flex items-center gap-3"
+                data-testid={`post-bystore-row-${i}`}
+              >
+                <div className="flex flex-col items-center justify-center text-[10px] font-bold text-gray-400 dark:text-[#6a6a72] w-7 flex-shrink-0">
+                  #{i + 1}
+                </div>
+                <div className="w-14 h-14 flex-shrink-0 bg-gray-100 dark:bg-[#0a0a0b] rounded-lg overflow-hidden">
+                  {p.media_url ? (
+                    p.media_resource_type === 'video'
+                      ? <div className="w-full h-full flex items-center justify-center bg-black"><Video className="h-5 w-5 text-white" /></div>
+                      : <img src={p.media_url} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-gray-400"><ImgIcon className="h-5 w-5" /></div>
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                    <span className="font-medium text-sm truncate text-gray-900 dark:text-white">
+                      {p.title || '(senza titolo)'}
+                    </span>
+                    <StatusBadge status={p.status} />
+                  </div>
+                  <p className="text-xs text-gray-500 dark:text-[#8a8a92] line-clamp-1">{p.text || '—'}</p>
+                </div>
+                <div className="flex items-center gap-0.5 flex-shrink-0">
+                  <Button variant="ghost" size="icon" onClick={() => movePost(i, -1)} disabled={i === 0} title="Sposta su" data-testid={`post-bystore-up-${i}`}>
+                    <MoveUp className="h-4 w-4" />
+                  </Button>
+                  <Button variant="ghost" size="icon" onClick={() => movePost(i, 1)} disabled={i === storePosts.length - 1} title="Sposta giù" data-testid={`post-bystore-down-${i}`}>
+                    <MoveDown className="h-4 w-4" />
+                  </Button>
+                  <Button variant="ghost" size="icon" onClick={() => openEditFromStorePost(p)} title="Modifica" data-testid={`post-bystore-edit-${i}`}>
+                    <Edit className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )
       ) : groups.length === 0 ? (
         <div className="border border-dashed rounded-3xl py-16 text-center bg-white dark:bg-[#131316]">
           <Megaphone className="h-10 w-10 text-gray-300 mx-auto mb-3" />

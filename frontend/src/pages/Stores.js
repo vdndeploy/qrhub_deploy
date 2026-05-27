@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import axios from 'axios';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,7 +8,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { toast } from 'sonner';
 import { Plus, Edit, Trash2, Store as StoreIcon, Megaphone } from 'lucide-react';
-import PostsManager from '@/components/PostsManager';
 import HoursEditor, { formatHoursText, ensureHoursShape } from '@/components/HoursEditor';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -18,7 +18,6 @@ const Stores = () => {
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingStore, setEditingStore] = useState(null);
-  const [postsManagerStore, setPostsManagerStore] = useState(null);
   const [formData, setFormData] = useState(empty());
 
   useEffect(() => { fetchStores(); }, []);
@@ -129,11 +128,13 @@ const Stores = () => {
                   </TableCell>
                   <TableCell>{[s.whatsapp, s.instagram, s.facebook, s.tiktok].filter(Boolean).length}/4</TableCell>
                   <TableCell>
-                    <Button variant="outline" size="sm" onClick={() => setPostsManagerStore(s)} data-testid={`store-posts-button-${s.id}`}>
-                      <Megaphone className="h-4 w-4 sm:mr-2 text-[#D2FA46]" />
-                      <span className="hidden sm:inline">{postsCounts[s.id] || 0} {(postsCounts[s.id] === 1) ? 'annuncio' : 'annunci'}</span>
-                      <span className="sm:hidden ml-1">{postsCounts[s.id] || 0}</span>
-                    </Button>
+                    <Link to={`/dashboard/posts?store=${s.id}`} data-testid={`store-posts-link-${s.id}`}>
+                      <Button variant="outline" size="sm">
+                        <Megaphone className="h-4 w-4 sm:mr-2 text-[#D2FA46]" />
+                        <span className="hidden sm:inline">{postsCounts[s.id] || 0} {(postsCounts[s.id] === 1) ? 'annuncio' : 'annunci'}</span>
+                        <span className="sm:hidden ml-1">{postsCounts[s.id] || 0}</span>
+                      </Button>
+                    </Link>
                   </TableCell>
                   <TableCell className="text-right">
                     <Button variant="outline" size="sm" onClick={() => handleOpenDialog(s)}><Edit className="h-4 w-4" /></Button>
@@ -180,13 +181,6 @@ const Stores = () => {
           </form>
         </DialogContent>
       </Dialog>
-
-      <PostsManager
-        open={!!postsManagerStore}
-        onClose={() => { setPostsManagerStore(null); fetchStores(); }}
-        storeId={postsManagerStore?.id}
-        storeName={postsManagerStore?.name}
-      />
     </div>
   );
 };

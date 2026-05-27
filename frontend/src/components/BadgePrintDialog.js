@@ -193,12 +193,6 @@ const BadgePrintDialog = ({ open, onClose, vendor, organization, landingUrl }) =
         const dw = img.width * r;
         const dh = img.height * r;
         ctx.drawImage(img, (W - dw) / 2, (HERO_H - dh) / 2, dw, dh);
-        // Slight darken overlay so white logo stays legible
-        const ov = ctx.createLinearGradient(0, 0, 0, HERO_H);
-        ov.addColorStop(0, 'rgba(0,0,0,0.05)');
-        ov.addColorStop(1, 'rgba(0,0,0,0.35)');
-        ctx.fillStyle = ov;
-        ctx.fillRect(0, 0, W, HERO_H);
       } catch {
         drawBrandGradient(ctx, brand, brandSoft, W, HERO_H);
       }

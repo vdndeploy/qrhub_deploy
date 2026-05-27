@@ -111,17 +111,18 @@ const PostsManager = ({ open, onClose, storeId, storeName }) => {
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-3xl w-[95vw] sm:w-[95vw] max-h-[90vh] overflow-y-auto overflow-x-hidden p-4 sm:p-6" data-testid="posts-manager-dialog">
-        <DialogHeader>
-          <DialogTitle>Gestione Annunci — {storeName}</DialogTitle>
-          <DialogDescription>Crea un carosello di annunci per questo negozio. I clienti li vedranno sulla landing page del venditore.</DialogDescription>
+      <DialogContent className="max-w-3xl w-[95vw] p-0 gap-0 max-h-[92dvh] sm:max-h-[88vh] flex flex-col overflow-hidden" data-testid="posts-manager-dialog">
+        <DialogHeader className="px-4 sm:px-6 pt-5 pb-4 pr-12 border-b border-gray-100 dark:border-white/10 flex-shrink-0">
+          <DialogTitle className="text-base sm:text-lg truncate">Annunci — {storeName}</DialogTitle>
+          <DialogDescription className="text-xs sm:text-sm">Crea un carosello di annunci per questo negozio. I clienti li vedranno sulla landing page del venditore.</DialogDescription>
         </DialogHeader>
 
+        <div className="flex-1 min-h-0 overflow-y-auto px-4 sm:px-6 py-4">
         {editing === null ? (
           <div className="space-y-3">
-            <div className="flex justify-between items-center">
+            <div className="flex justify-between items-center gap-2 flex-wrap">
               <p className="text-sm text-gray-600 dark:text-[#8a8a92]">{posts.length} {posts.length === 1 ? 'annuncio' : 'annunci'} configurati</p>
-              <Button onClick={openNew} className="bg-[#D2FA46] hover:bg-[#bce63d] text-[#0a0a0b]" data-testid="post-new-button">
+              <Button onClick={openNew} size="sm" className="bg-[#D2FA46] hover:bg-[#bce63d] text-[#0a0a0b]" data-testid="post-new-button">
                 <Plus className="h-4 w-4 mr-2" />Nuovo Annuncio
               </Button>
             </div>
@@ -134,7 +135,7 @@ const PostsManager = ({ open, onClose, storeId, storeName }) => {
             ) : (
               <div className="space-y-2">
                 {posts.map((p, i) => (
-                  <div key={p.id} className="border rounded-lg p-3 flex flex-col sm:flex-row gap-3 sm:items-center" data-testid={`post-row-${i}`}>
+                  <div key={p.id} className="border rounded-lg p-3 flex flex-col sm:flex-row gap-3 sm:items-center min-w-0" data-testid={`post-row-${i}`}>
                     <div className="flex gap-3 items-start min-w-0 flex-1">
                       <div className="w-14 h-14 sm:w-16 sm:h-16 flex-shrink-0 bg-gray-100 dark:bg-[#1a1a1c] rounded overflow-hidden">
                         {p.media_url ? (
@@ -176,7 +177,7 @@ const PostsManager = ({ open, onClose, storeId, storeName }) => {
         ) : (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="font-semibold">{editing === 'new' ? 'Nuovo Annuncio' : 'Modifica Annuncio'}</h3>
+              <h3 className="font-semibold text-sm sm:text-base">{editing === 'new' ? 'Nuovo Annuncio' : 'Modifica Annuncio'}</h3>
               <Button variant="ghost" size="sm" onClick={cancelEdit}><X className="h-4 w-4 mr-1" />Annulla</Button>
             </div>
             <div>
@@ -190,13 +191,13 @@ const PostsManager = ({ open, onClose, storeId, storeName }) => {
             <div>
               <Label>Media (immagine o video)</Label>
               <div className="flex gap-2 flex-wrap">
-                <Button type="button" variant="outline" onClick={() => document.getElementById('post-media-upload').click()} disabled={uploading}>
+                <Button type="button" variant="outline" size="sm" onClick={() => document.getElementById('post-media-upload').click()} disabled={uploading}>
                   <Upload className="h-4 w-4 mr-2" />{uploading ? 'Caricamento...' : 'Carica File'}
                 </Button>
-                <Button type="button" variant="outline" onClick={() => setPickerOpen(true)} disabled={uploading} data-testid="post-media-from-library">
-                  <FolderOpen className="h-4 w-4 mr-2" />Scegli dalla libreria
+                <Button type="button" variant="outline" size="sm" onClick={() => setPickerOpen(true)} disabled={uploading} data-testid="post-media-from-library">
+                  <FolderOpen className="h-4 w-4 mr-2" />Libreria
                 </Button>
-                {form.media_url && <Button type="button" variant="ghost" onClick={removeMedia}><X className="h-4 w-4 mr-1" />Rimuovi</Button>}
+                {form.media_url && <Button type="button" variant="ghost" size="sm" onClick={removeMedia}><X className="h-4 w-4 mr-1" />Rimuovi</Button>}
               </div>
               <input id="post-media-upload" type="file" accept="image/*,video/*" onChange={handleUpload} className="hidden" />
               {form.media_url && (
@@ -210,42 +211,51 @@ const PostsManager = ({ open, onClose, storeId, storeName }) => {
               )}
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
+              <div className="min-w-0">
                 <Label>Testo Bottone CTA (opzionale)</Label>
-                <Input value={form.cta_text} onChange={(e) => setForm({...form, cta_text: e.target.value})} placeholder="Es. Scopri di più" />
+                <Input value={form.cta_text} onChange={(e) => setForm({...form, cta_text: e.target.value})} placeholder="Es. Scopri di più" className="w-full" />
               </div>
-              <div>
+              <div className="min-w-0">
                 <Label>Messaggio WhatsApp CTA</Label>
-                <Input value={form.cta_whatsapp_message} onChange={(e) => setForm({...form, cta_whatsapp_message: e.target.value})} placeholder="Ciao, info su..." />
+                <Input value={form.cta_whatsapp_message} onChange={(e) => setForm({...form, cta_whatsapp_message: e.target.value})} placeholder="Ciao, info su..." className="w-full" />
               </div>
             </div>
-            <div className="border rounded-lg p-3 bg-gray-50 dark:bg-[#0a0a0b]/50">
+            <div className="border rounded-lg p-3 bg-gray-50 dark:bg-[#0a0a0b]/50 overflow-hidden">
               <div className="flex items-center gap-2 mb-2">
                 <Clock className="h-4 w-4 text-[#D2FA46]" />
                 <span className="text-sm font-medium">Programmazione (opzionale)</span>
               </div>
               <p className="text-xs text-gray-500 dark:text-[#6a6a72] mb-3">L'annuncio sarà visibile solo nell'intervallo. Lascia vuoto per "sempre attivo".</p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full">
+                <div className="min-w-0 w-full">
                   <Label className="text-xs">Inizio</Label>
                   <Input type="datetime-local" value={toLocalInput(form.start_at)}
                           onChange={(e) => setForm({...form, start_at: fromLocalInput(e.target.value)})}
+                          className="w-full max-w-full text-sm"
                           data-testid="post-start-input" />
                 </div>
-                <div>
+                <div className="min-w-0 w-full">
                   <Label className="text-xs">Fine (scadenza)</Label>
                   <Input type="datetime-local" value={toLocalInput(form.end_at)}
                           onChange={(e) => setForm({...form, end_at: fromLocalInput(e.target.value)})}
+                          className="w-full max-w-full text-sm"
                           data-testid="post-end-input" />
                 </div>
               </div>
             </div>
-            <div className="flex justify-end gap-2 pt-2">
-              <Button variant="outline" onClick={cancelEdit}>Annulla</Button>
-              <Button onClick={handleSave} disabled={saving} className="bg-[#D2FA46] hover:bg-[#bce63d] text-[#0a0a0b]" data-testid="post-save-button">
-                {saving ? 'Salvataggio...' : (editing === 'new' ? 'Crea' : 'Salva')}
-              </Button>
-            </div>
+          </div>
+        )}
+        </div>
+
+        {editing !== null && (
+          <div
+            className="flex-shrink-0 flex flex-col-reverse sm:flex-row justify-end gap-2 px-4 sm:px-6 py-3 border-t border-gray-100 dark:border-white/10 bg-white dark:bg-[#131316]"
+            style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom))' }}
+          >
+            <Button variant="outline" onClick={cancelEdit} className="h-11 sm:h-10">Annulla</Button>
+            <Button onClick={handleSave} disabled={saving} className="h-11 sm:h-10 font-semibold bg-[#D2FA46] hover:bg-[#bce63d] text-[#0a0a0b]" data-testid="post-save-button">
+              {saving ? 'Salvataggio...' : (editing === 'new' ? 'Crea' : 'Salva')}
+            </Button>
           </div>
         )}
       </DialogContent>

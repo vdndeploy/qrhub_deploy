@@ -9,6 +9,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { toast } from 'sonner';
 import { Plus, Edit, Trash2, Store as StoreIcon, Megaphone } from 'lucide-react';
 import HoursEditor, { formatHoursText, ensureHoursShape } from '@/components/HoursEditor';
+import {
+  normalizeWhatsapp,
+  normalizeInstagram,
+  normalizeFacebook,
+  normalizeTiktok,
+} from '@/lib/normalizeSocial';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -65,8 +71,14 @@ const Stores = () => {
       // Derive a human-readable hours_text from the structured hours so the
       // landing page (and any legacy consumer) always has a string fallback.
       const generatedText = formatHoursText(formData.hours);
+      // Safety-net normalization in case the admin pressed Submit without
+      // ever blurring the input (e.g. mobile autofill submit).
       const payload = {
         ...formData,
+        whatsapp: normalizeWhatsapp(formData.whatsapp),
+        instagram: normalizeInstagram(formData.instagram),
+        facebook: normalizeFacebook(formData.facebook),
+        tiktok: normalizeTiktok(formData.tiktok),
         hours_text: generatedText || formData.hours_text || '',
         post_title: '', post_text: '', post_media_url: '', post_cta_text: '', post_whatsapp_message: '',
       };
@@ -159,11 +171,60 @@ const Stores = () => {
               <Input value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} required placeholder="Es. Negozio Centro Milano" />
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div><Label>WhatsApp URL</Label><Input placeholder="https://wa.me/39..." value={formData.whatsapp} onChange={(e) => setFormData({...formData, whatsapp: e.target.value})} /></div>
+              <div>
+                <Label>WhatsApp</Label>
+                <Input
+                  placeholder="Es. 333 1234567 o +39 333 1234567"
+                  value={formData.whatsapp}
+                  onChange={(e) => setFormData({...formData, whatsapp: e.target.value})}
+                  onBlur={(e) => {
+                    const v = normalizeWhatsapp(e.target.value);
+                    if (v !== formData.whatsapp) setFormData({...formData, whatsapp: v});
+                  }}
+                  data-testid="store-whatsapp-input"
+                />
+                <p className="text-[10px] text-gray-500 dark:text-[#6a6a72] mt-1">Inserisci solo il numero — il link <code>wa.me</code> viene generato in automatico.</p>
+              </div>
               <div><Label>Messaggio WhatsApp</Label><Input placeholder="Ciao! Info..." value={formData.whatsapp_message} onChange={(e) => setFormData({...formData, whatsapp_message: e.target.value})} /></div>
-              <div><Label>Instagram</Label><Input placeholder="https://instagram.com/..." value={formData.instagram} onChange={(e) => setFormData({...formData, instagram: e.target.value})} /></div>
-              <div><Label>Facebook</Label><Input placeholder="https://facebook.com/..." value={formData.facebook} onChange={(e) => setFormData({...formData, facebook: e.target.value})} /></div>
-              <div><Label>TikTok</Label><Input placeholder="https://tiktok.com/@..." value={formData.tiktok} onChange={(e) => setFormData({...formData, tiktok: e.target.value})} /></div>
+              <div>
+                <Label>Instagram</Label>
+                <Input
+                  placeholder="Es. mario_rossi oppure @mario_rossi"
+                  value={formData.instagram}
+                  onChange={(e) => setFormData({...formData, instagram: e.target.value})}
+                  onBlur={(e) => {
+                    const v = normalizeInstagram(e.target.value);
+                    if (v !== formData.instagram) setFormData({...formData, instagram: v});
+                  }}
+                  data-testid="store-instagram-input"
+                />
+              </div>
+              <div>
+                <Label>Facebook</Label>
+                <Input
+                  placeholder="Es. mario.rossi.page"
+                  value={formData.facebook}
+                  onChange={(e) => setFormData({...formData, facebook: e.target.value})}
+                  onBlur={(e) => {
+                    const v = normalizeFacebook(e.target.value);
+                    if (v !== formData.facebook) setFormData({...formData, facebook: v});
+                  }}
+                  data-testid="store-facebook-input"
+                />
+              </div>
+              <div>
+                <Label>TikTok</Label>
+                <Input
+                  placeholder="Es. mario_rossi oppure @mario_rossi"
+                  value={formData.tiktok}
+                  onChange={(e) => setFormData({...formData, tiktok: e.target.value})}
+                  onBlur={(e) => {
+                    const v = normalizeTiktok(e.target.value);
+                    if (v !== formData.tiktok) setFormData({...formData, tiktok: v});
+                  }}
+                  data-testid="store-tiktok-input"
+                />
+              </div>
               <div><Label>Google Review</Label><Input placeholder="https://g.page/..." value={formData.google_review} onChange={(e) => setFormData({...formData, google_review: e.target.value})} /></div>
               <div className="sm:col-span-2"><Label>Google Maps (Navigazione)</Label><Input placeholder="https://maps.app.goo.gl/..." value={formData.google_maps_url} onChange={(e) => setFormData({...formData, google_maps_url: e.target.value})} /></div>
             </div>

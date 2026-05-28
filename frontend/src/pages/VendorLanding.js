@@ -268,8 +268,37 @@ const VendorLanding = () => {
     };
   }, [vendor?.id, vendor?.organization?.pwa_icon_url, vendor?.organization?.logo_url, vendor?.organization?.primary_color, vendor?.name, vendor?.organization?.brand_name]);
 
+  // Treat a page hit as a "real QR scan / entrance" only when:
+  //  - it's the FIRST visit of this device on this vendor, OR
+  //  - the last visit was more than VISIT_WINDOW_MS ago.
+  // Refreshes, PWA re-launches, and same-day re-opens within the window
+  // do NOT count as new entrances. We persist a per-vendor timestamp in
+  // localStorage; if storage is denied (private mode) we fall back to the
+  // sessionStorage, which still skips a basic browser refresh.
+  const VISIT_WINDOW_MS = 30 * 60 * 1000; // 30 minutes
+
+  const isNewEntrance = () => {
+    const key = `qrhub_last_visit_${vendorId}`;
+    const now = Date.now();
+    try {
+      const last = parseInt(window.localStorage.getItem(key) || '0', 10);
+      window.localStorage.setItem(key, String(now));
+      return !last || (now - last) > VISIT_WINDOW_MS;
+    } catch {
+      try {
+        const last = parseInt(window.sessionStorage.getItem(key) || '0', 10);
+        window.sessionStorage.setItem(key, String(now));
+        return !last; // session-scoped: any refresh in same tab is skipped
+      } catch {
+        // Storage fully blocked → can't dedupe, fall back to tracking each hit.
+        return true;
+      }
+    }
+  };
+
   const trackPageView = async () => {
     if (isPreviewSession()) return;
+    if (!isNewEntrance()) return;
     try {
       await axios.post(`${API}/analytics`, { vendor_id: vendorId, event_type: 'page_view' });
     } catch (e) {}

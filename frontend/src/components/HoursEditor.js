@@ -200,7 +200,20 @@ const DayCard = ({ day, value, onChange }) => {
           </span>
           <Switch
             checked={!disabled}
-            onCheckedChange={(v) => onChange({ ...value, closed: !v, ...(v ? {} : emptyDay()) })}
+            onCheckedChange={(v) => {
+              // v === true → open the day (apply defaults if previously empty),
+              // v === false → close the day (preserve hours so re-opening restores them).
+              if (v) {
+                onChange({
+                  ...value,
+                  closed: false,
+                  open: value.open || '09:00',
+                  close: value.close || '19:00',
+                });
+              } else {
+                onChange({ ...value, closed: true });
+              }
+            }}
             data-testid={`hours-switch-${day.key}`}
           />
         </label>

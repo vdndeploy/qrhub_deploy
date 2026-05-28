@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import axios from 'axios';
-import { MapPin, Share2, Store as StoreIcon, Clock, X } from 'lucide-react';
+import { MapPin, Share2, Store as StoreIcon, Clock, X, Plus } from 'lucide-react';
+import AddToHomeDialog from '@/components/AddToHomeDialog';
 import PostsCarousel from '../components/PostsCarousel';
 import { computeOpenStatus } from '../components/HoursEditor';
 import './VendorLanding.css';
@@ -66,6 +67,7 @@ const VendorLanding = () => {
   const [showAndroidBanner, setShowAndroidBanner] = useState(false);
   const [showIosBanner, setShowIosBanner] = useState(false);
   const [storeOpen, setStoreOpen] = useState(false);
+  const [addToHomeOpen, setAddToHomeOpen] = useState(false);
   const [blockedReason, setBlockedReason] = useState('');
   const [previewMode, setPreviewMode] = useState(false);
   // Tick every minute so the "open now" badge stays accurate without a refresh.
@@ -336,7 +338,9 @@ const VendorLanding = () => {
       window.addEventListener('beforeinstallprompt', (e) => {
         e.preventDefault();
         setDeferredPrompt(e);
-        setTimeout(() => setShowAndroidBanner(true), 1500);
+        // Don't auto-show the bottom Android banner anymore — the universal
+        // "+" button in the header opens the AddToHomeDialog which uses this
+        // prompt natively when available. Keeping just deferredPrompt cached.
       });
       // Auto-hide both banners if the app gets installed while the page is
       // open (rare but possible: user accepts the prompt → display-mode flips).
@@ -345,8 +349,8 @@ const VendorLanding = () => {
         setShowIosBanner(false);
         setDeferredPrompt(null);
       });
-      const isIos = /iPhone|iPad|iPod/.test(navigator.userAgent);
-      if (isIos) setTimeout(() => setShowIosBanner(true), 1500);
+      // iOS auto-popup banner disabled: the "+" button in the header now
+      // serves as a universal manual entry point for all devices.
     } catch (e) {}
   };
 
@@ -682,6 +686,16 @@ const VendorLanding = () => {
             })()}
             <button
               type="button"
+              onClick={() => setAddToHomeOpen(true)}
+              className="map-btn"
+              aria-label="Aggiungi alla schermata Home"
+              title="Salva sul telefono"
+              data-testid="vendor-add-to-home-button"
+            >
+              <Plus className="h-6 w-6" />
+            </button>
+            <button
+              type="button"
               onClick={handleShare}
               className="map-btn"
               aria-label="Condividi"
@@ -960,6 +974,13 @@ const VendorLanding = () => {
         </div>
         );
       })()}
+
+      <AddToHomeDialog
+        open={addToHomeOpen}
+        onClose={() => setAddToHomeOpen(false)}
+        deferredPrompt={deferredPrompt}
+        vendorName={vendor?.organization?.brand_name || vendor?.name}
+      />
     </div>
   );
 };

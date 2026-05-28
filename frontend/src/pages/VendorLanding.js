@@ -268,29 +268,29 @@ const VendorLanding = () => {
     };
   }, [vendor?.id, vendor?.organization?.pwa_icon_url, vendor?.organization?.logo_url, vendor?.organization?.primary_color, vendor?.name, vendor?.organization?.brand_name]);
 
-  // Treat a page hit as a "real QR scan / entrance" only when:
-  //  - it's the FIRST visit of this device on this vendor, OR
-  //  - the last visit was more than VISIT_WINDOW_MS ago.
-  // Refreshes, PWA re-launches, and same-day re-opens within the window
-  // do NOT count as new entrances. We persist a per-vendor timestamp in
-  // localStorage; if storage is denied (private mode) we fall back to the
-  // sessionStorage, which still skips a basic browser refresh.
-  const VISIT_WINDOW_MS = 30 * 60 * 1000; // 30 minutes
+  // Treat a hit (page view OR action click) as a "real customer interaction"
+  // only when:
+  //  - it's the FIRST hit of THIS event type on this vendor from this device, OR
+  //  - the previous one was more than VISIT_WINDOW_MS ago.
+  // This dedupes refreshes, PWA re-launches and re-tap-on-link-the-same-link
+  // for a customer who stays in the store. Different devices = different
+  // localStorage = independent counters, so 5 customers in 90 minutes still
+  // produce 5 entrances (and 5 WhatsApp clicks if they all click).
+  const VISIT_WINDOW_MS = 90 * 60 * 1000; // 90 minutes — typical in-store dwell
 
-  const isNewEntrance = () => {
-    const key = `qrhub_last_visit_${vendorId}`;
+  const isNewHit = (eventKey) => {
+    const storageKey = `qrhub_last_${eventKey}_${vendorId}`;
     const now = Date.now();
     try {
-      const last = parseInt(window.localStorage.getItem(key) || '0', 10);
-      window.localStorage.setItem(key, String(now));
+      const last = parseInt(window.localStorage.getItem(storageKey) || '0', 10);
+      window.localStorage.setItem(storageKey, String(now));
       return !last || (now - last) > VISIT_WINDOW_MS;
     } catch {
       try {
-        const last = parseInt(window.sessionStorage.getItem(key) || '0', 10);
-        window.sessionStorage.setItem(key, String(now));
-        return !last; // session-scoped: any refresh in same tab is skipped
+        const last = parseInt(window.sessionStorage.getItem(storageKey) || '0', 10);
+        window.sessionStorage.setItem(storageKey, String(now));
+        return !last;
       } catch {
-        // Storage fully blocked → can't dedupe, fall back to tracking each hit.
         return true;
       }
     }
@@ -298,7 +298,7 @@ const VendorLanding = () => {
 
   const trackPageView = async () => {
     if (isPreviewSession()) return;
-    if (!isNewEntrance()) return;
+    if (!isNewHit('page_view')) return;
     try {
       await axios.post(`${API}/analytics`, { vendor_id: vendorId, event_type: 'page_view' });
     } catch (e) {}
@@ -306,6 +306,7 @@ const VendorLanding = () => {
 
   const trackClick = async (type) => {
     if (isPreviewSession()) return;
+    if (!isNewHit(`${type}_click`)) return;
     try {
       await axios.post(`${API}/analytics`, { vendor_id: vendorId, event_type: `${type}_click` });
     } catch (e) {}

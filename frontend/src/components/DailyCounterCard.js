@@ -109,7 +109,7 @@ const DailyCounterCard = () => {
           <p className="text-xs text-gray-500 dark:text-[#8a8a92] ml-9">
             Ogni scansione del QR = ingresso/interazione · ogni click WhatsApp = conversazione avviata
             <span className="block mt-0.5 text-[10px] text-gray-400 dark:text-[#6a6a72]">
-              I refresh/riaperture entro 30 min dallo stesso dispositivo non vengono contati come nuova scansione.
+              Stesso dispositivo: ogni azione (scan, WhatsApp, recensione…) viene contata 1 sola volta ogni 90 minuti.
             </span>
           </p>
         </div>

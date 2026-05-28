@@ -47,9 +47,9 @@ const Overview = () => {
 
   if (loading) return <div className="text-center py-12 text-gray-500 dark:text-[#6a6a72]">Caricamento...</div>;
 
-  const chartData = stats?.vendor_stats?.slice(0, 10).map((v) => ({
+  const chartData = (stats?.vendor_stats || []).map((v) => ({
     name: v.name, Visite: v.views, Click: v.clicks
-  })) || [];
+  }));
 
   return (
     <div className="space-y-8" data-testid="overview-page">
@@ -90,7 +90,13 @@ const Overview = () => {
         {chartData.length > 0 && (
           <div className="bg-white dark:bg-[#131316] rounded-3xl border border-gray-200 dark:border-white/10 p-5 sm:p-7 mt-6 shadow-sm" data-testid="analytics-chart">
             <div className="flex items-center justify-between mb-6 flex-wrap gap-2">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Performance per Venditore</h3>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Performance per Venditore</h3>
+                <p className="text-xs text-gray-500 dark:text-[#6a6a72] mt-0.5">
+                  {chartData.length} venditori
+                  {chartData.length > 8 && ' · scorri orizzontalmente →'}
+                </p>
+              </div>
               <div className="flex items-center gap-4 text-xs text-gray-600 dark:text-[#8a8a92]">
                 <span className="inline-flex items-center gap-2">
                   <span className="inline-block w-3 h-3 rounded-full" style={{ background: COLORS.views }} />
@@ -102,39 +108,54 @@ const Overview = () => {
                 </span>
               </div>
             </div>
-            <ResponsiveContainer width="100%" height={360}>
-              <BarChart data={chartData} margin={{ top: 8, right: 8, left: -16, bottom: 60 }} barGap={6} barCategoryGap="24%">
-                <XAxis
-                  dataKey="name"
-                  tick={{ fontSize: 11, fill: 'currentColor' }}
-                  tickLine={false}
-                  axisLine={false}
-                  interval={0}
-                  angle={-35}
-                  textAnchor="end"
-                  height={70}
-                  tickFormatter={(v) => (v && v.length > 12 ? v.slice(0, 11) + '…' : v)}
-                  className="text-gray-500 dark:text-[#6a6a72]"
-                />
-                <YAxis
-                  tick={{ fontSize: 11, fill: 'currentColor' }}
-                  tickLine={false}
-                  axisLine={false}
-                  width={32}
-                  className="text-gray-500 dark:text-[#6a6a72]"
-                />
-                <Tooltip
-                  content={<SoftTooltip />}
-                  cursor={{ fill: 'currentColor', fillOpacity: 0.04 }}
-                />
+            {/* Horizontal scroll wrapper:
+                - Each vendor gets a fixed minimum slot (BAR_SLOT_PX) so labels
+                  stay readable.
+                - On narrow screens (or many vendors) the inner chart becomes
+                  wider than the card and the user scrolls horizontally.
+                - On wide screens with few vendors we fall back to 100% so the
+                  chart fills the card without empty whitespace. */}
+            <div className="overflow-x-auto -mx-2 px-2 vendors-chart-scroll" data-testid="analytics-chart-scroll">
+              <div style={{
+                width: `max(100%, ${chartData.length * 64}px)`,
+                minWidth: 320,
+                height: 360,
+              }}>
+                <ResponsiveContainer width="100%" height={360}>
+                  <BarChart data={chartData} margin={{ top: 8, right: 8, left: -16, bottom: 60 }} barGap={6} barCategoryGap="24%">
+                    <XAxis
+                      dataKey="name"
+                      tick={{ fontSize: 11, fill: 'currentColor' }}
+                      tickLine={false}
+                      axisLine={false}
+                      interval={0}
+                      angle={-35}
+                      textAnchor="end"
+                      height={70}
+                      tickFormatter={(v) => (v && v.length > 12 ? v.slice(0, 11) + '…' : v)}
+                      className="text-gray-500 dark:text-[#6a6a72]"
+                    />
+                    <YAxis
+                      tick={{ fontSize: 11, fill: 'currentColor' }}
+                      tickLine={false}
+                      axisLine={false}
+                      width={32}
+                      className="text-gray-500 dark:text-[#6a6a72]"
+                    />
+                    <Tooltip
+                      content={<SoftTooltip />}
+                      cursor={{ fill: 'currentColor', fillOpacity: 0.04 }}
+                    />
                 <Bar dataKey="Visite" radius={[10, 10, 10, 10]} maxBarSize={22} animationDuration={250}>
                   {chartData.map((_, i) => (<Cell key={`v-${i}`} fill={COLORS.views} />))}
                 </Bar>
                 <Bar dataKey="Click" radius={[10, 10, 10, 10]} maxBarSize={22} animationDuration={250}>
                   {chartData.map((_, i) => (<Cell key={`c-${i}`} fill={COLORS.clicks} />))}
                 </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
           </div>
         )}
       </div>

@@ -7,6 +7,24 @@
   .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
 }
 
+/* Slim scrollbar for the Performance per Venditore chart — visible enough
+   to signal "you can scroll", subtle enough to not steal attention. */
+.vendors-chart-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(120,120,128,0.4) transparent;
+  scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch;
+}
+.vendors-chart-scroll::-webkit-scrollbar { height: 8px; }
+.vendors-chart-scroll::-webkit-scrollbar-track { background: transparent; }
+.vendors-chart-scroll::-webkit-scrollbar-thumb {
+  background: rgba(120,120,128,0.35);
+  border-radius: 999px;
+}
+.vendors-chart-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(120,120,128,0.55);
+}
+
 body {
     margin: 0;
     font-family:

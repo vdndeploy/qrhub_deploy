@@ -1709,6 +1709,7 @@ class PostCreate(BaseModel):
     position: Optional[int] = None
     start_at: Optional[str] = None  # ISO datetime; if null = active immediately
     end_at: Optional[str] = None    # ISO datetime; if null = no expiry
+    enabled: Optional[bool] = True  # admin on/off toggle (default ON)
 
 
 class PostUpdate(PostCreate):
@@ -1731,13 +1732,16 @@ def _post_doc_to_response(p: dict) -> dict:
         'position': p.get('position', 0),
         'start_at': p.get('start_at'),
         'end_at': p.get('end_at'),
+        'enabled': p.get('enabled', True),
         'status': _post_status(p),
         'created_at': p.get('created_at', '')
     }
 
 
 def _post_status(p: dict) -> str:
-    """Return 'scheduled' | 'active' | 'expired'."""
+    """Return 'disabled' | 'scheduled' | 'active' | 'expired'."""
+    if p.get('enabled', True) is False:
+        return 'disabled'
     now = datetime.now(timezone.utc)
     start = _parse_iso(p.get('start_at'))
     end = _parse_iso(p.get('end_at'))
@@ -1800,6 +1804,7 @@ async def create_post(store_id: str, post: PostCreate, user: dict = Depends(get_
         'position': pos,
         'start_at': post.start_at or None,
         'end_at': post.end_at or None,
+        'enabled': post.enabled if post.enabled is not None else True,
         'created_at': datetime.now(timezone.utc).isoformat()
     }
     await db.posts.insert_one(doc.copy())
@@ -1824,6 +1829,7 @@ async def update_post(post_id: str, post: PostUpdate, user: dict = Depends(get_c
         'cta_whatsapp_message': post.cta_whatsapp_message or '',
         'start_at': post.start_at or None,
         'end_at': post.end_at or None,
+        'enabled': post.enabled if post.enabled is not None else True,
     }
     if post.position is not None and post.position >= 0:
         update_doc['position'] = post.position
@@ -1874,6 +1880,7 @@ class MultiStorePostCreate(BaseModel):
     cta_whatsapp_message: Optional[str] = ''
     start_at: Optional[str] = None
     end_at: Optional[str] = None
+    enabled: Optional[bool] = True
 
 
 class MultiStorePostUpdate(BaseModel):
@@ -1891,6 +1898,7 @@ class MultiStorePostUpdate(BaseModel):
     cta_whatsapp_message: Optional[str] = ''
     start_at: Optional[str] = None
     end_at: Optional[str] = None
+    enabled: Optional[bool] = True
 
 
 async def _validate_stores_in_tenant(store_ids: List[str], user: dict) -> List[dict]:
@@ -1983,6 +1991,7 @@ async def create_multi_store_post(payload: MultiStorePostCreate,
             'position': pos,
             'start_at': payload.start_at or None,
             'end_at': payload.end_at or None,
+            'enabled': payload.enabled if payload.enabled is not None else True,
             'created_at': now_iso,
         }
         await db.posts.insert_one(doc.copy())
@@ -2024,6 +2033,7 @@ async def update_multi_store_post(group_id: str, payload: MultiStorePostUpdate,
         'cta_whatsapp_message': payload.cta_whatsapp_message or '',
         'start_at': payload.start_at or None,
         'end_at': payload.end_at or None,
+        'enabled': payload.enabled if payload.enabled is not None else True,
     }
     # 1. UPDATE existing posts in the group (all stores share the same content)
     await db.posts.update_many(
@@ -3372,7 +3382,8 @@ async def seed_admin():
     # 2d. Backfill `group_id` for legacy posts created before multi-store
     # support. Each legacy post becomes its own 1-item group (group_id = id)
     # so the new multi-store endpoints (PUT/DELETE /api/posts/group/{id}) can
-    # locate it. Idempotent: only runs on docs missing the field.
+    # locate it. Idempotent: only runs on docs missing the field. Also
+    # ensures `enabled: True` default for legacy posts.
     try:
         legacy_posts = db.posts.find(
             {'group_id': {'$exists': False}}, {'_id': 0, 'id': 1}
@@ -3387,6 +3398,12 @@ async def seed_admin():
                 n_backfilled += 1
         if n_backfilled:
             logger.info(f'Posts group_id backfill: {n_backfilled} docs')
+        # Independent backfill for `enabled` (legacy posts default to enabled=True)
+        enabled_bf = await db.posts.update_many(
+            {'enabled': {'$exists': False}}, {'$set': {'enabled': True}}
+        )
+        if enabled_bf.modified_count:
+            logger.info(f'Posts enabled backfill: {enabled_bf.modified_count} docs')
     except Exception as e:
         logger.warning(f'Posts group_id backfill skipped: {e}')
 

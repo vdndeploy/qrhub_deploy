@@ -11,7 +11,9 @@ import {
   Plus, Trash2, Edit, Upload, X, Image as ImgIcon, Video, Calendar, Clock, FolderOpen,
   Megaphone, Store as StoreIcon, CheckSquare, Square, Search, MoveUp, MoveDown,
 } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
 import MediaPicker from '@/components/MediaPicker';
+import AnnouncementPreview from '@/components/AnnouncementPreview';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -20,6 +22,7 @@ const emptyForm = () => ({
   media_resource_type: '', aspect_ratio: null,
   cta_text: '', cta_whatsapp_message: '',
   start_at: null, end_at: null,
+  enabled: true,
   store_ids: [],
 });
 
@@ -46,6 +49,7 @@ const StatusBadge = ({ status }) => {
     active: { bg: 'bg-green-100 text-green-700', label: 'Attivo' },
     scheduled: { bg: 'bg-blue-100 text-blue-700', label: 'Programmato' },
     expired: { bg: 'bg-gray-200 text-gray-600 dark:text-[#8a8a92]', label: 'Scaduto' },
+    disabled: { bg: 'bg-orange-100 text-orange-700 dark:bg-orange-500/20 dark:text-orange-300', label: 'Disattivato' },
   }[status || 'active'] || { bg: 'bg-green-100 text-green-700', label: 'Attivo' };
   return <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${cfg.bg}`}>{cfg.label}</span>;
 };
@@ -203,6 +207,7 @@ const Posts = () => {
       aspect_ratio: g.aspect_ratio || null,
       cta_text: g.cta_text || '', cta_whatsapp_message: g.cta_whatsapp_message || '',
       start_at: g.start_at || null, end_at: g.end_at || null,
+      enabled: g.enabled !== false,
       store_ids: (g.stores || []).map(s => s.store_id),
     });
     setEditing(g);
@@ -284,6 +289,27 @@ const Posts = () => {
       fetchAll();
     } catch (e) {
       toast.error(e.response?.data?.detail || 'Errore eliminazione');
+    }
+  };
+
+  // Quick enable/disable from list — sends a full update with only the
+  // toggle flipped (keeps stores + content intact).
+  const handleToggleEnabled = async (g) => {
+    try {
+      await axios.put(`${API}/posts/group/${g.group_id}`, {
+        store_ids: (g.stores || []).map(s => s.store_id),
+        title: g.title || '', text: g.text || '',
+        media_url: g.media_url || '', media_public_id: g.media_public_id || '',
+        media_resource_type: g.media_resource_type || '',
+        aspect_ratio: g.aspect_ratio || null,
+        cta_text: g.cta_text || '', cta_whatsapp_message: g.cta_whatsapp_message || '',
+        start_at: g.start_at || null, end_at: g.end_at || null,
+        enabled: g.enabled === false,
+      }, { withCredentials: true });
+      toast.success(g.enabled === false ? 'Annuncio riattivato' : 'Annuncio messo in pausa');
+      fetchAll();
+    } catch (e) {
+      toast.error(e.response?.data?.detail || 'Errore salvataggio');
     }
   };
 
@@ -425,7 +451,7 @@ const Posts = () => {
           {groups.map((g, i) => (
             <div
               key={g.group_id}
-              className="bg-white dark:bg-[#131316] border border-gray-200 dark:border-white/10 rounded-2xl p-4 flex flex-col sm:flex-row gap-4 sm:items-center"
+              className={`bg-white dark:bg-[#131316] border border-gray-200 dark:border-white/10 rounded-2xl p-4 flex flex-col sm:flex-row gap-4 sm:items-center transition-opacity ${g.enabled === false ? 'opacity-60' : ''}`}
               data-testid={`post-group-row-${i}`}
             >
               <div className="w-full sm:w-20 h-32 sm:h-20 flex-shrink-0 bg-gray-100 dark:bg-[#0a0a0b] rounded-xl overflow-hidden">
@@ -468,6 +494,12 @@ const Posts = () => {
               </div>
 
               <div className="flex gap-1 flex-shrink-0">
+                <Switch
+                  checked={g.enabled !== false}
+                  onCheckedChange={() => handleToggleEnabled(g)}
+                  data-testid={`post-group-enable-toggle-${i}`}
+                  title={g.enabled === false ? 'Riattiva' : 'Metti in pausa'}
+                />
                 <Button variant="ghost" size="icon" onClick={() => openEdit(g)} title="Modifica" data-testid={`post-group-edit-${i}`}>
                   <Edit className="h-4 w-4" />
                 </Button>
@@ -495,6 +527,27 @@ const Posts = () => {
           </DialogHeader>
 
           <div className="flex-1 min-h-0 overflow-y-auto px-4 sm:px-6 py-4 space-y-4">
+            {/* Active toggle — always visible at the top so the admin can
+                pause an announcement without deleting it. When disabled the
+                post is hidden from the visitor's vendor landing carousel. */}
+            <div className="flex items-center justify-between p-3 rounded-xl border border-gray-200 dark:border-white/10 bg-gray-50/50 dark:bg-[#0a0a0b]/50">
+              <div className="min-w-0">
+                <div className="text-sm font-medium text-gray-900 dark:text-white">
+                  {form.enabled ? 'Annuncio attivo' : 'Annuncio in pausa'}
+                </div>
+                <div className="text-xs text-gray-500 dark:text-[#8a8a92]">
+                  {form.enabled
+                    ? 'Visibile sulla landing dei venditori dei negozi selezionati'
+                    : 'Nascosto dalla landing (nessun cliente lo vedrà)'}
+                </div>
+              </div>
+              <Switch
+                checked={form.enabled}
+                onCheckedChange={(v) => setForm({ ...form, enabled: v })}
+                data-testid="post-enabled-toggle"
+              />
+            </div>
+
             <div>
               <Label>Pubblica sui negozi</Label>
               <div className="mt-1.5">
@@ -602,6 +655,9 @@ const Posts = () => {
                 </div>
               </div>
             </div>
+
+            {/* Live preview — updates as the admin types */}
+            <AnnouncementPreview form={form} />
           </div>
 
           {/* Sticky footer — keeps Save/Cancel always reachable on small

@@ -581,37 +581,91 @@ CURRENT_DPA_VERSION = '1.0'
 
 
 def _dpa_status(user: dict) -> dict:
-    """Return whether the user has accepted the latest DPA version.
-    Super admins are platform owners (not data subjects of a controller↔processor
-    relationship) and therefore do not need to accept a DPA."""
+    """Return whether the user's ORGANIZATION has accepted the latest DPA
+    version. Super admins are platform owners (not data subjects of a
+    controller↔processor relationship) and therefore do not need to accept
+    a DPA. The DPA itself is an org-level agreement between the
+    Controller (organization) and the Processor (QRHub), so we don't ask
+    each admin to re-sign — once one admin of the org accepts, all admins
+    of the same org are covered."""
     if _is_super_admin(user):
         return {'required': False, 'accepted': True, 'current_version': CURRENT_DPA_VERSION,
                 'accepted_version': None, 'accepted_at': None}
-    accepted_version = user.get('accepted_dpa_version')
+    # Org-level acceptance (current) with fallback to legacy user-level field
+    # for pre-migration users until the org backfill catches up.
+    return {
+        'required': True,
+        'accepted': False,
+        'current_version': CURRENT_DPA_VERSION,
+        'accepted_version': None,
+        'accepted_at': None,
+    }
+
+
+async def _dpa_status_async(user: dict) -> dict:
+    """Async version that resolves DPA acceptance from the user's organization.
+    Falls back to user-level acceptance for backwards compatibility until
+    the org backfill at startup populates `dpa_accepted_version` on every
+    org with at least one consenting admin."""
+    if _is_super_admin(user):
+        return {'required': False, 'accepted': True, 'current_version': CURRENT_DPA_VERSION,
+                'accepted_version': None, 'accepted_at': None}
+    org_id = user.get('organization_id')
+    org_accepted_version = None
+    org_accepted_at = None
+    if org_id:
+        org = await db.organizations.find_one(
+            {'id': org_id},
+            {'_id': 0, 'dpa_accepted_version': 1, 'dpa_accepted_at': 1}
+        ) or {}
+        org_accepted_version = org.get('dpa_accepted_version')
+        org_accepted_at = org.get('dpa_accepted_at')
+    # Legacy fallback — still honour the per-user signature so admins who
+    # already accepted aren't asked again.
+    user_accepted_version = user.get('accepted_dpa_version')
+    user_accepted_at = user.get('accepted_dpa_at')
+    accepted_version = org_accepted_version or user_accepted_version
+    accepted_at = org_accepted_at or user_accepted_at
     return {
         'required': True,
         'accepted': accepted_version == CURRENT_DPA_VERSION,
         'current_version': CURRENT_DPA_VERSION,
         'accepted_version': accepted_version,
-        'accepted_at': user.get('accepted_dpa_at'),
+        'accepted_at': accepted_at,
     }
 
 
 @api_router.get('/me/dpa-status')
 async def get_dpa_status(user: dict = Depends(get_current_user)):
-    return _dpa_status(user)
+    return await _dpa_status_async(user)
 
 
 @api_router.post('/me/accept-dpa')
 async def accept_dpa(request: Request, user: dict = Depends(get_current_user)):
     if _is_super_admin(user):
         raise HTTPException(status_code=400, detail='Il super admin non firma un DPA con se stesso')
+    now_iso = datetime.now(timezone.utc).isoformat()
+    ip = _client_ip(request)
+    # 1. Org-level acceptance (the actual contract — covers all admins of the org)
+    org_id = user.get('organization_id')
+    if org_id:
+        await db.organizations.update_one(
+            {'id': org_id},
+            {'$set': {
+                'dpa_accepted_version': CURRENT_DPA_VERSION,
+                'dpa_accepted_at': now_iso,
+                'dpa_accepted_by_user_id': user['_id'],
+                'dpa_accepted_by_email': user.get('email', ''),
+                'dpa_accepted_ip': ip,
+            }}
+        )
+    # 2. Keep the per-user signature too (audit log of who signed it)
     await db.users.update_one(
         {'_id': ObjectId(user['_id'])},
         {'$set': {
             'accepted_dpa_version': CURRENT_DPA_VERSION,
-            'accepted_dpa_at': datetime.now(timezone.utc).isoformat(),
-            'accepted_dpa_ip': _client_ip(request),
+            'accepted_dpa_at': now_iso,
+            'accepted_dpa_ip': ip,
         }}
     )
     return {'message': 'DPA accettato', 'version': CURRENT_DPA_VERSION}
@@ -1050,8 +1104,15 @@ async def list_organizations(user: dict = Depends(require_super_admin)):
 
 @api_router.get('/organizations/{org_id}/dpa-status')
 async def org_dpa_status(org_id: str, user: dict = Depends(require_super_admin)):
-    """Super-admin view: who in this org has accepted the DPA and when."""
-    if not await db.organizations.find_one({'id': org_id}, {'_id': 1}):
+    """Super-admin view: who in this org has accepted the DPA and when.
+    Returns BOTH the org-level acceptance (the binding contract) and the
+    per-user audit log so the super admin can see the signature trail."""
+    org = await db.organizations.find_one(
+        {'id': org_id},
+        {'_id': 0, 'dpa_accepted_version': 1, 'dpa_accepted_at': 1,
+         'dpa_accepted_by_email': 1, 'dpa_accepted_ip': 1}
+    )
+    if not org:
         raise HTTPException(status_code=404, detail='Organizzazione non trovata')
     admins = await db.users.find(
         {'organization_id': org_id, 'role': 'org_admin'},
@@ -1060,6 +1121,13 @@ async def org_dpa_status(org_id: str, user: dict = Depends(require_super_admin))
     return {
         'organization_id': org_id,
         'required_version': CURRENT_DPA_VERSION,
+        'org_acceptance': {
+            'accepted_version': org.get('dpa_accepted_version'),
+            'accepted_at': org.get('dpa_accepted_at'),
+            'accepted_by_email': org.get('dpa_accepted_by_email'),
+            'accepted_ip': org.get('dpa_accepted_ip'),
+            'status': 'accepted' if org.get('dpa_accepted_version') == CURRENT_DPA_VERSION else 'pending',
+        },
         'admins': [
             {
                 'email': a.get('email', ''),
@@ -3406,6 +3474,49 @@ async def seed_admin():
             logger.info(f'Posts enabled backfill: {enabled_bf.modified_count} docs')
     except Exception as e:
         logger.warning(f'Posts group_id backfill skipped: {e}')
+
+    # 2e. Backfill org-level DPA acceptance from per-user signatures. The DPA
+    # is a contract between the organization (Controller) and QRHub (Processor)
+    # — once ANY admin of the org signed, all admins of that org are covered.
+    # Pre-migration users had it stored on the user document only; we promote
+    # the EARLIEST per-user acceptance up to the organization. Idempotent.
+    try:
+        accepted_admins = db.users.find(
+            {'role': 'org_admin',
+             'accepted_dpa_version': CURRENT_DPA_VERSION,
+             'organization_id': {'$ne': None}},
+            {'_id': 0, 'organization_id': 1, 'email': 1,
+             'accepted_dpa_at': 1, 'accepted_dpa_ip': 1}
+        ).sort('accepted_dpa_at', 1)  # earliest first → that's the binding date
+        org_dpa_bf = 0
+        seen_orgs: set = set()
+        async for a in accepted_admins:
+            org_id = a.get('organization_id')
+            if not org_id or org_id in seen_orgs:
+                continue
+            seen_orgs.add(org_id)
+            org = await db.organizations.find_one(
+                {'id': org_id}, {'_id': 0, 'dpa_accepted_version': 1}
+            )
+            # find_one returns {} when the projection matches no optional
+            # fields (the org exists but has no DPA fields yet). Don't treat
+            # that as "org missing" — `org is None` is the only "missing" signal.
+            if org is None or org.get('dpa_accepted_version') == CURRENT_DPA_VERSION:
+                continue  # already accepted or org truly missing
+            await db.organizations.update_one(
+                {'id': org_id},
+                {'$set': {
+                    'dpa_accepted_version': CURRENT_DPA_VERSION,
+                    'dpa_accepted_at': a.get('accepted_dpa_at'),
+                    'dpa_accepted_by_email': a.get('email', ''),
+                    'dpa_accepted_ip': a.get('accepted_dpa_ip'),
+                }}
+            )
+            org_dpa_bf += 1
+        if org_dpa_bf:
+            logger.info(f'Org-level DPA backfill: {org_dpa_bf} orgs')
+    except Exception as e:
+        logger.warning(f'Org-level DPA backfill skipped: {e}')
 
     # 2b. One-time anonymization: rename any legacy "VDN" / "vdn" / "WindTre" branded org to generic "Demo"
     try:

@@ -64,8 +64,6 @@ const VendorLanding = () => {
   const [vendor, setVendor] = useState(null);
   const [loading, setLoading] = useState(true);
   const [deferredPrompt, setDeferredPrompt] = useState(null);
-  const [showAndroidBanner, setShowAndroidBanner] = useState(false);
-  const [showIosBanner, setShowIosBanner] = useState(false);
   const [storeOpen, setStoreOpen] = useState(false);
   const [addToHomeOpen, setAddToHomeOpen] = useState(false);
   const [blockedReason, setBlockedReason] = useState('');
@@ -342,11 +340,8 @@ const VendorLanding = () => {
         // "+" button in the header opens the AddToHomeDialog which uses this
         // prompt natively when available. Keeping just deferredPrompt cached.
       });
-      // Auto-hide both banners if the app gets installed while the page is
-      // open (rare but possible: user accepts the prompt → display-mode flips).
+      // Clear cached prompt if the app gets installed while the page is open.
       window.addEventListener('appinstalled', () => {
-        setShowAndroidBanner(false);
-        setShowIosBanner(false);
         setDeferredPrompt(null);
       });
       // iOS auto-popup banner disabled: the "+" button in the header now
@@ -359,11 +354,8 @@ const VendorLanding = () => {
     try {
       deferredPrompt.prompt();
       await deferredPrompt.userChoice;
-      setDeferredPrompt(null);
-      setShowAndroidBanner(false);
-    } catch (e) {
-      setShowAndroidBanner(false);
-    }
+    } catch (e) {}
+    setDeferredPrompt(null);
   };
 
   const handleShare = async () => {
@@ -589,33 +581,6 @@ const VendorLanding = () => {
           >
             ← Torna al pannello
           </a>
-        </div>
-      )}
-      {showAndroidBanner && (
-        <div id="install-banner">
-          <div className="banner-inner">
-            <div className="banner-icon"><svg viewBox="0 0 28 28" fill="none"><path d="M4 10 L10 22 L14 14 L18 22 L24 10" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" fill="none"/></svg></div>
-            <div className="banner-text"><div className="banner-title">Aggiungi alla Home</div><div className="banner-sub">Accedi in un tap</div></div>
-            <div className="banner-actions">
-              <button className="btn-dismiss" onClick={() => setShowAndroidBanner(false)}>Dopo</button>
-              <button className="btn-install" onClick={handleInstall}>Installa</button>
-            </div>
-          </div>
-        </div>
-      )}
-      {showIosBanner && (
-        <div id="ios-banner">
-          <div className="ios-inner">
-            <div className="ios-header">
-              <div className="ios-title">Aggiungi alla Home</div>
-              <button className="ios-close" onClick={() => setShowIosBanner(false)}>×</button>
-            </div>
-            <div className="ios-steps">
-              <div className="ios-step"><div className="ios-step-num">1</div><span>Tocca il tasto Condividi in basso</span></div>
-              <div className="ios-step"><div className="ios-step-num">2</div><span>Scegli "Aggiungi alla schermata Home"</span></div>
-              <div className="ios-step"><div className="ios-step-num">3</div><span>Tocca Aggiungi</span></div>
-            </div>
-          </div>
         </div>
       )}
 

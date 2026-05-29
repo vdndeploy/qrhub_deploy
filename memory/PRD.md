@@ -298,6 +298,7 @@ Validazione: lint clean (JS), supervisor frontend RUNNING senza errori critici, 
 | 2026-05-22 | - Collection MongoDB `platform_settings` (single doc `_id: 'platform_domain'`). | ✅ |
 | 2026-05-22 | - Frontend `<DomainGuard>` component: legge `/api/platform/config` al boot, controlla `window.location.hostname` contro `primary_domain` + `admin_hosts_allowlist` + `admin_host_suffixes` (`.preview.emergentagent.com`, `.vercel.app`, `.emergent.host`). Su tenant custom domain reindirizza tutto fuorché `/v/*` al primary domain. | ✅ |
 | 2026-05-22 | - Super Admin UI: nuovo tab "Dominio" (👑 icona corona, primo nel set di tab) con form registrazione + verifica DNS + istruzioni copy-paste per Aruba/Cloudflare. | ✅ |
+| 2026-05-29 | **Fix fuso orario "Pattern Orario (24h)" + Andamento Giornaliero** — i timestamp UTC stored in DB venivano usati direttamente in `e.timestamp.hour` e `e.timestamp.date()`, mostrando le scansioni 2h indietro (es. scansione delle 13:30 IT → ora 11:30 nel grafico). Fix in `backend/routers/analytics.py::_build_detailed_analytics` con conversione `ZoneInfo('Europe/Rome')` prima di estrarre `.hour` e `.date()`. Stessa logica già presente in `daily-counter` (aggregation pipeline Mongo con `timezone: 'Europe/Rome'`). Verificato via curl: evento DB UTC 11:30 → `hourly_pattern[13]=19`. | ✅ |
 
 ## Prioritized backlog
 

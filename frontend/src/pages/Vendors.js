@@ -447,7 +447,7 @@ const Vendors = () => {
                   onChange={(e) =>
                     setFormData({ ...formData, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '') })
                   }
-                  placeholder={editingVendor ? '(lascia vuoto per usare il codice automatico)' : 'es. gizwindtre'}
+                  placeholder={editingVendor ? '(lascia vuoto per usare il codice automatico)' : 'es. mario-rossi'}
                   maxLength={64}
                   className="border-0 focus-visible:ring-0 focus-visible:ring-offset-0 font-mono text-sm"
                   data-testid="vendor-slug-input"

@@ -487,7 +487,7 @@ class OrganizationUpdate(BaseModel):
     privacy_policy_url: Optional[str] = Field(None, max_length=500)
     # Logo of the legal entity (controller) — used on the public privacy/terms
     # page in place of the franchising brand logo (`logo_url`). Lets users
-    # distinguish "WindTre store branding" from "VDN SRL the data controller".
+    # distinguish "Franchise store branding" from "Parent company the data controller".
     legal_logo_url: Optional[str] = Field(None, max_length=600)
     legal_logo_public_id: Optional[str] = Field(None, max_length=300)
     # PWA icon (512×512 recommended) shown when a visitor saves the vendor
@@ -1606,7 +1606,7 @@ async def remove_org_domain(org_id: str, domain: str, user: dict = Depends(get_c
 # ──────────────────────────────────────────────────────────────────
 # Platform primary domain (e.g. qrhub.it) — set by super admin.
 # This is the canonical hostname where the admin login + dashboard live.
-# Custom-domain tenants (e.g. app.vdn.srl) serve ONLY public landing pages;
+# Custom-domain tenants (e.g. app.tenant-example.com) serve ONLY public landing pages;
 # any attempt to reach /login or /dashboard there is redirected here.
 #
 # Stored as a single doc in db.platform_settings keyed by `_id='platform_domain'`.
@@ -2283,8 +2283,8 @@ async def get_vendor_privacy_info(vendor_id: str):
             'logo_url': org.get('logo_url', ''),
             # Logo of the legal entity (controller). When set, the privacy/
             # terms page shows this instead of the franchising brand logo so
-            # visitors see the actual data controller (es. "VDN SRL") and
-            # not the franchise (es. "WindTre").
+            # visitors see the actual data controller (the parent company) and
+            # not the franchise (es. the brand the store resells).
             'legal_logo_url': org.get('legal_logo_url', '') or org.get('logo_url', ''),
         },
         'gdpr_status': {
@@ -2712,7 +2712,7 @@ async def vendor_login(req: LoginRequest, request: Request, response: Response):
     
     vendor.pop('password_hash', None)
     # Enrich with the effective public landing URL so the vendor dashboard can
-    # link "Vedi Pagina" to the org's custom domain (e.g. https://app.vdn.srl/v/giz)
+    # link "Vedi Pagina" to the org's custom domain (e.g. https://app.tenant-example.com/v/abc)
     # instead of forging an URL on the platform admin host.
     vendor['landing_url'] = await _effective_landing_url(vendor)
     return vendor

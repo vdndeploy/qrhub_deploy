@@ -781,7 +781,8 @@ const OrgSettings = () => {
           <p className="text-xs text-gray-600 dark:text-[#8a8a92] mt-1 mb-3">
             Logo dell'azienda <strong>vera e propria</strong> (titolare del trattamento) che compare
             nella pagina <code className="bg-gray-100 dark:bg-[#1a1a1c] px-1 rounded">/v/[id]/privacy</code> al
-            posto del logo del franchising. Es. carica qui il logo di <em>"VDN SRL"</em>, non quello di WindTre o TIM.
+            posto del logo del franchising. Es. carica qui il logo della <em>tua azienda</em>, non
+            quello del marchio del franchising/fornitore che rivendi.
             Se vuoto, viene usato il logo del brand qui sopra.
           </p>
           <div className="flex items-center gap-3 flex-wrap">

@@ -305,7 +305,7 @@ const Organizations = () => {
             </div>
             <div>
               <Label>Brand name (display, opzionale)</Label>
-              <Input value={form.brand_name} onChange={(e) => setForm({...form, brand_name: e.target.value})} placeholder="Es. TIM" maxLength={200} data-testid="org-create-brand-input" />
+              <Input value={form.brand_name} onChange={(e) => setForm({...form, brand_name: e.target.value})} placeholder="Es. Nome Brand" maxLength={200} data-testid="org-create-brand-input" />
               <p className="text-xs text-gray-500 dark:text-[#6a6a72] mt-1">Nome mostrato nelle landing dei venditori. Se vuoto, usa il nome dell'organizzazione.</p>
             </div>
             <div>
@@ -422,7 +422,7 @@ const Organizations = () => {
               <Label>Nome organizzazione *</Label>
               <Input value={editForm.name}
                       onChange={(e) => setEditForm({...editForm, name: e.target.value})}
-                      placeholder="VDN SRL"
+                      placeholder="Es. Nome Azienda SRL"
                       required maxLength={200}
                       data-testid="org-edit-name" />
             </div>
@@ -431,7 +431,7 @@ const Organizations = () => {
               <Input value={editForm.slug}
                       onChange={(e) => setEditForm({...editForm,
                           slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]+/g, '-')})}
-                      placeholder="vdn-srl"
+                      placeholder="nome-azienda"
                       className="font-mono"
                       data-testid="org-edit-slug" />
               <p className="text-xs text-gray-500 dark:text-[#6a6a72] mt-1">Univoco tra tutti i tenant. Deve essere identificativo, breve.</p>
@@ -440,7 +440,7 @@ const Organizations = () => {
               <Label>Brand name (display)</Label>
               <Input value={editForm.brand_name}
                       onChange={(e) => setEditForm({...editForm, brand_name: e.target.value})}
-                      placeholder="VDN"
+                      placeholder="Es. Nome Brand"
                       maxLength={200}
                       data-testid="org-edit-brand" />
             </div>

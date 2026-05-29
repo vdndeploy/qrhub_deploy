@@ -102,7 +102,7 @@ const VendorDashboard = () => {
 
   const openLandingPage = () => {
     // Prefer the effective public URL computed by the backend: that's the org's
-    // verified custom domain (e.g. https://app.vdn.srl/v/giz) so the link the
+    // verified custom domain (e.g. https://app.tenant-example.com/v/abc) so the link the
     // vendor copies/shares matches what their customers will actually see. The
     // local `window.location.origin` is only a fallback (typically qrhub.it for
     // unconfigured orgs or local development).

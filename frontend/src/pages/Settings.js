@@ -1264,7 +1264,7 @@ const UsageCard = ({ provider, color, data, bars, extras }) => {
 // Platform Primary Domain — super admin section.
 // Mirrors the tenant Domain UX (verify + DNS instructions) but for the
 // canonical admin host (e.g. qrhub.it). When set, custom tenant domains
-// (e.g. app.vdn.srl) automatically redirect non-landing traffic here.
+// (e.g. app.tenant-example.com) automatically redirect non-landing traffic here.
 // ──────────────────────────────────────────────────────────────────
 const PlatformDomainSection = () => {
   const [doc, setDoc] = useState(null);
@@ -1359,7 +1359,7 @@ const PlatformDomainSection = () => {
         </div>
         <p className="text-amber-900/90">
           Quando configurato, è l'unico hostname dove vivono il login admin e il dashboard.
-          I domini personalizzati dei tenant (es. app.vdn.srl) serviranno solo le landing pubbliche
+          I domini personalizzati dei tenant (es. app.nomeazienda.it) serviranno solo le landing pubbliche
           dei venditori; ogni altra richiesta verrà reindirizzata qui automaticamente.
         </p>
       </div>

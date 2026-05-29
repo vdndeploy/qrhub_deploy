@@ -13,12 +13,12 @@ const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
  * Rules:
  *   - Hostname == platform primary domain (e.g. qrhub.it)             → render anything
  *   - Hostname in admin_hosts_allowlist / admin_host_suffixes          → render anything
- *   - Otherwise (custom tenant domain like app.vdn.srl):
+ *   - Otherwise (custom tenant domain like app.tenant-example.com):
  *       /v/:vendorId[...]   → render the public landing
  *       Any other path      → render a neutral courtesy page.
  *
  * Earlier versions used to 302-redirect "non-landing" paths to the platform
- * primary domain. That was wrong: a visitor on app.vdn.srl must NEVER be
+ * primary domain. That was wrong: a visitor on app.tenant-example.com must NEVER be
  * dropped on qrhub.it — it isn't their site. Now we keep them on their
  * configured domain and just show a friendly "Pagina non disponibile" view.
  *

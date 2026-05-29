@@ -19,6 +19,25 @@ const PALETTE = ['#D2FA46', '#9B7BFF', '#5DD4A0', '#FFB86B', '#FF7A8A', '#6EC1E4
 
 const PERIOD_LABELS = { '7d': 'Ultimi 7 giorni', '30d': 'Ultimi 30 giorni', month: 'Mese corrente' };
 
+// Convert a UTC ISO timestamp from the backend into a human-readable local
+// time string in Europe/Rome. The event log was previously cutting the raw
+// ISO with `.slice(0, 16)` which kept the UTC hour — making a 13:39 italian
+// scan appear as 11:39 to the admin.
+const formatLocalTimestamp = (iso) => {
+  if (!iso) return '';
+  try {
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return iso.slice(0, 16).replace('T', ' ');
+    return d.toLocaleString('it-IT', {
+      timeZone: 'Europe/Rome',
+      day: '2-digit', month: '2-digit', year: 'numeric',
+      hour: '2-digit', minute: '2-digit',
+    });
+  } catch {
+    return iso.slice(0, 16).replace('T', ' ');
+  }
+};
+
 // Shared soft tooltip used by every chart in this page — keeps the look consistent
 // with the Panoramica Globale dashboard.
 const SoftTooltip = ({ active, payload, label }) => {
@@ -255,7 +274,7 @@ export default function AnalyticsDetailed({ mode = 'admin', vendors = [], defaul
                     <TableBody>
                       {data.event_log.slice(0, 100).map((e, i) => (
                         <TableRow key={i}>
-                          <TableCell className="text-xs whitespace-nowrap">{(e.timestamp || '').slice(0, 16).replace('T', ' ')}</TableCell>
+                          <TableCell className="text-xs whitespace-nowrap">{formatLocalTimestamp(e.timestamp)}</TableCell>
                           <TableCell className="text-xs">{CLICK_LABELS[e.event_type] || (e.event_type === 'page_view' ? 'Visita Pagina' : e.event_type)}</TableCell>
                           <TableCell className="text-xs">{e.city || '-'}</TableCell>
                           <TableCell className="text-xs">{e.country || '-'}</TableCell>

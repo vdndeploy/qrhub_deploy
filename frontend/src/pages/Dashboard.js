@@ -146,11 +146,17 @@ const Dashboard = () => {
                 <Button
                   variant={isActive('/dashboard/posts') ? 'default' : 'ghost'}
                   size="sm"
-                  className={isActive('/dashboard/posts') ? 'bg-[#D2FA46] hover:bg-[#bce63d] text-[#0a0a0b]' : ''}
+                  className={`relative ${isActive('/dashboard/posts') ? 'bg-[#D2FA46] hover:bg-[#bce63d] text-[#0a0a0b]' : ''}`}
                   data-testid="nav-posts"
                 >
                   <Megaphone className="h-4 w-4 sm:mr-2" />
                   <span className="ml-1 sm:ml-0 text-xs sm:text-sm">Annunci</span>
+                  <span
+                    className={`ml-1.5 inline-flex items-center rounded-full text-[9px] font-bold leading-none px-1.5 py-0.5 uppercase tracking-wider ${isActive('/dashboard/posts') ? 'bg-[#0a0a0b] text-[#D2FA46]' : 'bg-[#D2FA46] text-[#0a0a0b] ring-1 ring-black/10 dark:ring-white/10'}`}
+                    data-testid="nav-posts-new-badge"
+                  >
+                    New
+                  </span>
                 </Button>
               </Link>
               <Link to="/dashboard/media" className="flex-shrink-0">

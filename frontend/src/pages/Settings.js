@@ -1090,6 +1090,31 @@ const UsageSection = ({ atlasFields, updateAtlas }) => {
           <div className="text-sm text-gray-500 dark:text-[#6a6a72] py-6 text-center">Caricamento…</div>
         )}
 
+        {data?.billing && (
+          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 dark:bg-emerald-500/[0.08] dark:border-emerald-500/20 p-4 mb-3 flex items-center justify-between gap-3 flex-wrap"
+                data-testid="billing-banner">
+            <div>
+              <p className="text-[11px] uppercase tracking-widest font-semibold text-emerald-700 dark:text-emerald-400">Costo questo mese (provider noti)</p>
+              <p className="text-2xl font-black tracking-tight text-emerald-900 dark:text-emerald-100 leading-tight">
+                ${data.billing.known_cost_usd_month.toFixed(2)}
+                <span className="text-xs font-medium text-emerald-700/70 dark:text-emerald-300/70 ml-2">/ mese</span>
+              </p>
+              {data.billing.unknown_providers?.length > 0 && (
+                <p className="text-[11px] text-amber-700 dark:text-amber-400 mt-1">
+                  + uso effettivo Fly (pay-as-you-go, non esposto da API): verifica nel dashboard Fly →
+                  <a href={data.fly?.dashboard_url} target="_blank" rel="noreferrer" className="underline ml-1">apri Billing</a>
+                </p>
+              )}
+            </div>
+            <div className="text-right">
+              <p className="text-[11px] text-emerald-700/70 dark:text-emerald-300/70">Stato fatturazione</p>
+              <p className="text-sm font-semibold text-emerald-900 dark:text-emerald-100">
+                {data.fly?.billing_status === 'CURRENT' ? '✓ In regola' : (data.fly?.billing_status || '—')}
+              </p>
+            </div>
+          </div>
+        )}
+
         {data && (
           <div className="grid sm:grid-cols-2 gap-3" data-testid="usage-grid">
             <UsageCard provider="Fly.io" color="#7d2ae8" data={data.fly}
@@ -1097,7 +1122,7 @@ const UsageSection = ({ atlasFields, updateAtlas }) => {
                           { label: 'Machine attive', used: d.machines_used, limit: d.machines_limit, unit: '' },
                           { label: 'Volume storage', used: d.volume_gb_used, limit: d.volume_gb_limit, unit: 'GB' },
                         ]}
-                        extras={(d) => d.note} />
+                        extras={(d) => d.cost_note || ''} />
             <UsageCard provider="MongoDB Atlas" color="#13aa52" data={data.mongodb_atlas}
                         bars={(d) => d.storage_used_mb != null
                           ? [{ label: 'Storage DB', used: d.storage_used_mb, limit: d.storage_limit_mb, unit: 'MB' }]
@@ -1168,10 +1193,22 @@ const UsageCard = ({ provider, color, data, bars, extras }) => {
           <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ background: color }} />
           <h4 className="text-sm font-semibold text-gray-900 dark:text-white">{provider}</h4>
         </div>
-        {isOk && <Badge className="bg-emerald-100 text-emerald-700">OK</Badge>}
-        {isPartial && <Badge className="bg-amber-100 text-amber-800">Parziale</Badge>}
-        {isErr && <Badge className="bg-red-100 text-red-700">Errore</Badge>}
-        {isMissing && <Badge className="bg-gray-200 text-gray-700">Non configurato</Badge>}
+        <div className="flex items-center gap-1.5">
+          {isOk && data?.cost_usd_month != null && (
+            <Badge className={data.cost_usd_month === 0
+              ? 'bg-emerald-100 text-emerald-700'
+              : 'bg-amber-100 text-amber-800'}>
+              ${data.cost_usd_month.toFixed(2)}/mese
+            </Badge>
+          )}
+          {isOk && data?.cost_usd_month == null && data?.plan && (
+            <Badge className="bg-blue-100 text-blue-700">{data.plan}</Badge>
+          )}
+          {isOk && <Badge className="bg-emerald-100 text-emerald-700">OK</Badge>}
+          {isPartial && <Badge className="bg-amber-100 text-amber-800">Parziale</Badge>}
+          {isErr && <Badge className="bg-red-100 text-red-700">Errore</Badge>}
+          {isMissing && <Badge className="bg-gray-200 text-gray-700">Non configurato</Badge>}
+        </div>
       </div>
 
       {isErr && (
@@ -1209,6 +1246,13 @@ const UsageCard = ({ provider, color, data, bars, extras }) => {
             <p className="text-[11px] text-gray-500 dark:text-[#6a6a72] mt-2 pt-2 border-t border-gray-100 dark:border-white/5 leading-relaxed">
               {extras(data)}
             </p>
+          )}
+          {data?.dashboard_url && (
+            <a href={data.dashboard_url} target="_blank" rel="noreferrer"
+                className="inline-flex items-center gap-1 text-[11px] mt-2 text-gray-500 hover:text-gray-900 dark:text-[#8a8a92] dark:hover:text-white hover:underline">
+              <ExternalLink className="h-3 w-3" />
+              Apri billing dashboard
+            </a>
           )}
         </div>
       )}

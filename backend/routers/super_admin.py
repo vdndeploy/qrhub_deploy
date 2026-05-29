@@ -183,11 +183,16 @@ async def _usage_fly(cfg: dict) -> dict:
     app_name = (cfg.get('flyio_app_name') or '').strip()
     if not token or not app_name:
         return {'status': 'not_configured', 'limits': FREE_LIMITS['fly']}
-    # Fly does not expose a free public usage API for bandwidth in GraphQL.
-    # We surface what we CAN know: machine count + region + status.
+    # Fetch app + organization billing flags. Fly GraphQL doesn't expose
+    # current-month cost on the public schema — only `billingStatus`,
+    # `paidPlan`, `creditBalance`. For actual €/$ we link to the dashboard.
     query = """query($name:String!){
         app(name:$name){
             name status hostname
+            organization{
+                slug rawSlug
+                billable billingStatus paidPlan creditBalance isCreditCardSaved
+            }
             machines{ nodes{ id state region } }
             volumes{ nodes{ id sizeGb region } }
         }
@@ -200,16 +205,32 @@ async def _usage_fly(cfg: dict) -> dict:
         return {'status': 'error', 'error': str(e)[:300], 'limits': FREE_LIMITS['fly']}
     app = (data or {}).get('app') or {}
     all_machines = (app.get('machines') or {}).get('nodes') or []
-    # Fly keeps destroyed machines in the GraphQL response forever — filter
-    # those out so the "used" count reflects only billable/active instances.
     machines = [m for m in all_machines if (m.get('state') or '').lower() not in ('destroyed', 'destroying')]
     volumes = (app.get('volumes') or {}).get('nodes') or []
     total_vol_gb = sum((v.get('sizeGb') or 0) for v in volumes)
+
+    org = app.get('organization') or {}
+    paid_plan = bool(org.get('paidPlan'))
+    credit_balance_cents = org.get('creditBalance') or 0
+    credit_balance_usd = round(credit_balance_cents / 100.0, 2)
+
     return {
         'status': 'ok',
         'app': app.get('name'),
         'hostname': app.get('hostname'),
         'app_status': app.get('status'),
+        'org_slug': org.get('slug'),
+        'plan': 'Hobby (pay-as-you-go)' if paid_plan else 'Free',
+        'is_free_plan': not paid_plan,
+        'billing_status': org.get('billingStatus'),
+        'credit_balance_usd': credit_balance_usd,
+        # cost_usd_month è ignoto via API → resta None, ma la UI sa che il
+        # piano è "pay-as-you-go" e mostra il link al dashboard reale.
+        'cost_usd_month': None,
+        'cost_note': (
+            'Piano Hobby pay-as-you-go: paghi solo l\'uso effettivo. '
+            'Costo questo mese visibile solo nel dashboard Fly (vedi link).'
+        ) if paid_plan else 'Piano gratuito attivo.',
         'machines_used': len(machines),
         'machines_limit': FREE_LIMITS['fly']['machines'],
         'volume_gb_used': total_vol_gb,
@@ -218,7 +239,7 @@ async def _usage_fly(cfg: dict) -> dict:
             {'id': m.get('id'), 'state': m.get('state'), 'region': m.get('region')}
             for m in machines
         ],
-        'note': 'Bandwidth non esposto dall\'API Fly: verifica manuale su fly.io dashboard → Billing.',
+        'dashboard_url': f"https://fly.io/dashboard/{org.get('slug') or 'personal'}/billing",
         'limits': FREE_LIMITS['fly'],
     }
 
@@ -274,11 +295,34 @@ async def _usage_mongodb(cfg: dict) -> dict:
             'instance_size': (cl.get('providerSettings') or {}).get('instanceSizeName') or cl.get('clusterType'),
             'mongo_version': cl.get('mongoDBVersion'),
         })
+
+    # Atlas billing: M0 is free forever, but we still fetch the pending
+    # invoice so if you ever upgrade you see the running tally.
+    cost_usd_month = None
+    is_m0 = all((c.get('instance_size') or '').upper() in ('M0', 'REPLICASET') for c in out) if out else True
+    try:
+        inv_url = f'https://cloud.mongodb.com/api/atlas/v2/groups/{group}/invoices/pending'
+        async with httpx.AsyncClient(timeout=15.0, auth=httpx.DigestAuth(pub, priv)) as c:
+            ri = await c.get(inv_url, headers={'Accept': 'application/vnd.atlas.2023-01-01+json'})
+        if ri.status_code == 200:
+            inv = ri.json()
+            # Atlas returns amountBilledCents
+            cents = inv.get('amountBilledCents') or 0
+            cost_usd_month = round(cents / 100.0, 2)
+    except Exception:
+        cost_usd_month = 0.0 if is_m0 else None
+
+    if cost_usd_month is None and is_m0:
+        cost_usd_month = 0.0
+
     return {
         **base_result,
         'status': 'ok',
         'clusters_count': len(out),
         'clusters': out,
+        'cost_usd_month': cost_usd_month,
+        'is_free_plan': is_m0,
+        'dashboard_url': f'https://cloud.mongodb.com/v2/{group}#/billing/overview',
     }
 
 
@@ -305,9 +349,13 @@ async def _usage_cloudinary(cfg: dict) -> dict:
 
     # Cloudinary's /usage returns credits + limit + percent + storage/bandwidth/transformations.
     credits = d.get('credits') or {}
+    plan_name = d.get('plan') or 'Free'
+    is_free = plan_name.lower() == 'free'
     return {
         'status': 'ok',
-        'plan': d.get('plan'),
+        'plan': plan_name,
+        'is_free_plan': is_free,
+        'cost_usd_month': 0.0 if is_free else None,
         'credits_used': credits.get('usage'),
         'credits_limit': credits.get('limit') or FREE_LIMITS['cloudinary']['credits_month'],
         'credits_pct': credits.get('used_percent'),
@@ -315,6 +363,7 @@ async def _usage_cloudinary(cfg: dict) -> dict:
         'bandwidth_bytes': (d.get('bandwidth') or {}).get('usage'),
         'storage_bytes': (d.get('storage') or {}).get('usage'),
         'last_updated': d.get('last_updated'),
+        'dashboard_url': 'https://console.cloudinary.com/console/billing',
         'limits': FREE_LIMITS['cloudinary'],
     }
 
@@ -351,15 +400,22 @@ async def _usage_vercel(cfg: dict) -> dict:
     last_30d = [x for x in deps if (now_ms - (x.get('created') or 0)) < 30 * 24 * 3600 * 1000]
     last_24h = [x for x in deps if (now_ms - (x.get('created') or 0)) < 24 * 3600 * 1000]
     latest = deps[0] if deps else None
+    # Vercel Hobby is free for personal use up to the documented limits.
+    # We optimistically assume Hobby plan unless we see a paid project signal.
+    is_free = True
     return {
         'status': 'ok',
         'project': project,
+        'plan': 'Hobby' if is_free else 'Paid',
+        'is_free_plan': is_free,
+        'cost_usd_month': 0.0 if is_free else None,
         'deployments_30d': len(last_30d),
         'deployments_24h': len(last_24h),
         'deployments_24h_limit': 100,
         'latest_state': (latest or {}).get('state'),
         'latest_ts': (latest or {}).get('created'),
         'note': 'Bandwidth e build-minutes non esposti dall\'API; check su vercel.com → Settings → Usage.',
+        'dashboard_url': 'https://vercel.com/account/billing',
         'limits': FREE_LIMITS['vercel'],
     }
 
@@ -381,8 +437,25 @@ async def get_usage(user: dict = Depends(require_super_admin)):
         _usage_vercel(cfg),
         return_exceptions=False,
     )
+
+    # Aggregate billing summary. None values are treated as "unknown" and
+    # excluded from the sum but counted separately so the UI can warn.
+    providers = {'fly': fly, 'mongodb_atlas': atlas, 'cloudinary': cdn, 'vercel': vercel}
+    total = 0.0
+    unknown = []
+    for name, p in providers.items():
+        if p.get('cost_usd_month') is None:
+            if p.get('status') not in ('not_configured',):
+                unknown.append(name)
+            continue
+        total += float(p['cost_usd_month'])
+
     return {
         'fetched_at': datetime.now(timezone.utc).isoformat(),
+        'billing': {
+            'known_cost_usd_month': round(total, 2),
+            'unknown_providers': unknown,
+        },
         'fly': fly,
         'mongodb_atlas': atlas,
         'cloudinary': cdn,

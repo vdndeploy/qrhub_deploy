@@ -565,6 +565,10 @@ class DeployConfig(BaseModel):
     # Aruba (info)
     aruba_dns_zone: Optional[str] = ''  # e.g. tuodominio.it
     aruba_notes: Optional[str] = ''
+    # MongoDB Atlas API (free-tier usage monitor only, read-only Project Read Only key)
+    atlas_public_key: Optional[str] = ''
+    atlas_private_key: Optional[str] = ''
+    atlas_group_id: Optional[str] = ''  # a.k.a. Project ID
     # Uptime monitoring
     uptime_enabled: Optional[bool] = True
     uptime_health_path: Optional[str] = '/api/auth/me'  # 401 = alive
@@ -577,7 +581,7 @@ CLICK_TYPES = ['whatsapp_click', 'instagram_click', 'facebook_click', 'review_cl
 # ──────────────────────────────────────────────────────────────────
 # GDPR — DPA (Data Processing Agreement) acceptance flow
 # ──────────────────────────────────────────────────────────────────
-CURRENT_DPA_VERSION = '1.0'
+CURRENT_DPA_VERSION = '1.1'
 
 
 def _dpa_status(user: dict) -> dict:
@@ -2921,11 +2925,13 @@ app.include_router(api_router)
 from routers.deploy import router as _deploy_router  # noqa: E402
 from routers.media import router as _media_router  # noqa: E402
 from routers.analytics import router as _analytics_router  # noqa: E402
+from routers.super_admin import router as _super_admin_router  # noqa: E402
 
 # Attach with the same /api prefix used by api_router
 app.include_router(_deploy_router, prefix='/api')
 app.include_router(_media_router, prefix='/api')
 app.include_router(_analytics_router, prefix='/api')
+app.include_router(_super_admin_router, prefix='/api')
 
 # ──────────────────────────────────────────────────────────────────
 # Open Graph / Twitter card preview pages for vendor landings.

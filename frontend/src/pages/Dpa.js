@@ -68,8 +68,17 @@ const Dpa = () => {
           <li><strong>Titolare del trattamento (Controller)</strong>: l'organizzazione che utilizza QRHub per pubblicare
             landing page e raccogliere metriche aggregate sui propri venditori (di seguito <em>"Tu"</em> o <em>"Cliente"</em>);</li>
           <li><strong>Responsabile del trattamento (Processor)</strong>: <strong>QRHub</strong>, piattaforma open source
-            (licenza MIT) creata e mantenuta a titolo personale, senza scopo di lucro.</li>
+            (licenza MIT) creata e mantenuta da un soggetto privato a titolo personale, senza scopo di lucro,
+            senza struttura societaria e senza dipendenti (di seguito <em>"QRHub"</em>).</li>
         </ul>
+        <div className="not-prose bg-amber-50 border-l-4 border-amber-400 p-3 rounded-r text-sm text-amber-900 my-3">
+          <strong>Natura non commerciale del servizio.</strong> Il Cliente prende atto e accetta espressamente che
+          QRHub è un software fornito <strong>gratuitamente</strong>, in modalità <strong>self-served</strong>,
+          all'interno dei limiti dei piani gratuiti (free tier) dei fornitori di infrastruttura indicati al §4.
+          QRHub non è un fornitore SaaS commerciale: non esiste un canone, un SLA contrattuale, né un'assistenza
+          tecnica garantita. Il Cliente conferma di aver scelto liberamente di adottare la piattaforma in piena
+          consapevolezza di questa natura non commerciale.
+        </div>
 
         <h2>2. Oggetto del trattamento</h2>
         <p>
@@ -94,6 +103,11 @@ const Dpa = () => {
           <li><strong>Cloudinary</strong> (CDN immagini/video, default US — EU-US Data Privacy Framework + SCC)</li>
           <li><strong>ipapi.co</strong> (geo-lookup città; IP individuale mai memorizzato lato QRHub)</li>
         </ul>
+        <p className="text-xs text-gray-600 dark:text-[#8a8a92]">
+          Il Cliente è tenuto a verificare e accettare autonomamente i DPA e le SCC dei singoli fornitori sopra
+          elencati, secondo i loro termini di servizio. QRHub non è parte di tali rapporti contrattuali e non
+          può modificarne le condizioni.
+        </p>
 
         <h2>5. Misure di sicurezza (Art. 32 GDPR)</h2>
         <ul>
@@ -106,7 +120,26 @@ const Dpa = () => {
           <li>Logging applicativo privo di password e token.</li>
         </ul>
 
-        <h2>6. Diritti dell'interessato</h2>
+        <h2>6. Responsabilità del Cliente (Titolare)</h2>
+        <p>
+          Il Cliente, in qualità di Titolare autonomo del trattamento, è e rimane il <strong>solo responsabile</strong> nei confronti
+          degli interessati, del Garante della Privacy e di qualsiasi autorità competente per quanto riguarda:
+        </p>
+        <ul>
+          <li>la liceità del trattamento dei dati raccolti tramite le proprie landing page;</li>
+          <li>l'informativa privacy e il banner cookie pubblicati sul proprio dominio personalizzato;</li>
+          <li>la gestione dei consensi marketing degli utenti finali;</li>
+          <li>la risposta alle richieste di esercizio dei diritti degli interessati (artt. 15–22 GDPR);</li>
+          <li>il rispetto delle normative settoriali applicabili (es. AGCOM, codici di condotta telco/marketing);</li>
+          <li>i contenuti pubblicati sulle landing (testi, immagini, link, messaggi WhatsApp);</li>
+          <li>la nomina interna del DPO ove obbligatorio.</li>
+        </ul>
+        <p>
+          QRHub fornisce esclusivamente strumenti tecnici per facilitare l'adempimento (export dati, cancellazione
+          account, anonimizzazione di default) ma non assume alcun ruolo consultivo, legale o di compliance verso il Cliente.
+        </p>
+
+        <h2>7. Diritti dell'interessato</h2>
         <p>
           Il Cliente in qualità di Titolare resta responsabile dell'esercizio dei diritti degli interessati
           (artt. 15-22 GDPR). QRHub mette a disposizione i seguenti endpoint tecnici per facilitare gli adempimenti:
@@ -118,28 +151,68 @@ const Dpa = () => {
           <li><code>DELETE /api/organizations/{'{'}id{'}'}</code> — cancellazione totale tenant (cascade)</li>
         </ul>
 
-        <h2>7. Notifica violazioni dati (Art. 33 GDPR)</h2>
+        <h2>8. Notifica violazioni dati (Art. 33 GDPR)</h2>
         <p>
-          In caso di violazione di sicurezza, QRHub si impegna a notificare il Cliente entro 72 ore dalla scoperta,
-          tramite l'email registrata nel profilo organizzazione.
+          In caso di violazione di sicurezza nota a QRHub e potenzialmente impattante sui dati del Cliente, QRHub si
+          impegna a notificare il Cliente <strong>il prima possibile e comunque entro 72 ore</strong> dalla scoperta
+          documentata, utilizzando l'email registrata nel profilo organizzazione. Tale notifica è fornita a titolo
+          collaborativo e <em>best-effort</em>: stante la natura non commerciale del servizio e l'assenza di un team di
+          incident response 24/7, QRHub non garantisce tempi o modalità di rilevazione delle violazioni.
         </p>
 
-        <h2>8. Durata e cessazione</h2>
+        <h2>9. Limitazione di responsabilità ed esclusione di garanzia</h2>
+        <p>
+          QRHub è fornito <strong>"AS-IS" e "AS-AVAILABLE"</strong>, in coerenza con la licenza MIT, <strong>senza alcuna
+          garanzia</strong> esplicita o implicita di funzionamento continuo, idoneità a uno scopo specifico,
+          commerciabilità, assenza di bug o di vulnerabilità.
+        </p>
+        <p>
+          Nella massima misura consentita dalla legge applicabile, e fatta salva la responsabilità per dolo o colpa
+          grave non rinunciabile per legge, il Cliente <strong>esonera espressamente</strong> QRHub e il soggetto privato
+          che lo mantiene da qualunque responsabilità — diretta, indiretta, incidentale, consequenziale, punitiva,
+          patrimoniale o non patrimoniale — derivante o connessa a:
+        </p>
+        <ul>
+          <li>indisponibilità, interruzione o sospensione del servizio (anche per superamento dei limiti free tier o decisione unilaterale di cessazione);</li>
+          <li>perdita, alterazione o esfiltrazione di dati dovuta a malfunzionamenti dei sub-responsabili indicati al §4;</li>
+          <li>provvedimenti del Garante, sanzioni, contenziosi o richieste di risarcimento avanzate da interessati o terzi nei confronti del Cliente in relazione al trattamento sotto la sua titolarità;</li>
+          <li>danni reputazionali, mancato guadagno o opportunità commerciali perse dal Cliente;</li>
+          <li>contenuti pubblicati dal Cliente sulle proprie landing e dalle conseguenze del loro pubblico utilizzo.</li>
+        </ul>
+        <p>
+          Il Cliente riconosce che il valore complessivo della prestazione QRHub è pari a zero e che, di
+          conseguenza, qualsiasi eventuale responsabilità residua non potrà comunque eccedere tale importo.
+        </p>
+
+        <h2>10. Backup ed export</h2>
+        <p>
+          Il Cliente prende atto che QRHub non garantisce backup esterni dei dati con frequenza fissa o retention
+          minima. Il Cliente è invitato a eseguire <strong>backup autonomi periodici</strong> utilizzando gli strumenti
+          di export forniti dal pannello (export analytics PDF, export dati utente JSON, export immagini dalla
+          libreria Cloudinary). Per esigenze business-critical il Cliente deve dotarsi di soluzioni di backup
+          indipendenti.
+        </p>
+
+        <h2>11. Durata e cessazione</h2>
         <p>
           Il presente DPA è efficace dalla data di accettazione e rimane in vigore finché il Cliente utilizza la
           piattaforma. Al termine, il Cliente può richiedere la cancellazione totale dei dati tramite l'endpoint
           <code>DELETE /api/organizations/{'{'}id{'}'}</code> (cascade) o contattando il super admin.
         </p>
 
-        <h2>9. Limitazione di responsabilità</h2>
+        <h2>12. Modifiche al DPA</h2>
         <p>
-          QRHub è fornito <strong>"as-is"</strong> senza garanzie esplicite o implicite, in coerenza con la licenza MIT.
-          La responsabilità di QRHub è limitata al massimo consentito dalla legge, considerando la natura non commerciale
-          del progetto. Per esigenze business-critical il Cliente è tenuto a valutare backup esterni autonomi.
+          QRHub si riserva il diritto di aggiornare il presente DPA per riflettere modifiche normative, dei
+          sub-responsabili o delle misure di sicurezza. Le modifiche saranno comunicate tramite il pannello e
+          richiederanno una nuova accettazione esplicita prima di proseguire nell'utilizzo della piattaforma.
         </p>
 
-        <h2>10. Legge applicabile</h2>
-        <p>Legge italiana — Regolamento (UE) 2016/679 (GDPR) e D.Lgs. 196/2003 come modificato dal D.Lgs. 101/2018.</p>
+        <h2>13. Legge applicabile e foro competente</h2>
+        <p>
+          Legge italiana — Regolamento (UE) 2016/679 (GDPR) e D.Lgs. 196/2003 come modificato dal D.Lgs. 101/2018.
+          Per qualunque controversia non risolvibile in via amichevole si rinvia alle norme di legge in materia di
+          foro del consumatore ove applicabili; in difetto, foro di Verona.
+        </p>
       </article>
 
       {!status?.accepted && (

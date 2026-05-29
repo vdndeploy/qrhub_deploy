@@ -19,6 +19,7 @@ import {
   Cloud, Copy, Eye, EyeOff, ShieldCheck, ExternalLink,
   Zap, RefreshCw, Activity, RotateCw, AlertTriangle,
   HeartPulse, CheckCircle2, XCircle, Crown, Trash2,
+  Database, Download, Gauge,
 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 
@@ -35,6 +36,7 @@ const EMPTY = {
   cloudinary_url: '',
   cloudinary_cloud_name: '', cloudinary_api_key: '', cloudinary_api_secret: '',
   aruba_dns_zone: '', aruba_notes: '',
+  atlas_public_key: '', atlas_private_key: '', atlas_group_id: '',
 };
 
 const Section = ({ icon: Icon, title, desc, children, accent = '#D2FA46' }) => (
@@ -345,7 +347,10 @@ const Settings = () => {
               <Cloud className="h-4 w-4 mr-1.5" /> Cloudinary
             </TabsTrigger>
             <TabsTrigger value="github" data-testid="tab-github" className="flex-shrink-0">
-              <Github className="h-4 w-4 mr-1.5" /> GitHub
+              <Database className="h-4 w-4 mr-1.5" /> Backup
+            </TabsTrigger>
+            <TabsTrigger value="usage" data-testid="tab-usage" className="flex-shrink-0">
+              <Gauge className="h-4 w-4 mr-1.5" /> Usage
             </TabsTrigger>
           </TabsList>
         </div>
@@ -883,10 +888,12 @@ const Settings = () => {
           </Section>
         </TabsContent>
 
-        {/* GITHUB */}
+        {/* BACKUP (riusa la chiave 'github' per non rompere lo state) */}
         <TabsContent value="github" className="space-y-6 mt-5">
-          <Section icon={Github} title="GitHub (opzionale)"
-                    desc="Repository sorgente. Utile per CI/CD auto-deploy futuro.">
+          <BackupSection />
+
+          <Section icon={Github} title="Repository GitHub"
+                    desc="Configura il repository sorgente per consentire il backup snapshot del codice.">
             <TextField id="github_repo" label="Repository"
               value={config.github_repo} onChange={update('github_repo')}
               placeholder="owner/repo-name" mono
@@ -895,7 +902,7 @@ const Settings = () => {
               value={config.github_token} onChange={update('github_token')}
               placeholder="ghp_xxx..."
               testid="github-token-input"
-              hint="https://github.com/settings/tokens" />
+              hint="https://github.com/settings/tokens — scope minimo: 'repo' read-only" />
           </Section>
 
           <Section icon={Globe2} title="Aruba DNS — Note operative"
@@ -920,6 +927,18 @@ const Settings = () => {
             </div>
           </Section>
         </TabsContent>
+
+        {/* USAGE / FREE-TIER MONITOR */}
+        <TabsContent value="usage" className="space-y-6 mt-5">
+          <UsageSection
+            atlasFields={{
+              public_key: config.atlas_public_key,
+              private_key: config.atlas_private_key,
+              group_id: config.atlas_group_id,
+            }}
+            updateAtlas={update}
+          />
+        </TabsContent>
       </Tabs>
 
       <div className="flex justify-end">
@@ -938,6 +957,275 @@ const Settings = () => {
 };
 
 export default Settings;
+
+// ──────────────────────────────────────────────────────────────────
+// Backup — DB JSON + GitHub repo zipball.
+// Streams directly from the backend so the GitHub token never reaches
+// the browser. No credentials are stored in localStorage.
+// ──────────────────────────────────────────────────────────────────
+const BackupSection = () => {
+  const [busy, setBusy] = useState('');
+
+  const downloadBlob = async (path, defaultName) => {
+    setBusy(path);
+    try {
+      const res = await axios.get(`${API}${path}`, {
+        withCredentials: true,
+        responseType: 'blob',
+      });
+      // Build a friendly filename from Content-Disposition if available.
+      let fname = defaultName;
+      const dispo = res.headers['content-disposition'] || '';
+      const m = dispo.match(/filename="?([^"]+)"?/);
+      if (m) fname = m[1];
+      const url = window.URL.createObjectURL(res.data);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fname;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+      toast.success(`Download avviato: ${fname}`);
+    } catch (e) {
+      // The backend returns a JSON error inside the blob → read it.
+      let msg = e.response?.statusText || 'Errore download';
+      try {
+        const txt = await e.response?.data?.text?.();
+        if (txt) {
+          const j = JSON.parse(txt);
+          msg = j.detail || msg;
+        }
+      } catch { /* ignore */ }
+      toast.error(msg);
+    } finally {
+      setBusy('');
+    }
+  };
+
+  return (
+    <Section icon={Database} title="Backup Database & Repository"
+              desc="Snapshot completi scaricabili in qualunque momento. Eseguili regolarmente: la piattaforma free non ha backup automatici."
+              accent="#D2FA46">
+      <div className="grid sm:grid-cols-2 gap-3">
+        <div className="rounded-xl border border-gray-200 dark:border-white/10 p-4 bg-gray-50/50 dark:bg-[#0f0f12]">
+          <div className="flex items-center gap-2 mb-2">
+            <Database className="h-4 w-4 text-emerald-600" />
+            <h4 className="text-sm font-semibold text-gray-900 dark:text-white">Database (MongoDB)</h4>
+          </div>
+          <p className="text-xs text-gray-600 dark:text-[#8a8a92] mb-3 leading-relaxed">
+            ZIP con tutte le collection in formato JSON (Extended). Include un manifest e
+            un README con i comandi <code>mongoimport</code> per il restore.
+          </p>
+          <Button
+            onClick={() => downloadBlob('/super-admin/backup/db', 'qrhub-db-backup.zip')}
+            disabled={busy === '/super-admin/backup/db'}
+            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
+            data-testid="backup-db-button"
+          >
+            <Download className="h-4 w-4 mr-2" />
+            {busy === '/super-admin/backup/db' ? 'Generazione…' : 'Scarica backup DB'}
+          </Button>
+        </div>
+
+        <div className="rounded-xl border border-gray-200 dark:border-white/10 p-4 bg-gray-50/50 dark:bg-[#0f0f12]">
+          <div className="flex items-center gap-2 mb-2">
+            <Github className="h-4 w-4 text-gray-900 dark:text-white" />
+            <h4 className="text-sm font-semibold text-gray-900 dark:text-white">Repository GitHub</h4>
+          </div>
+          <p className="text-xs text-gray-600 dark:text-[#8a8a92] mb-3 leading-relaxed">
+            ZIP del branch <code>main</code> (zipball ufficiale GitHub). Richiede repository
+            + token configurati qui sotto.
+          </p>
+          <Button
+            onClick={() => downloadBlob('/super-admin/backup/github', 'qrhub-repo.zip')}
+            disabled={busy === '/super-admin/backup/github'}
+            className="w-full bg-gray-900 dark:bg-white text-white dark:text-gray-900 hover:bg-gray-700 dark:hover:bg-gray-100"
+            data-testid="backup-github-button"
+          >
+            <Download className="h-4 w-4 mr-2" />
+            {busy === '/super-admin/backup/github' ? 'Scaricamento…' : 'Scarica snapshot repo'}
+          </Button>
+        </div>
+      </div>
+
+      <div className="text-xs text-gray-600 dark:text-[#8a8a92] bg-amber-50 border-l-2 border-amber-400 p-3 rounded-r mt-3">
+        <strong>Suggerimento:</strong> esegui un backup DB <strong>prima</strong> di ogni deploy
+        importante o modifica massiva. Conserva almeno gli ultimi 7 backup su disco/cloud personale.
+      </div>
+    </Section>
+  );
+};
+
+// ──────────────────────────────────────────────────────────────────
+// Usage / Free-tier monitor — fetches /super-admin/usage and renders
+// a card per provider with a progress bar + "% used" indicator.
+// ──────────────────────────────────────────────────────────────────
+const UsageSection = ({ atlasFields, updateAtlas }) => {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const refresh = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const { data } = await axios.get(`${API}/super-admin/usage`, { withCredentials: true });
+      setData(data);
+    } catch (e) {
+      setError(e.response?.data?.detail || 'Errore');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { refresh(); }, []);
+
+  return (
+    <>
+      <Section icon={Gauge} title="Monitor consumo Free-Tier"
+                desc="Verifica in un colpo d'occhio se sei dentro i limiti gratuiti dei provider."
+                accent="#10B981">
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-xs text-gray-500 dark:text-[#6a6a72]">
+            {data?.fetched_at && (
+              <>Ultimo aggiornamento: {new Date(data.fetched_at).toLocaleString('it-IT', { timeZone: 'Europe/Rome' })}</>
+            )}
+          </p>
+          <Button
+            onClick={refresh}
+            disabled={loading}
+            size="sm"
+            variant="outline"
+            data-testid="usage-refresh-button"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${loading ? 'animate-spin' : ''}`} />
+            Aggiorna
+          </Button>
+        </div>
+
+        {error && (
+          <div className="text-sm text-red-700 bg-red-50 border-l-2 border-red-400 p-3 rounded-r">{error}</div>
+        )}
+
+        {loading && !data && (
+          <div className="text-sm text-gray-500 dark:text-[#6a6a72] py-6 text-center">Caricamento…</div>
+        )}
+
+        {data && (
+          <div className="grid sm:grid-cols-2 gap-3" data-testid="usage-grid">
+            <UsageCard provider="Fly.io" color="#7d2ae8" data={data.fly}
+                        bars={(d) => [
+                          { label: 'Machine attive', used: d.machines_used, limit: d.machines_limit, unit: '' },
+                          { label: 'Volume storage', used: d.volume_gb_used, limit: d.volume_gb_limit, unit: 'GB' },
+                        ]}
+                        extras={(d) => d.note} />
+            <UsageCard provider="MongoDB Atlas" color="#13aa52" data={data.mongodb_atlas}
+                        bars={(d) => [{ label: 'Cluster', used: d.clusters_count || 0, limit: 1, unit: '' }]}
+                        extras={(d) => d.clusters?.map(c => `${c.name} · ${c.instance_size} · ${c.state}`).join(' • ') || d.note} />
+            <UsageCard provider="Cloudinary" color="#3448c5" data={data.cloudinary}
+                        bars={(d) => [
+                          { label: 'Crediti / mese', used: d.credits_used, limit: d.credits_limit, unit: '' },
+                        ]}
+                        extras={(d) => `Plan: ${d.plan} · ${(d.bandwidth_bytes / 1e9).toFixed(2)} GB banda · ${(d.storage_bytes / 1e6).toFixed(1)} MB storage`} />
+            <UsageCard provider="Vercel" color="#000" data={data.vercel}
+                        bars={(d) => [
+                          { label: 'Deploy nelle ultime 24h', used: d.deployments_24h, limit: d.deployments_24h_limit, unit: '' },
+                        ]}
+                        extras={(d) => `Deploy ultimi 30gg: ${d.deployments_30d} · Stato ultimo: ${d.latest_state}`} />
+          </div>
+        )}
+      </Section>
+
+      <Section icon={Database} title="MongoDB Atlas — credenziali API (opzionale)"
+                desc="Servono solo per il monitor del consumo cluster. Read-only key 'Project Read Only'."
+                accent="#13aa52">
+        <TextField id="atlas_public_key" label="Public Key"
+          value={atlasFields.public_key} onChange={updateAtlas('atlas_public_key')}
+          placeholder="abcdefgh" mono
+          testid="atlas-public-key-input" />
+        <SecretInput id="atlas_private_key" label="Private Key"
+          value={atlasFields.private_key} onChange={updateAtlas('atlas_private_key')}
+          placeholder="00000000-0000-0000-0000-000000000000"
+          testid="atlas-private-key-input"
+          hint="Atlas → Organization → Access Manager → API Keys" />
+        <TextField id="atlas_group_id" label="Project ID (Group ID)"
+          value={atlasFields.group_id} onChange={updateAtlas('atlas_group_id')}
+          placeholder="68xxxxx..." mono
+          testid="atlas-group-id-input" />
+        <div className="text-xs text-gray-600 dark:text-[#8a8a92] bg-emerald-50 border-l-2 border-emerald-400 p-3 rounded-r">
+          Senza queste chiavi il monitor mostra "non configurato" per MongoDB ma <strong>continua a funzionare</strong>
+          per gli altri provider. Crea una key con ruolo <code>Project Read Only</code> in Atlas.
+        </div>
+      </Section>
+    </>
+  );
+};
+
+const UsageCard = ({ provider, color, data, bars, extras }) => {
+  const isOk = data?.status === 'ok';
+  const isErr = data?.status === 'error';
+  const isMissing = data?.status === 'not_configured';
+
+  const pct = (used, limit) => {
+    if (used == null || !limit) return 0;
+    return Math.min(100, Math.round((Number(used) / Number(limit)) * 100));
+  };
+  const tone = (p) => (p >= 90 ? '#dc2626' : p >= 70 ? '#f97316' : color);
+
+  return (
+    <div className="rounded-xl border border-gray-200 dark:border-white/10 p-4 bg-white dark:bg-[#131316]"
+          data-testid={`usage-card-${provider.toLowerCase().replace(/[^a-z0-9]/g, '-')}`}>
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ background: color }} />
+          <h4 className="text-sm font-semibold text-gray-900 dark:text-white">{provider}</h4>
+        </div>
+        {isOk && <Badge className="bg-emerald-100 text-emerald-700">OK</Badge>}
+        {isErr && <Badge className="bg-red-100 text-red-700">Errore</Badge>}
+        {isMissing && <Badge className="bg-gray-200 text-gray-700">Non configurato</Badge>}
+      </div>
+
+      {isErr && (
+        <p className="text-xs text-red-700 bg-red-50 border-l-2 border-red-400 p-2 rounded-r">
+          {data.error}
+        </p>
+      )}
+
+      {isMissing && data?.hint && (
+        <p className="text-xs text-gray-600 dark:text-[#8a8a92]">{data.hint}</p>
+      )}
+
+      {isOk && bars && (
+        <div className="space-y-2">
+          {bars(data).map((b, i) => {
+            const p = pct(b.used, b.limit);
+            return (
+              <div key={i}>
+                <div className="flex items-center justify-between text-xs mb-1">
+                  <span className="text-gray-600 dark:text-[#a8a8b0]">{b.label}</span>
+                  <span className="font-semibold text-gray-900 dark:text-white">
+                    {Number(b.used ?? 0).toLocaleString('it-IT', { maximumFractionDigits: 2 })}
+                    {b.unit && ` ${b.unit}`}
+                    <span className="text-gray-400 dark:text-[#5a5a62]"> / {b.limit}{b.unit && ` ${b.unit}`}</span>
+                  </span>
+                </div>
+                <div className="h-2 rounded-full bg-gray-100 dark:bg-white/10 overflow-hidden">
+                  <div className="h-full transition-all" style={{ width: `${p}%`, background: tone(p) }} />
+                </div>
+              </div>
+            );
+          })}
+          {extras && (
+            <p className="text-[11px] text-gray-500 dark:text-[#6a6a72] mt-2 pt-2 border-t border-gray-100 dark:border-white/5 leading-relaxed">
+              {extras(data)}
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
 
 // ──────────────────────────────────────────────────────────────────
 // Platform Primary Domain — super admin section.

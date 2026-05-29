@@ -322,6 +322,7 @@ Validazione: lint clean (JS), supervisor frontend RUNNING senza errori critici, 
 
 | ID | Task | Effort |
 |---|---|---|
+| CAL-1 | **Calendario appuntamenti su landing venditore** — i clienti prenotano slot direttamente da `/v/:vendorId`. Architettura prevista: Google Calendar OAuth come fonte di verità (FreeBusy API + create event). Dati raccolti: nome, cognome, telefono + consenso GDPR. Anti-doppia-prenotazione via lock Mongo + FreeBusy check. Configurazione per-store: slot duration, buffer, business hours da `store.hours`, calendar_id collegato. Aggiunge tab "Calendario" alle Impostazioni Negozio. Richiede Google Cloud Project + OAuth Client. **Deferred 2026-05-29 per budget**. | ~13h |
 | OG-1 | **Open Graph / Twitter card dinamica** per ogni landing `/v/:vendorId` (anteprima ricca su WhatsApp/Telegram/LinkedIn con foto profilo + nome venditore + brand). Endpoint backend che renderizza un'immagine 1200×630 + meta tags injected via SSR helper. | ~3h |
 
 | ID | Task | Effort |

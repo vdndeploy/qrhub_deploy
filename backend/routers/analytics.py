@@ -14,6 +14,7 @@ import os
 from datetime import datetime, timezone, timedelta
 from io import BytesIO
 from typing import Optional
+from zoneinfo import ZoneInfo
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -181,6 +182,13 @@ async def _build_detailed_analytics(query_filter: dict, period: str, limit_log: 
     daily_timeline = {}
     hourly_pattern = [0] * 24
     
+    # All analytics aggregations show local time to the org admin. Timestamps
+    # are stored in UTC by the tracker; we convert them to Europe/Rome (the
+    # business timezone of all current orgs) for both the daily timeline and
+    # the 24h hourly pattern. Otherwise a customer scanning at 13:30 IT would
+    # appear as 11:30 in the chart (CEST is UTC+2).
+    LOCAL_TZ = ZoneInfo('Europe/Rome')
+
     for e in events:
         et = e['event_type']
         if et in click_breakdown:
@@ -194,13 +202,17 @@ async def _build_detailed_analytics(query_filter: dict, period: str, limit_log: 
         if ts:
             try:
                 dt = datetime.fromisoformat(ts.replace('Z', '+00:00'))
-                day = dt.date().isoformat()
+                # Naive timestamps default to UTC; aware ones get converted.
+                if dt.tzinfo is None:
+                    dt = dt.replace(tzinfo=timezone.utc)
+                dt_local = dt.astimezone(LOCAL_TZ)
+                day = dt_local.date().isoformat()
                 daily_timeline[day] = daily_timeline.get(day, {'views': 0, 'clicks': 0})
                 if et == 'page_view':
                     daily_timeline[day]['views'] += 1
                 elif et in CLICK_TYPES:
                     daily_timeline[day]['clicks'] += 1
-                hourly_pattern[dt.hour] += 1
+                hourly_pattern[dt_local.hour] += 1
             except Exception:
                 pass
     
@@ -521,6 +533,10 @@ async def get_daily_counter(
     date_index = {row['date']: row for row in series}
 
     if vendor_ids:
+        # Bucket events by Europe/Rome calendar day. Timestamps are stored
+        # as ISO strings (UTC); parse them with $dateFromString then format
+        # back with the explicit timezone so events past 22:00 UTC of one
+        # day correctly count under the NEXT day in Italy.
         pipeline = [
             {'$match': {
                 'vendor_id': {'$in': vendor_ids},
@@ -529,7 +545,18 @@ async def get_daily_counter(
             }},
             {'$group': {
                 '_id': {
-                    'day': {'$substr': ['$timestamp', 0, 10]},
+                    'day': {
+                        '$dateToString': {
+                            'format': '%Y-%m-%d',
+                            'date': {
+                                '$dateFromString': {
+                                    'dateString': '$timestamp',
+                                    'onError': None,
+                                }
+                            },
+                            'timezone': 'Europe/Rome',
+                        }
+                    },
                     'type': '$event_type',
                 },
                 'n': {'$sum': 1},

@@ -327,7 +327,7 @@ const Settings = () => {
 
       <Tabs defaultValue="domain" className="w-full">
         <div className="-mx-3 sm:mx-0 overflow-x-auto pb-1">
-          <TabsList className="flex sm:grid sm:grid-cols-7 w-max sm:w-auto min-w-full sm:min-w-0 px-3 sm:px-0 whitespace-nowrap">
+          <TabsList className="flex sm:grid sm:grid-cols-8 w-max sm:w-auto min-w-full sm:min-w-0 px-3 sm:px-0 whitespace-nowrap">
             <TabsTrigger value="domain" data-testid="tab-domain" className="flex-shrink-0">
               <Crown className="h-4 w-4 mr-1.5" /> Dominio
             </TabsTrigger>
@@ -903,28 +903,6 @@ const Settings = () => {
               placeholder="ghp_xxx..."
               testid="github-token-input"
               hint="https://github.com/settings/tokens — scope minimo: 'repo' read-only" />
-          </Section>
-
-          <Section icon={Globe2} title="Aruba DNS — Note operative"
-                    desc="Riferimento per i sottodomini gestiti dagli org admin nelle loro Impostazioni Organizzazione."
-                    accent="#4A2D8C">
-            <TextField id="aruba_dns_zone" label="Zona DNS principale"
-              value={config.aruba_dns_zone} onChange={update('aruba_dns_zone')}
-              placeholder="tuodominio.it" mono
-              testid="aruba-zone-input" />
-            <div>
-              <Label htmlFor="aruba_notes">Note interne</Label>
-              <Textarea id="aruba_notes" rows={3}
-                value={config.aruba_notes || ''}
-                onChange={(e) => update('aruba_notes')(e.target.value)}
-                placeholder="Es. CNAME *.tuodominio.it → cname.vercel-dns.com"
-                data-testid="aruba-notes-input" />
-            </div>
-            <div className="text-xs text-gray-600 dark:text-[#8a8a92] bg-purple-50 border-l-2 border-purple-400 p-3 rounded-r">
-              I sottodomini per cliente vengono gestiti dagli <strong>org admin</strong> nella loro
-              pagina <em>Impostazioni Organizzazione</em> (campo "Domini autorizzati"). Da lì configurano
-              il CNAME su Aruba e collegano il dominio a Vercel.
-            </div>
           </Section>
         </TabsContent>
 

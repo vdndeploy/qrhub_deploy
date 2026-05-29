@@ -224,26 +224,46 @@ async def _usage_fly(cfg: dict) -> dict:
 
 
 async def _usage_mongodb(cfg: dict) -> dict:
+    # Step 1: leggi sempre lo storage reale del DB tramite la connessione motor
+    # già esistente. Nessuna chiave Atlas richiesta — funziona da subito.
+    storage_used_mb = None
+    storage_limit_mb = FREE_LIMITS['mongodb_atlas']['storage_mb']
+    storage_pct = None
+    try:
+        # Atlas counts "Data Size" = dataSize + indexSize. Ask in bytes
+        # (default scale) so small DBs don't get integer-rounded to 0.
+        stats = await db.command('dbStats')
+        size_bytes = (stats.get('dataSize') or 0) + (stats.get('indexSize') or 0)
+        storage_used_mb = round(size_bytes / (1024 * 1024), 2)
+        if storage_limit_mb:
+            storage_pct = round((storage_used_mb / storage_limit_mb) * 100, 1)
+    except Exception as e:
+        logger.warning(f'[usage] dbStats failed: {e}')
+
     pub = (cfg.get('atlas_public_key') or '').strip()
     priv = (cfg.get('atlas_private_key') or '').strip()
     group = (cfg.get('atlas_group_id') or '').strip()
+    base_result = {
+        'storage_used_mb': storage_used_mb,
+        'storage_limit_mb': storage_limit_mb,
+        'storage_pct': storage_pct,
+        'limits': FREE_LIMITS['mongodb_atlas'],
+    }
     if not pub or not priv or not group:
         return {
-            'status': 'not_configured',
-            'limits': FREE_LIMITS['mongodb_atlas'],
-            'hint': 'Configura atlas_public_key + atlas_private_key + atlas_group_id (Atlas → Project Settings → API Keys, ruolo Project Read Only).',
+            **base_result,
+            'status': 'partial' if storage_used_mb is not None else 'not_configured',
+            'hint': 'Configura atlas_public_key + atlas_private_key + atlas_group_id (Atlas → Project Settings → API Keys, ruolo Project Read Only) per vedere anche stato cluster.',
         }
-    # Atlas Admin API uses Digest auth; httpx supports it via DigestAuth.
     url = f'https://cloud.mongodb.com/api/atlas/v2/groups/{group}/clusters'
     try:
         async with httpx.AsyncClient(timeout=20.0, auth=httpx.DigestAuth(pub, priv)) as c:
             r = await c.get(url, headers={'Accept': 'application/vnd.atlas.2023-02-01+json'})
         if r.status_code >= 400:
-            return {'status': 'error', 'error': f'{r.status_code} {r.text[:200]}',
-                    'limits': FREE_LIMITS['mongodb_atlas']}
+            return {**base_result, 'status': 'error', 'error': f'{r.status_code} {r.text[:200]}'}
         data = r.json()
     except httpx.HTTPError as e:
-        return {'status': 'error', 'error': str(e)[:300], 'limits': FREE_LIMITS['mongodb_atlas']}
+        return {**base_result, 'status': 'error', 'error': str(e)[:300]}
 
     clusters = data.get('results') or data.get('clusters') or []
     out = []
@@ -255,11 +275,10 @@ async def _usage_mongodb(cfg: dict) -> dict:
             'mongo_version': cl.get('mongoDBVersion'),
         })
     return {
+        **base_result,
         'status': 'ok',
         'clusters_count': len(out),
         'clusters': out,
-        'note': 'Storage % esatto richiede Metrics API per cluster; visibile su Atlas → Metrics → Data Size.',
-        'limits': FREE_LIMITS['mongodb_atlas'],
     }
 
 

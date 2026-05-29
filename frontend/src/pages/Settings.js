@@ -1099,8 +1099,16 @@ const UsageSection = ({ atlasFields, updateAtlas }) => {
                         ]}
                         extras={(d) => d.note} />
             <UsageCard provider="MongoDB Atlas" color="#13aa52" data={data.mongodb_atlas}
-                        bars={(d) => [{ label: 'Cluster', used: d.clusters_count || 0, limit: 1, unit: '' }]}
-                        extras={(d) => d.clusters?.map(c => `${c.name} · ${c.instance_size} · ${c.state}`).join(' • ') || d.note} />
+                        bars={(d) => d.storage_used_mb != null
+                          ? [{ label: 'Storage DB', used: d.storage_used_mb, limit: d.storage_limit_mb, unit: 'MB' }]
+                          : []}
+                        extras={(d) => {
+                          const parts = [];
+                          if (d.clusters?.length) parts.push(d.clusters.map(c => `${c.name} · ${c.instance_size} · ${c.state}`).join(' • '));
+                          if (d.status === 'partial') parts.push('Stato cluster: aggiungi le chiavi Atlas qui sotto.');
+                          if (d.hint && d.status !== 'partial') parts.push(d.hint);
+                          return parts.join(' — ');
+                        }} />
             <UsageCard provider="Cloudinary" color="#3448c5" data={data.cloudinary}
                         bars={(d) => [
                           { label: 'Crediti / mese', used: d.credits_used, limit: d.credits_limit, unit: '' },
@@ -1142,6 +1150,7 @@ const UsageSection = ({ atlasFields, updateAtlas }) => {
 
 const UsageCard = ({ provider, color, data, bars, extras }) => {
   const isOk = data?.status === 'ok';
+  const isPartial = data?.status === 'partial';
   const isErr = data?.status === 'error';
   const isMissing = data?.status === 'not_configured';
 
@@ -1160,6 +1169,7 @@ const UsageCard = ({ provider, color, data, bars, extras }) => {
           <h4 className="text-sm font-semibold text-gray-900 dark:text-white">{provider}</h4>
         </div>
         {isOk && <Badge className="bg-emerald-100 text-emerald-700">OK</Badge>}
+        {isPartial && <Badge className="bg-amber-100 text-amber-800">Parziale</Badge>}
         {isErr && <Badge className="bg-red-100 text-red-700">Errore</Badge>}
         {isMissing && <Badge className="bg-gray-200 text-gray-700">Non configurato</Badge>}
       </div>
@@ -1174,7 +1184,7 @@ const UsageCard = ({ provider, color, data, bars, extras }) => {
         <p className="text-xs text-gray-600 dark:text-[#8a8a92]">{data.hint}</p>
       )}
 
-      {isOk && bars && (
+      {(isOk || isPartial) && bars && (
         <div className="space-y-2">
           {bars(data).map((b, i) => {
             const p = pct(b.used, b.limit);
@@ -1186,6 +1196,7 @@ const UsageCard = ({ provider, color, data, bars, extras }) => {
                     {Number(b.used ?? 0).toLocaleString('it-IT', { maximumFractionDigits: 2 })}
                     {b.unit && ` ${b.unit}`}
                     <span className="text-gray-400 dark:text-[#5a5a62]"> / {b.limit}{b.unit && ` ${b.unit}`}</span>
+                    <span className="text-gray-400 dark:text-[#5a5a62] ml-1">({p}%)</span>
                   </span>
                 </div>
                 <div className="h-2 rounded-full bg-gray-100 dark:bg-white/10 overflow-hidden">

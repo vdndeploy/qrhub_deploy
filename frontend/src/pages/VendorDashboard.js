@@ -434,9 +434,9 @@ const VendorDashboard = () => {
         }}
         kind="uploads"
         hidePostsTab
-        mineOnly={pickerMode === 'manage'}
+        mineOnly  /* Vendors only ever see their OWN uploads — never other vendors' profile pics */
         manageMode={pickerMode === 'manage'}
-        title={pickerMode === 'manage' ? 'Le mie foto caricate' : 'Foto profilo della libreria'}
+        title={pickerMode === 'manage' ? 'Le mie foto caricate' : 'Le mie foto'}
       />
     </div>
   );

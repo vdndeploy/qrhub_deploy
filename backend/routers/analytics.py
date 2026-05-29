@@ -371,14 +371,22 @@ def _generate_pdf_report(data: dict, title: str, subtitle: str = '') -> bytes:
         ]))
         story.append(t4)
     
-    # Event log (last 30)
+    # Event log (last 30) — converted to Europe/Rome local time
     log = data.get('event_log', [])[:30]
     if log:
         story.append(PageBreak())
         story.append(Paragraph('Log Eventi Recenti (max 30)', h2))
         rows = [['Data/Ora', 'Evento', 'Città', 'Dispositivo']]
         for e in log:
-            ts = e.get('timestamp', '')[:16].replace('T', ' ')
+            ts_raw = e.get('timestamp', '') or ''
+            ts = ts_raw[:16].replace('T', ' ')  # safe fallback
+            try:
+                dt = datetime.fromisoformat(ts_raw.replace('Z', '+00:00'))
+                if dt.tzinfo is None:
+                    dt = dt.replace(tzinfo=timezone.utc)
+                ts = dt.astimezone(ZoneInfo('Europe/Rome')).strftime('%d/%m/%Y %H:%M')
+            except Exception:
+                pass
             rows.append([ts, _click_label(e.get('event_type', '')),
                           e.get('city', '') or '-', (e.get('device', '') or '-').capitalize()])
         t5 = Table(rows, colWidths=[4*cm, 4.5*cm, 4*cm, 3*cm])
@@ -394,7 +402,10 @@ def _generate_pdf_report(data: dict, title: str, subtitle: str = '') -> bytes:
     
     story.append(Spacer(1, 0.6*cm))
     footer = ParagraphStyle('foot', parent=styles['Normal'], fontSize=8, alignment=TA_CENTER, textColor=colors.HexColor('#999999'))
-    story.append(Paragraph(f"Report generato il {datetime.now(timezone.utc).strftime('%d/%m/%Y %H:%M UTC')} — QRHub", footer))
+    story.append(Paragraph(
+        f"Report generato il {datetime.now(ZoneInfo('Europe/Rome')).strftime('%d/%m/%Y %H:%M')} (ora Italia) — QRHub",
+        footer,
+    ))
     
     doc.build(story)
     return buf.getvalue()

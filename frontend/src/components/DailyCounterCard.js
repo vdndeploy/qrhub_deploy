@@ -224,48 +224,62 @@ const DailyCounterCard = () => {
             Andamento orario · ora locale Europe/Rome
           </div>
         )}
-        <ResponsiveContainer width="100%" height={280}>
-          <BarChart
-            data={chartData}
-            margin={{ top: 8, right: 8, left: -16, bottom: 8 }}
-            barGap={4}
-            barCategoryGap={isHourlyMode ? '16%' : (days > 14 ? '12%' : '22%')}
-          >
-            <CartesianGrid stroke="currentColor" strokeOpacity={0.06} vertical={false} />
-            <XAxis
-              dataKey="label"
-              tick={{ fontSize: 11, fill: 'currentColor' }}
-              tickLine={false}
-              axisLine={false}
-              interval={isHourlyMode ? 2 : (days > 30 ? 'preserveStartEnd' : 0)}
-              className="text-gray-500 dark:text-[#6a6a72]"
-            />
-            <YAxis
-              tick={{ fontSize: 11, fill: 'currentColor' }}
-              tickLine={false}
-              axisLine={false}
-              width={32}
-              allowDecimals={false}
-              className="text-gray-500 dark:text-[#6a6a72]"
-            />
-            <Tooltip content={<SoftTooltip />} cursor={{ fill: 'currentColor', fillOpacity: 0.04 }} />
-            <Legend
-              iconType="circle"
-              wrapperStyle={{ fontSize: 12, paddingTop: 8 }}
-              payload={[
-                { value: 'Scansioni QR', type: 'circle', color: COLORS.scans },
-                { value: 'WhatsApp', type: 'circle', color: COLORS.whatsapp },
-                { value: 'Picco (>20% media)', type: 'circle', color: COLORS.peak },
-              ]}
-            />
-            <Bar dataKey="scans" radius={[6, 6, 0, 0]} maxBarSize={28} animationDuration={250}>
-              {chartData.map((entry, i) => (
-                <Cell key={`s-${i}`} fill={entry.isPeak ? COLORS.peak : COLORS.scans} />
-              ))}
-            </Bar>
-            <Bar dataKey="whatsapp" fill={COLORS.whatsapp} radius={[6, 6, 0, 0]} maxBarSize={28} animationDuration={250} />
-          </BarChart>
-        </ResponsiveContainer>
+        {/* Horizontal scroll wrapper:
+            - Each day/hour gets a fixed slot (SLOT_PX) so bars and labels stay
+              readable on long periods (30/90 days) where Recharts would otherwise
+              compress them to 1-2 px wide.
+            - On short periods (Oggi / 7 giorni) the inner chart equals 100%
+              of the card width so it fills naturally without scroll. */}
+        <div className="overflow-x-auto -mx-2 px-2 vendors-chart-scroll" data-testid="daily-counter-chart-scroll">
+          <div style={{
+            width: `max(100%, ${chartData.length * (isHourlyMode ? 44 : 48)}px)`,
+            minWidth: 320,
+            height: 280,
+          }}>
+            <ResponsiveContainer width="100%" height={280}>
+              <BarChart
+                data={chartData}
+                margin={{ top: 8, right: 8, left: -16, bottom: 8 }}
+                barGap={4}
+                barCategoryGap={isHourlyMode ? '16%' : (days > 14 ? '12%' : '22%')}
+              >
+                <CartesianGrid stroke="currentColor" strokeOpacity={0.06} vertical={false} />
+                <XAxis
+                  dataKey="label"
+                  tick={{ fontSize: 11, fill: 'currentColor' }}
+                  tickLine={false}
+                  axisLine={false}
+                  interval={0}
+                  className="text-gray-500 dark:text-[#6a6a72]"
+                />
+                <YAxis
+                  tick={{ fontSize: 11, fill: 'currentColor' }}
+                  tickLine={false}
+                  axisLine={false}
+                  width={32}
+                  allowDecimals={false}
+                  className="text-gray-500 dark:text-[#6a6a72]"
+                />
+                <Tooltip content={<SoftTooltip />} cursor={{ fill: 'currentColor', fillOpacity: 0.04 }} />
+                <Legend
+                  iconType="circle"
+                  wrapperStyle={{ fontSize: 12, paddingTop: 8 }}
+                  payload={[
+                    { value: 'Scansioni QR', type: 'circle', color: COLORS.scans },
+                    { value: 'WhatsApp', type: 'circle', color: COLORS.whatsapp },
+                    { value: 'Picco (>20% media)', type: 'circle', color: COLORS.peak },
+                  ]}
+                />
+                <Bar dataKey="scans" radius={[6, 6, 0, 0]} maxBarSize={28} animationDuration={250}>
+                  {chartData.map((entry, i) => (
+                    <Cell key={`s-${i}`} fill={entry.isPeak ? COLORS.peak : COLORS.scans} />
+                  ))}
+                </Bar>
+                <Bar dataKey="whatsapp" fill={COLORS.whatsapp} radius={[6, 6, 0, 0]} maxBarSize={28} animationDuration={250} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
         </>
       )}
     </div>

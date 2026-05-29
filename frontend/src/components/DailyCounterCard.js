@@ -58,6 +58,17 @@ const DailyCounterCard = () => {
   }, [days, storeId]);
 
   const chartData = useMemo(() => {
+    // When the admin picks "Oggi" the backend returns an hourly_series with
+    // 24 buckets (Europe/Rome). Use that instead of the per-day series so
+    // the chart shows the time pattern of the day, not a single bar.
+    if (data?.hourly_series) {
+      return data.hourly_series.map((r) => ({
+        ...r,
+        label: `${String(r.hour).padStart(2, '0')}:00`,
+        isPeak: false,
+        isToday: false,
+      }));
+    }
     const series = data?.series || [];
     if (!series.length) return [];
     // Average of all days EXCEPT the last one (today) — we compare today
@@ -74,10 +85,13 @@ const DailyCounterCard = () => {
     }));
   }, [data]);
 
+  const isHourlyMode = !!data?.hourly_series;
+
   // Surface a banner when TODAY is a peak (useful as a "people counter" signal
   // for the in-store team — they see at a glance that traffic is above the
   // rolling average and can react with a campaign / push notification).
   const peakBanner = useMemo(() => {
+    if (isHourlyMode) return null; // peak banner is meaningless in hourly view
     if (!chartData.length) return null;
     const today = chartData[chartData.length - 1];
     if (!today?.isPeak) return null;
@@ -87,7 +101,7 @@ const DailyCounterCard = () => {
       : 0;
     const delta = avg > 0 ? Math.round(((today.scans - avg) / avg) * 100) : 0;
     return { scans: today.scans, avg: Math.round(avg), delta };
-  }, [chartData]);
+  }, [chartData, isHourlyMode]);
   const totals = data?.totals || { scans: 0, whatsapp: 0, conversion_pct: 0 };
   const stores = data?.stores || [];
 
@@ -203,12 +217,19 @@ const DailyCounterCard = () => {
           Nessun dato per il periodo selezionato.
         </div>
       ) : (
+        <>
+        {isHourlyMode && (
+          <div className="text-[11px] text-gray-500 dark:text-[#8a8a92] mb-1 flex items-center gap-1.5">
+            <span className="inline-block w-1.5 h-1.5 rounded-full bg-[#D2FA46]" />
+            Andamento orario · ora locale Europe/Rome
+          </div>
+        )}
         <ResponsiveContainer width="100%" height={280}>
           <BarChart
             data={chartData}
             margin={{ top: 8, right: 8, left: -16, bottom: 8 }}
             barGap={4}
-            barCategoryGap={days > 14 ? '12%' : '22%'}
+            barCategoryGap={isHourlyMode ? '16%' : (days > 14 ? '12%' : '22%')}
           >
             <CartesianGrid stroke="currentColor" strokeOpacity={0.06} vertical={false} />
             <XAxis
@@ -216,7 +237,7 @@ const DailyCounterCard = () => {
               tick={{ fontSize: 11, fill: 'currentColor' }}
               tickLine={false}
               axisLine={false}
-              interval={days > 30 ? 'preserveStartEnd' : 0}
+              interval={isHourlyMode ? 2 : (days > 30 ? 'preserveStartEnd' : 0)}
               className="text-gray-500 dark:text-[#6a6a72]"
             />
             <YAxis
@@ -245,6 +266,7 @@ const DailyCounterCard = () => {
             <Bar dataKey="whatsapp" fill={COLORS.whatsapp} radius={[6, 6, 0, 0]} maxBarSize={28} animationDuration={250} />
           </BarChart>
         </ResponsiveContainer>
+        </>
       )}
     </div>
   );

@@ -576,8 +576,48 @@ async def get_daily_counter(
     }
     conversion = round((totals['whatsapp'] / totals['scans'] * 100), 1) if totals['scans'] else 0.0
 
+    # When the admin selects "Today" (days=1), the bar chart would collapse
+    # to a single bar. Provide an hourly breakdown (24 buckets, local TZ) so
+    # the same chart can show the day's pattern instead.
+    hourly_series = None
+    if days == 1 and vendor_ids:
+        hourly_series = [{'hour': h, 'scans': 0, 'whatsapp': 0} for h in range(24)]
+        hourly_index = {row['hour']: row for row in hourly_series}
+        hour_pipeline = [
+            {'$match': {
+                'vendor_id': {'$in': vendor_ids},
+                'event_type': {'$in': ['page_view', 'whatsapp_click']},
+                'timestamp': {'$gte': start_iso},
+            }},
+            {'$group': {
+                '_id': {
+                    'hour': {
+                        '$hour': {
+                            'date': {
+                                '$dateFromString': {
+                                    'dateString': '$timestamp',
+                                    'onError': None,
+                                }
+                            },
+                            'timezone': 'Europe/Rome',
+                        }
+                    },
+                    'type': '$event_type',
+                },
+                'n': {'$sum': 1},
+            }},
+        ]
+        async for row in db.analytics.aggregate(hour_pipeline):
+            h = row['_id'].get('hour')
+            if h is None or h not in hourly_index:
+                continue
+            etype = row['_id']['type']
+            key = 'scans' if etype == 'page_view' else 'whatsapp'
+            hourly_index[h][key] = row['n']
+
     return {
         'series': series,
+        'hourly_series': hourly_series,  # populated only when days == 1
         'totals': {**totals, 'conversion_pct': conversion},
         'stores': stores,
         'days': days,

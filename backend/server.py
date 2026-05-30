@@ -420,6 +420,7 @@ class StoreCreate(BaseModel):
     tiktok: Optional[str] = Field('', max_length=400)
     google_review: Optional[str] = Field('', max_length=400)
     google_maps_url: Optional[str] = Field('', max_length=400)
+    appointment_url: Optional[str] = Field('', max_length=600)
     hours_text: Optional[str] = Field('', max_length=500)
     hours: Optional[Dict[str, StoreHoursDay]] = None
     address: Optional[str] = Field('', max_length=300)
@@ -440,6 +441,7 @@ class StoreResponse(BaseModel):
     tiktok: str = ''
     google_review: str = ''
     google_maps_url: str = ''
+    appointment_url: str = ''
     hours_text: str = ''
     hours: Optional[Dict[str, StoreHoursDay]] = None
     address: str = ''
@@ -935,6 +937,7 @@ async def create_store(store: StoreCreate, user: dict = Depends(get_current_user
         'tiktok': store.tiktok or '',
         'google_review': store.google_review or '',
         'google_maps_url': store.google_maps_url or '',
+        'appointment_url': store.appointment_url or '',
         'hours_text': store.hours_text or '',
         'hours': hours_payload,
         'address': store.address or '',
@@ -971,6 +974,7 @@ async def update_store(store_id: str, store: StoreCreate, user: dict = Depends(g
         'tiktok': store.tiktok or '',
         'google_review': store.google_review or '',
         'google_maps_url': store.google_maps_url or '',
+        'appointment_url': store.appointment_url or '',
         'hours_text': store.hours_text or '',
         'hours': hours_payload,
         'address': store.address or '',
@@ -995,6 +999,7 @@ async def update_store(store_id: str, store: StoreCreate, user: dict = Depends(g
             'tiktok': update_doc['tiktok'],
             'google_review': update_doc['google_review'],
             'google_maps_url': update_doc['google_maps_url'],
+            'appointment_url': update_doc['appointment_url'],
             'post_title': update_doc['post_title'],
             'post_text': update_doc['post_text'],
             'post_media_url': update_doc['post_media_url'],
@@ -2187,6 +2192,7 @@ async def get_vendors(user: dict = Depends(get_current_user)):
         v['total_views'] = counts_map.get(v['id'], 0)
         v.setdefault('tiktok', '')
         v.setdefault('google_maps_url', '')
+        v.setdefault('appointment_url', '')
         v['has_credentials'] = bool(v.get('password_hash'))
         org_id = v.get('organization_id')
         domain = domain_map.get(org_id) if org_id else None
@@ -2233,6 +2239,7 @@ async def create_vendor(vendor: VendorCreate, user: dict = Depends(get_current_u
         'tiktok': store.get('tiktok', ''),
         'google_review': store['google_review'],
         'google_maps_url': store.get('google_maps_url', ''),
+        'appointment_url': store.get('appointment_url', ''),
         'post_title': store.get('post_title', ''),
         'post_text': store.get('post_text', ''),
         'post_media_url': store.get('post_media_url', ''),
@@ -2385,6 +2392,7 @@ async def get_vendor_public(vendor_id: str):
         raise HTTPException(status_code=404, detail='Vendor not found')
     vendor.setdefault('tiktok', '')
     vendor.setdefault('google_maps_url', '')
+    vendor.setdefault('appointment_url', '')
     vendor.setdefault('post_title', '')
     vendor.setdefault('post_text', '')
     vendor.setdefault('post_media_url', '')
@@ -2405,7 +2413,7 @@ async def get_vendor_public(vendor_id: str):
     if vendor.get('store_id'):
         store_doc = await db.stores.find_one(
             {'id': vendor['store_id']},
-            {'_id': 0, 'name': 1, 'hours_text': 1, 'hours': 1, 'address': 1, 'phone': 1, 'google_maps_url': 1}
+            {'_id': 0, 'name': 1, 'hours_text': 1, 'hours': 1, 'address': 1, 'phone': 1, 'google_maps_url': 1, 'appointment_url': 1}
         )
         if store_doc:
             vendor['store'] = {
@@ -2415,6 +2423,7 @@ async def get_vendor_public(vendor_id: str):
                 'address': (store_doc.get('address') or '').strip(),
                 'phone': (store_doc.get('phone') or '').strip(),
                 'google_maps_url': store_doc.get('google_maps_url', ''),
+                'appointment_url': store_doc.get('appointment_url', ''),
             }
     # Attach the *canonical* hostname this landing should be served from.
     # This is the first verified custom-domain the vendor's org owns. The frontend
@@ -2516,6 +2525,7 @@ async def update_vendor(vendor_id: str, vendor: VendorUpdate, user: dict = Depen
         'tiktok': store.get('tiktok', ''),
         'google_review': store['google_review'],
         'google_maps_url': store.get('google_maps_url', ''),
+        'appointment_url': store.get('appointment_url', ''),
         'post_title': store.get('post_title', ''),
         'post_text': store.get('post_text', ''),
         'post_media_url': store.get('post_media_url', ''),

@@ -55,6 +55,7 @@ const Stores = () => {
         name: store.name, whatsapp: store.whatsapp || '', whatsapp_message: store.whatsapp_message || '',
         instagram: store.instagram || '', facebook: store.facebook || '', tiktok: store.tiktok || '',
         google_review: store.google_review || '', google_maps_url: store.google_maps_url || '',
+        appointment_url: store.appointment_url || '',
         hours_text: store.hours_text || '',
         hours: ensureHoursShape(store.hours),
       });
@@ -227,6 +228,21 @@ const Stores = () => {
               </div>
               <div><Label>Google Review</Label><Input placeholder="https://g.page/..." value={formData.google_review} onChange={(e) => setFormData({...formData, google_review: e.target.value})} /></div>
               <div className="sm:col-span-2"><Label>Google Maps (Navigazione)</Label><Input placeholder="https://maps.app.goo.gl/..." value={formData.google_maps_url} onChange={(e) => setFormData({...formData, google_maps_url: e.target.value})} /></div>
+              <div className="sm:col-span-2">
+                <Label>Prenota appuntamento — link Google Calendar</Label>
+                <Input
+                  placeholder="https://calendar.app.google/..."
+                  value={formData.appointment_url}
+                  onChange={(e) => setFormData({...formData, appointment_url: e.target.value})}
+                  data-testid="store-appointment-url-input"
+                />
+                <p className="text-[11px] text-gray-500 dark:text-[#6a6a72] mt-1 leading-relaxed">
+                  Crea una pagina di "Prenotazione appuntamenti" su Google Calendar (Workspace o Gmail
+                  personale): Calendar → ➕ Crea → <strong>Programmazione appuntamenti</strong> →
+                  copia il link pubblico e incollalo qui. Sulla landing comparirà un bottone "Prenota appuntamento"
+                  che apre direttamente la pagina di prenotazione in una nuova tab.
+                </p>
+              </div>
             </div>
             <div className="border-t pt-4 space-y-3">
               <div className="text-sm font-semibold text-gray-700 dark:text-[#a8a8b0]">Scheda negozio (pulsante "Store" sulla landing)</div>
@@ -248,7 +264,7 @@ const Stores = () => {
 
 const empty = () => ({
   name: '', whatsapp: '', whatsapp_message: '', instagram: '', facebook: '', tiktok: '',
-  google_review: '', google_maps_url: '', hours_text: '', hours: ensureHoursShape(null),
+  google_review: '', google_maps_url: '', appointment_url: '', hours_text: '', hours: ensureHoursShape(null),
 });
 
 export default Stores;

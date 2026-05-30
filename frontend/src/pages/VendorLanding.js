@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import axios from 'axios';
-import { MapPin, Share2, Store as StoreIcon, Clock, X, Plus } from 'lucide-react';
+import { MapPin, Share2, Store as StoreIcon, Clock, X, Plus, CalendarClock } from 'lucide-react';
 import AddToHomeDialog from '@/components/AddToHomeDialog';
 import PostsCarousel from '../components/PostsCarousel';
 import { computeOpenStatus } from '../components/HoursEditor';
@@ -611,6 +611,20 @@ const VendorLanding = () => {
             </div>
           )}
           <div className="header-actions">
+            {(vendor.appointment_url || vendor.store?.appointment_url) && (
+              <a
+                href={vendor.appointment_url || vendor.store?.appointment_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="map-btn"
+                onClick={() => trackClick('appointment')}
+                aria-label="Prenota appuntamento"
+                title="Prenota appuntamento in negozio"
+                data-testid="vendor-appointment-button"
+              >
+                <CalendarClock className="h-6 w-6" />
+              </a>
+            )}
             {vendor.google_maps_url && (
               <a href={vendor.google_maps_url} target="_blank" rel="noopener noreferrer" className="map-btn" onClick={() => trackClick('maps')}>
                 <MapPin className="h-6 w-6" />

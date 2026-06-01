@@ -19,18 +19,18 @@ const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 // to this same text when the org hasn't customized it yet.
 const DEFAULT_PROFILING_TEXT = `Quando interagisci con i pulsanti presenti su questa landing (chiamata WhatsApp, recensione Google, apertura Google Maps, social Instagram/Facebook/TikTok) lasci la nostra pagina ed entri in servizi gestiti da soggetti terzi che operano in autonomia come titolari del trattamento, ciascuno secondo la propria informativa privacy:
 
-• Meta Platforms Ireland (WhatsApp, Instagram, Facebook): contatto, messaggi e profilazione pubblicitaria sulle proprie piattaforme. Privacy: https://www.facebook.com/privacy/policy/
-• Google Ireland (Google Maps, Recensioni, Profilo aziendale): geolocalizzazione, contributi recensioni, profilazione search/maps. Privacy: https://policies.google.com/privacy
-• TikTok Technology (TikTok): visualizzazione contenuti, raccomandazione e profilazione pubblicitaria. Privacy: https://www.tiktok.com/legal/privacy-policy
+â¢ Meta Platforms Ireland (WhatsApp, Instagram, Facebook): contatto, messaggi e profilazione pubblicitaria sulle proprie piattaforme. Privacy: https://www.facebook.com/privacy/policy/
+â¢ Google Ireland (Google Maps, Recensioni, Profilo aziendale): geolocalizzazione, contributi recensioni, profilazione search/maps. Privacy: https://policies.google.com/privacy
+â¢ TikTok Technology (TikTok): visualizzazione contenuti, raccomandazione e profilazione pubblicitaria. Privacy: https://www.tiktok.com/legal/privacy-policy
 
-I dati che condividi con questi servizi non sono visibili né conservati da noi: viaggiano direttamente dal tuo dispositivo verso le piattaforme citate. Ti consigliamo di leggere le rispettive informative prima di interagire.`;
+I dati che condividi con questi servizi non sono visibili nÃ© conservati da noi: viaggiano direttamente dal tuo dispositivo verso le piattaforme citate. Ti consigliamo di leggere le rispettive informative prima di interagire.`;
 
 const DEFAULT_TERMS_TEXT = `L'utilizzo di questa landing presuppone l'accettazione delle seguenti condizioni:
 
-• I contenuti pubblicati sono curati dal venditore e dalla nostra organizzazione, che ne è responsabile a tutti gli effetti.
-• Le informazioni di contatto (numero WhatsApp, social, indirizzo) sono fornite per agevolare la comunicazione commerciale: non sostituiscono i canali ufficiali di assistenza clienti.
-• Eventuali promozioni, prezzi e disponibilità sono indicativi e possono variare senza preavviso.
-• La piattaforma tecnica QRHub fornisce solo il software che ospita la landing: non risponde dei contenuti, della loro accuratezza o della disponibilità del venditore.
+â¢ I contenuti pubblicati sono curati dal venditore e dalla nostra organizzazione, che ne Ã¨ responsabile a tutti gli effetti.
+â¢ Le informazioni di contatto (numero WhatsApp, social, indirizzo) sono fornite per agevolare la comunicazione commerciale: non sostituiscono i canali ufficiali di assistenza clienti.
+â¢ Eventuali promozioni, prezzi e disponibilitÃ  sono indicativi e possono variare senza preavviso.
+â¢ La piattaforma tecnica QRHub fornisce solo il software che ospita la landing: non risponde dei contenuti, della loro accuratezza o della disponibilitÃ  del venditore.
 
 Per segnalazioni, esercizio dei diritti GDPR o richieste relative ai contenuti scrivere al contatto privacy indicato nell'informativa.`;
 
@@ -69,8 +69,8 @@ const GdprCompleteness = ({ org }) => {
     : `${remaining} ${remaining === 1 ? 'campo' : 'campi'} ancora da compilare`;
 
   const cta = filledRequired === required
-    ? 'Tutto in regola — i visitatori delle landing vedranno il tuo nominativo come titolare del trattamento.'
-    : "Completa il profilo per essere conforme all'art. 13 GDPR. Senza questi dati i visitatori non sanno chi è il titolare del trattamento e tu rischi una contestazione.";
+    ? 'Tutto in regola â i visitatori delle landing vedranno il tuo nominativo come titolare del trattamento.'
+    : "Completa il profilo per essere conforme all'art. 13 GDPR. Senza questi dati i visitatori non sanno chi Ã¨ il titolare del trattamento e tu rischi una contestazione.";
 
   return (
     <div className={`border rounded-xl p-4 ${colors.box}`} data-testid="gdpr-completeness-card">
@@ -78,7 +78,7 @@ const GdprCompleteness = ({ org }) => {
         <ShieldCheck className={`h-6 w-6 ${colors.text} flex-shrink-0 mt-0.5`} />
         <div className="flex-1 min-w-[220px]">
           <div className="flex items-center gap-2 flex-wrap mb-2">
-            <h3 className={`font-semibold ${colors.text}`}>GDPR completeness · {pct}%</h3>
+            <h3 className={`font-semibold ${colors.text}`}>GDPR completeness Â· {pct}%</h3>
             <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${colors.pill}`}
                   data-testid="gdpr-completeness-status">{headline}</span>
           </div>
@@ -91,7 +91,7 @@ const GdprCompleteness = ({ org }) => {
               const filled = !!(org[f.key] || '').trim();
               return (
                 <li key={f.key} className={filled ? 'text-gray-500 dark:text-[#6a6a72]' : `${colors.text} font-semibold`}>
-                  {filled ? '✓' : '○'} {f.label}
+                  {filled ? 'â' : 'â'} {f.label}
                 </li>
               );
             })}
@@ -99,7 +99,7 @@ const GdprCompleteness = ({ org }) => {
               const filled = !!(org[f.key] || '').trim();
               return (
                 <li key={f.key} className={filled ? 'text-gray-500 dark:text-[#6a6a72]' : 'text-gray-400 dark:text-[#5a5a62]'}>
-                  {filled ? '✓' : '○'} {f.label} <span className="text-[10px] uppercase tracking-wide opacity-70">opzionale</span>
+                  {filled ? 'â' : 'â'} {f.label} <span className="text-[10px] uppercase tracking-wide opacity-70">opzionale</span>
                 </li>
               );
             })}
@@ -138,7 +138,7 @@ const DomainCard = ({ d, onRefresh, onVerify, onRemove, busy }) => {
   const dnsMisconfigured = live.misconfigured !== false; // default true if unknown
   const fullyOnline = ownership && !dnsMisconfigured;
 
-  // Recommended records (live → fallback to static guidance)
+  // Recommended records (live â fallback to static guidance)
   const recCname = live.recommended_cname || d.dns_instructions?.value || 'cname.vercel-dns.com';
   const recA = (live.recommended_a_values && live.recommended_a_values.length > 0)
     ? live.recommended_a_values
@@ -199,13 +199,13 @@ const DomainCard = ({ d, onRefresh, onVerify, onRemove, busy }) => {
             <div className="text-xs text-amber-900 space-y-2 min-w-0 w-full">
               <p className="font-semibold text-sm">
                 {ownership
-                  ? 'DNS non ancora attivo — completa la configurazione su Aruba'
+                  ? 'DNS non ancora attivo â completa la configurazione su Aruba'
                   : 'Aggiungi questo record DNS sul pannello Aruba'}
               </p>
               <p className="text-[11px] text-amber-800/90">
                 {isSubdomain
-                  ? <>Vai su <strong>Aruba → Pannello Gestione Dominio → DNS / Record DNS</strong> e aggiungi un record <strong>CNAME</strong>:</>
-                  : <>Vai su <strong>Aruba → Pannello Gestione Dominio → DNS / Record DNS</strong> e aggiungi {recordValues.length > 1 ? 'questi record' : 'questo record'} <strong>A</strong>:</>}
+                  ? <>Vai su <strong>Aruba â Pannello Gestione Dominio â DNS / Record DNS</strong> e aggiungi un record <strong>CNAME</strong>:</>
+                  : <>Vai su <strong>Aruba â Pannello Gestione Dominio â DNS / Record DNS</strong> e aggiungi {recordValues.length > 1 ? 'questi record' : 'questo record'} <strong>A</strong>:</>}
               </p>
 
               <div className="bg-white dark:bg-[#131316] border rounded p-2.5 text-[11px] sm:text-xs space-y-1.5">
@@ -250,11 +250,11 @@ const DomainCard = ({ d, onRefresh, onVerify, onRemove, busy }) => {
               {conflicts.length > 0 && (
                 <div className="text-[11px] bg-red-50 border border-red-200 text-red-800 rounded p-2"
                      data-testid={`domain-conflicts-${d.domain}`}>
-                  <p className="font-semibold mb-1">⚠ Conflitti rilevati</p>
+                  <p className="font-semibold mb-1">â  Conflitti rilevati</p>
                   <ul className="list-disc list-inside space-y-0.5">
                     {conflicts.map((c, i) => (
                       <li key={i} className="break-all">
-                        {typeof c === 'object' ? `${c.type || ''} ${c.name || ''} → ${c.value || ''}` : String(c)}
+                        {typeof c === 'object' ? `${c.type || ''} ${c.name || ''} â ${c.value || ''}` : String(c)}
                       </li>
                     ))}
                   </ul>
@@ -272,7 +272,7 @@ const DomainCard = ({ d, onRefresh, onVerify, onRemove, busy }) => {
                   <Button size="sm" variant="outline" onClick={() => onVerify(d.domain)} disabled={busy}
                           className="h-7 text-xs border-amber-500 text-amber-800"
                           data-testid={`domain-verify-${d.domain}`}>
-                    {busy === 'verify' ? 'Verifico...' : 'Verifica proprietà'}
+                    {busy === 'verify' ? 'Verifico...' : 'Verifica proprietÃ '}
                   </Button>
                 )}
               </div>
@@ -385,7 +385,7 @@ const OrgSettings = () => {
     const d = (newDomain || '').trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/$/, '');
     if (!d) return;
     if (domains.some(x => x.domain === d)) {
-      toast.error('Dominio già presente'); return;
+      toast.error('Dominio giÃ  presente'); return;
     }
     setAdding(true);
     try {
@@ -406,13 +406,13 @@ const OrgSettings = () => {
         { withCredentials: true });
       setDomains(prev => prev.map(x => x.domain === domain ? { ...x, ...data } : x));
       const dnsOk = data?.dns && data.dns.misconfigured === false;
-      if (data.verified && dnsOk) toast.success(`${domain} è online`);
-      else if (data.verified && !dnsOk) toast.message('Proprietà verificata, ma DNS non ancora attivo');
+      if (data.verified && dnsOk) toast.success(`${domain} Ã¨ online`);
+      else if (data.verified && !dnsOk) toast.message('ProprietÃ  verificata, ma DNS non ancora attivo');
       else toast.message('In attesa di propagazione DNS');
     } catch (e) {
       if (e.response?.status === 404) {
         setDomains(prev => prev.filter(x => x.domain !== domain));
-        toast.message('Dominio non più presente su Vercel — rimosso');
+        toast.message('Dominio non piÃ¹ presente su Vercel â rimosso');
       } else {
         toast.error(e.response?.data?.detail || 'Errore verifica');
       }
@@ -425,7 +425,7 @@ const OrgSettings = () => {
       const { data } = await axios.post(`${API}/organizations/${org.id}/domains/${domain}/verify`,
         {}, { withCredentials: true });
       setDomains(prev => prev.map(x => x.domain === domain ? { ...x, ...data } : x));
-      if (data.verified) toast.success(`${domain} è online! Certificato SSL in emissione.`);
+      if (data.verified) toast.success(`${domain} Ã¨ online! Certificato SSL in emissione.`);
       else toast.message('DNS non ancora propagato. Riprova tra 1-2 minuti.');
     } catch (e) {
       toast.error(e.response?.data?.detail || 'Errore verifica');
@@ -453,6 +453,8 @@ const OrgSettings = () => {
         name: org.name,
         brand_name: org.brand_name,
         primary_color: org.primary_color,
+        secondary_color: org.secondary_color || '',
+        cta_arrow_color: org.cta_arrow_color || '',
         logo_url: org.logo_url,
         logo_public_id: org.logo_public_id,
         landing_headline: org.landing_headline || '',
@@ -533,6 +535,67 @@ const OrgSettings = () => {
           </div>
         </div>
         <div>
+          <Label>Colore secondario (opzionale)</Label>
+          <div className="flex gap-2 items-center">
+            <Input
+              type="color"
+              value={org.secondary_color || org.primary_color || '#D2FA46'}
+              onChange={(e) => updateField('secondary_color', e.target.value)}
+              className="w-16 h-10 cursor-pointer"
+              data-testid="org-secondary-color-input"
+            />
+            <Input
+              value={org.secondary_color || ''}
+              onChange={(e) => updateField('secondary_color', e.target.value)}
+              placeholder="(vuoto = uguale al primario)"
+              className="font-mono"
+            />
+            {org.secondary_color && (
+              <button
+                type="button"
+                onClick={() => updateField('secondary_color', '')}
+                className="text-xs text-gray-500 hover:text-gray-900 dark:hover:text-white underline px-2"
+              >
+                Reset
+              </button>
+            )}
+          </div>
+          <p className="text-[11px] text-gray-500 dark:text-[#6a6a72] mt-1">
+            Le card sociali e i bottoni CTA degli annunci useranno alternativamente primario e
+            secondario (assegnazione stabile per id). Lascia vuoto per usare ovunque il primario.
+          </p>
+        </div>
+        <div>
+          <Label>Colore freccia tasto espansione (opzionale)</Label>
+          <div className="flex gap-2 items-center">
+            <Input
+              type="color"
+              value={org.cta_arrow_color || '#ffffff'}
+              onChange={(e) => updateField('cta_arrow_color', e.target.value)}
+              className="w-16 h-10 cursor-pointer"
+              data-testid="org-cta-arrow-color-input"
+            />
+            <Input
+              value={org.cta_arrow_color || ''}
+              onChange={(e) => updateField('cta_arrow_color', e.target.value)}
+              placeholder="(vuoto = bianco)"
+              className="font-mono"
+            />
+            {org.cta_arrow_color && (
+              <button
+                type="button"
+                onClick={() => updateField('cta_arrow_color', '')}
+                className="text-xs text-gray-500 hover:text-gray-900 dark:hover:text-white underline px-2"
+              >
+                Reset
+              </button>
+            )}
+          </div>
+          <p className="text-[11px] text-gray-500 dark:text-[#6a6a72] mt-1">
+            Colore dei chevron interno al bottone tondo "espandi sociali" e al bottone "Condividi".
+          </p>
+        </div>
+        <div>
           <Label>Logo</Label>
           {org.logo_url ? (
             <div className="flex items-center gap-3 mt-1">
@@ -559,7 +622,7 @@ const OrgSettings = () => {
         </div>
         <p className="text-xs text-gray-500 dark:text-[#6a6a72]">
           Aggiungi il sottodominio (es. <span className="font-mono">qr.tuodominio.it</span>) che vuoi usare per le landing page.
-          <strong> Verrà collegato in automatico</strong> al sito — non devi entrare su nessuna piattaforma esterna.
+          <strong> VerrÃ  collegato in automatico</strong> al sito â non devi entrare su nessuna piattaforma esterna.
           Ti diremo solo quale record DNS aggiungere sul tuo pannello Aruba.
         </p>
 
@@ -598,15 +661,15 @@ const OrgSettings = () => {
         </h3>
         <p className="text-xs text-gray-500 dark:text-[#6a6a72]">
           Abilita un banner mostrato sui link pubblici dei tuoi venditori (es. <span className="font-mono">qr.tuodominio.it/v/...</span>).
-          <strong> Il testo lo decidi tu</strong>: QRHub fornisce solo lo strumento, la responsabilità del contenuto della landing
-          e dell'informativa è del titolare del dominio.
+          <strong> Il testo lo decidi tu</strong>: QRHub fornisce solo lo strumento, la responsabilitÃ  del contenuto della landing
+          e dell'informativa Ã¨ del titolare del dominio.
         </p>
 
         <div className="flex items-center justify-between border rounded-lg p-3">
           <div>
             <p className="text-sm font-medium">Personalizza testo banner</p>
             <p className="text-xs text-gray-500 dark:text-[#6a6a72]">
-              Il banner è sempre attivo per legge (informativa art. 13 GDPR).
+              Il banner Ã¨ sempre attivo per legge (informativa art. 13 GDPR).
               Con questo switch decidi se mostrare un testo tuo o quello di default.
             </p>
           </div>
@@ -628,7 +691,7 @@ const OrgSettings = () => {
             maxLength={1000}
           />
           <p className="text-[11px] text-gray-400 dark:text-[#5a5a62] mt-1">
-            {(org.cookie_banner_text || '').length}/1000 · Se vuoto verrà mostrato un testo default
+            {(org.cookie_banner_text || '').length}/1000 Â· Se vuoto verrÃ  mostrato un testo default
           </p>
         </div>
 
@@ -642,13 +705,13 @@ const OrgSettings = () => {
             data-testid="cookie-banner-link-input"
           />
           <p className="text-[11px] text-gray-400 dark:text-[#5a5a62] mt-1">
-            Se inserito, comparirà un link "Privacy policy" accanto al pulsante "Ho capito".
+            Se inserito, comparirÃ  un link "Privacy policy" accanto al pulsante "Ho capito".
           </p>
         </div>
 
         <div className="text-xs text-amber-800 bg-amber-50 border-l-2 border-amber-400 p-3 rounded-r">
-          <strong>Importante</strong> — La piattaforma QRHub non memorizza indirizzi IP né cookie di profilazione.
-          Salva solo dati aggregati (visite, click per canale, città/paese approssimativi, device family) ai fini
+          <strong>Importante</strong> â La piattaforma QRHub non memorizza indirizzi IP nÃ© cookie di profilazione.
+          Salva solo dati aggregati (visite, click per canale, cittÃ /paese approssimativi, device family) ai fini
           statistici. Per maggiori dettagli vedi la <a href="/dashboard/legal" className="underline font-semibold">pagina "Note Legali"</a>.
         </div>
       </div>
@@ -661,7 +724,7 @@ const OrgSettings = () => {
         </h3>
         <p className="text-xs text-gray-500 dark:text-[#6a6a72]">
           Quando un visitatore tocca i pulsanti WhatsApp, Instagram, Facebook, TikTok, Google Maps o Recensioni Google,
-          esce dalla landing ed entra in un servizio terzo che può profilarlo. Sei tu (in qualità di organizzazione titolare
+          esce dalla landing ed entra in un servizio terzo che puÃ² profilarlo. Sei tu (in qualitÃ  di organizzazione titolare
           del dominio) che devi dichiararlo nella tua informativa. QRHub fornisce un testo predefinito che puoi adattare.
         </p>
         <div>
@@ -676,7 +739,7 @@ const OrgSettings = () => {
           />
           <div className="flex items-center justify-between mt-1 flex-wrap gap-2">
             <p className="text-[11px] text-gray-400 dark:text-[#5a5a62]">
-              {(org.data_profiling_text || '').length}/4000 · Compare nella pagina <code className="bg-gray-100 dark:bg-[#1a1a1c] px-1 rounded">/v/[id]/privacy</code>
+              {(org.data_profiling_text || '').length}/4000 Â· Compare nella pagina <code className="bg-gray-100 dark:bg-[#1a1a1c] px-1 rounded">/v/[id]/privacy</code>
             </p>
             <button
               type="button"
@@ -701,7 +764,7 @@ const OrgSettings = () => {
           />
           <div className="flex items-center justify-between mt-1 flex-wrap gap-2">
             <p className="text-[11px] text-gray-400 dark:text-[#5a5a62]">
-              {(org.terms_text || '').length}/8000 · Compare insieme all'informativa
+              {(org.terms_text || '').length}/8000 Â· Compare insieme all'informativa
             </p>
             <button
               type="button"
@@ -715,7 +778,7 @@ const OrgSettings = () => {
         </div>
       </div>
 
-      {/* GDPR — Titolare del trattamento (art. 13 GDPR) */}
+      {/* GDPR â Titolare del trattamento (art. 13 GDPR) */}
       <div className="bg-white dark:bg-[#131316] border rounded-lg p-5 space-y-4" data-testid="org-gdpr-controller-section">
         <h3 className="font-semibold flex items-center gap-2">
           <span className="inline-block w-5 h-5 rounded bg-emerald-100 text-emerald-700 text-[11px] font-bold flex items-center justify-center">!</span>
@@ -811,7 +874,7 @@ const OrgSettings = () => {
                 data-testid="org-legal-logo-upload-label"
               >
                 <Upload className={`h-4 w-4 ${uploading ? 'animate-pulse' : ''}`} />
-                {uploading ? 'Caricamento…' : 'Carica logo titolare'}
+                {uploading ? 'Caricamentoâ¦' : 'Carica logo titolare'}
                 <input
                   id="legal-logo-upload"
                   type="file"
@@ -832,8 +895,8 @@ const OrgSettings = () => {
             Icona app (salva sul telefono)
           </Label>
           <p className="text-xs text-gray-600 dark:text-[#8a8a92] mt-1 mb-3">
-            Icona che apparirà sulla home dei telefoni dei clienti quando salvano la
-            landing del venditore come app (PWA). Consigliato: <strong>PNG quadrato 512×512 px</strong>{' '}
+            Icona che apparirÃ  sulla home dei telefoni dei clienti quando salvano la
+            landing del venditore come app (PWA). Consigliato: <strong>PNG quadrato 512Ã512 px</strong>{' '}
             su sfondo opaco. Se vuoto viene usato il logo brand qui sopra.
           </p>
           <div className="flex items-center gap-3 flex-wrap">
@@ -862,7 +925,7 @@ const OrgSettings = () => {
                 data-testid="org-pwa-icon-upload-label"
               >
                 <Upload className={`h-4 w-4 ${uploading ? 'animate-pulse' : ''}`} />
-                {uploading ? 'Caricamento…' : 'Carica icona app'}
+                {uploading ? 'Caricamentoâ¦' : 'Carica icona app'}
                 <input
                   id="pwa-icon-upload"
                   type="file"
@@ -888,7 +951,7 @@ const OrgSettings = () => {
             maxLength={500}
           />
           <p className="text-[11px] text-gray-400 dark:text-[#5a5a62] mt-1">
-            Se compilato, la pagina informativa rimanderà ANCHE alla tua policy completa.
+            Se compilato, la pagina informativa rimanderÃ  ANCHE alla tua policy completa.
           </p>
         </div>
       </div>

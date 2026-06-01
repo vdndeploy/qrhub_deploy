@@ -493,7 +493,7 @@ const Posts = () => {
                 )}
               </div>
 
-              <div className="flex gap-1 flex-shrink-0">
+              <div className="hidden sm:flex gap-1 flex-shrink-0">
                 <Switch
                   checked={g.enabled !== false}
                   onCheckedChange={() => handleToggleEnabled(g)}
@@ -506,6 +506,41 @@ const Posts = () => {
                 <Button variant="ghost" size="icon" onClick={() => handleDelete(g)} title="Elimina" data-testid={`post-group-delete-${i}`}>
                   <Trash2 className="h-4 w-4 text-red-500" />
                 </Button>
+              </div>
+
+              {/* Mobile: tap-friendly action row, full width below preview/title */}
+              <div className="sm:hidden grid grid-cols-3 gap-2 mt-2 pt-3 border-t border-gray-100 dark:border-white/5">
+                <button
+                  type="button"
+                  onClick={() => handleToggleEnabled(g)}
+                  className={`flex flex-col items-center justify-center gap-1 rounded-xl border min-h-[60px] py-2 active:scale-95 transition-transform touch-manipulation ${g.enabled !== false ? 'border-emerald-500/40 bg-emerald-50/40 dark:bg-emerald-500/[0.06]' : 'border-gray-200 dark:border-white/10 bg-white dark:bg-[#0f0f12]'}`}
+                  data-testid={`post-m-toggle-${i}`}
+                >
+                  <div className={`w-9 h-5 rounded-full p-0.5 flex items-center ${g.enabled !== false ? 'bg-emerald-500 justify-end' : 'bg-gray-300 dark:bg-white/20 justify-start'}`}>
+                    <div className="w-4 h-4 rounded-full bg-white" />
+                  </div>
+                  <span className="text-[10px] font-medium text-gray-700 dark:text-[#a8a8b0]">
+                    {g.enabled !== false ? 'Attivo' : 'In pausa'}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => openEdit(g)}
+                  className="flex flex-col items-center justify-center gap-1 rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[#0f0f12] min-h-[60px] py-2 active:scale-95 transition-transform touch-manipulation"
+                  data-testid={`post-m-edit-${i}`}
+                >
+                  <Edit className="h-5 w-5 text-gray-700 dark:text-[#a8a8b0]" />
+                  <span className="text-[10px] font-medium text-gray-700 dark:text-[#a8a8b0]">Modifica</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDelete(g)}
+                  className="flex flex-col items-center justify-center gap-1 rounded-xl border border-red-200 dark:border-red-500/30 bg-white dark:bg-[#0f0f12] min-h-[60px] py-2 active:scale-95 transition-transform touch-manipulation"
+                  data-testid={`post-m-delete-${i}`}
+                >
+                  <Trash2 className="h-5 w-5 text-red-500" />
+                  <span className="text-[10px] font-medium text-red-600 dark:text-red-400">Elimina</span>
+                </button>
               </div>
             </div>
           ))}

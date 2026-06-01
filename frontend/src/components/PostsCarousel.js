@@ -4,7 +4,20 @@ import useEmblaCarousel from 'embla-carousel-react';
 /**
  * Adaptive carousel that auto-detects each slide's aspect ratio and adjusts container height.
  * Manual swipe only (no autoplay).
+ *
+ * Per request: the frame border and the CTA button of each post alternate between
+ * `--brand-color` and `--brand-secondary`. We hash post.id with FNV-1a to keep
+ * the assignment STABLE across renders (same post always gets the same color).
  */
+const hashId = (s) => {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = (h * 0x01000193) >>> 0;
+  }
+  return h;
+};
+
 const PostsCarousel = ({ posts = [], whatsappBase = '', onCtaClick, defaultMessage = '' }) => {
   const [emblaRef, emblaApi] = useEmblaCarousel({ loop: false, align: 'start' });
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -63,7 +76,8 @@ const PostsCarousel = ({ posts = [], whatsappBase = '', onCtaClick, defaultMessa
                     {p.text && <div className="posts-text">{p.text}</div>}
                     {p.cta_text && whatsappBase && (
                       <a className="posts-cta" href={ctaHref} target="_blank" rel="noopener noreferrer"
-                          onClick={() => onCtaClick && onCtaClick(p)}>
+                          onClick={() => onCtaClick && onCtaClick(p)}
+                          style={{ background: accent }}>
                         {p.cta_text}
                       </a>
                     )}

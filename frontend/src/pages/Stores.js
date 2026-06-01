@@ -120,7 +120,7 @@ const Stores = () => {
           <span className="sm:hidden">Nuovo</span>
         </Button>
       </div>
-      <div className="bg-white dark:bg-[#131316] rounded-lg border overflow-x-auto">
+      <div className="bg-white dark:bg-[#131316] rounded-lg border overflow-x-auto hidden md:block">
         <Table>
           <TableHeader>
             <TableRow>
@@ -158,6 +158,63 @@ const Stores = () => {
             )}
           </TableBody>
         </Table>
+      </div>
+
+      {/* Mobile card stack — generous tap targets, edit & delete spaced */}
+      <div className="md:hidden space-y-3" data-testid="stores-mobile-list">
+        {stores.length === 0 ? (
+          <div className="bg-white dark:bg-[#131316] rounded-xl border border-gray-200 dark:border-white/10 p-6 text-center text-gray-500 dark:text-[#6a6a72]">
+            Nessun negozio. Creane uno per iniziare.
+          </div>
+        ) : stores.map(s => {
+          const social = [s.whatsapp, s.instagram, s.facebook, s.tiktok].filter(Boolean).length;
+          return (
+            <div key={s.id}
+                  className="bg-white dark:bg-[#131316] rounded-2xl border border-gray-200 dark:border-white/10 p-4 shadow-sm"
+                  data-testid={`store-card-${s.id}`}>
+              <div className="flex items-start gap-3 mb-4">
+                <StoreIcon className="h-5 w-5 text-[#D2FA46] flex-shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-base font-semibold text-gray-900 dark:text-white truncate">{s.name}</h3>
+                  <p className="text-xs text-gray-500 dark:text-[#8a8a92] mt-0.5">
+                    {social}/4 social attivi · {postsCounts[s.id] || 0} {(postsCounts[s.id] === 1) ? 'annuncio' : 'annunci'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                <Link to={`/dashboard/posts?store=${s.id}`} className="contents">
+                  <button
+                    type="button"
+                    className="flex flex-col items-center justify-center gap-1 rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[#0f0f12] min-h-[60px] py-2 active:scale-95 transition-transform touch-manipulation"
+                    data-testid={`store-m-posts-${s.id}`}
+                  >
+                    <Megaphone className="h-5 w-5 text-[#D2FA46]" />
+                    <span className="text-[10px] font-medium text-gray-700 dark:text-[#a8a8b0]">Annunci</span>
+                  </button>
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => handleOpenDialog(s)}
+                  className="flex flex-col items-center justify-center gap-1 rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[#0f0f12] min-h-[60px] py-2 active:scale-95 transition-transform touch-manipulation"
+                  data-testid={`store-m-edit-${s.id}`}
+                >
+                  <Edit className="h-5 w-5 text-gray-700 dark:text-[#a8a8b0]" />
+                  <span className="text-[10px] font-medium text-gray-700 dark:text-[#a8a8b0]">Modifica</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDelete(s.id)}
+                  className="flex flex-col items-center justify-center gap-1 rounded-xl border border-red-200 dark:border-red-500/30 bg-white dark:bg-[#0f0f12] min-h-[60px] py-2 active:scale-95 transition-transform touch-manipulation"
+                  data-testid={`store-m-delete-${s.id}`}
+                >
+                  <Trash2 className="h-5 w-5 text-red-500" />
+                  <span className="text-[10px] font-medium text-red-600 dark:text-red-400">Elimina</span>
+                </button>
+              </div>
+            </div>
+          );
+        })}
       </div>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>

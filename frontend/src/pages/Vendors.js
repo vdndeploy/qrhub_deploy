@@ -21,6 +21,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { toast } from 'sonner';
+import MobileActionBtn from '../components/MobileActionBtn';
 import {
   Select,
   SelectContent,
@@ -245,6 +246,32 @@ const Vendors = () => {
     }
   };
 
+  // Preview landing helper. iOS Safari blocks `window.open` after the first
+  // `await`, so we synchronously open a blank tab on desktop and reuse it
+  // once the preview-token arrives. On mobile (<768px) we redirect in place
+  // because the blank-tab trick is also unreliable inside many WebViews.
+  const handlePreviewLanding = async (vendor) => {
+    const isDesktop = window.matchMedia('(min-width: 768px)').matches;
+    const win = isDesktop ? window.open('about:blank', '_blank') : null;
+    try {
+      const { data } = await axios.post(
+        `${API}/vendors/${vendor.id}/preview-token`,
+        {},
+        { withCredentials: true }
+      );
+      const path = (vendor.slug || '').trim() || vendor.id;
+      const url = `${window.location.origin}/v/${path}?preview=${encodeURIComponent(data.token)}`;
+      if (win && !win.closed) {
+        win.location.href = url;
+      } else {
+        window.location.href = url;
+      }
+    } catch (e) {
+      if (win && !win.closed) win.close();
+      toast.error(e.response?.data?.detail || 'Impossibile generare token anteprima');
+    }
+  };
+
   if (loading) {
     return <div className="text-center py-12">Caricamento...</div>;
   }
@@ -266,7 +293,7 @@ const Vendors = () => {
         </Button>
       </div>
 
-      <div className="bg-white dark:bg-[#131316] rounded-lg border border-gray-200 dark:border-white/10 overflow-x-auto">
+      <div className="bg-white dark:bg-[#131316] rounded-lg border border-gray-200 dark:border-white/10 overflow-x-auto hidden md:block">
         <Table>
           <TableHeader>
             <TableRow>
@@ -295,98 +322,25 @@ const Vendors = () => {
                   <TableCell className="text-center">{vendor.total_views}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleOpenCredentialsDialog(vendor)}
-                        data-testid={`create-credentials-${vendor.id}`}
-                        title={vendor.has_credentials
-                          ? `Aggiorna credenziali (${vendor.email})`
-                          : 'Crea credenziali accesso'}
-                        className={vendor.has_credentials ? 'border-emerald-500 text-emerald-700' : ''}
-                      >
+                      <Button variant="outline" size="sm" onClick={() => handleOpenCredentialsDialog(vendor)} data-testid={`create-credentials-${vendor.id}`} title={vendor.has_credentials ? `Aggiorna credenziali (${vendor.email})` : 'Crea credenziali accesso'} className={vendor.has_credentials ? 'border-emerald-500 text-emerald-700' : ''}>
                         <Key className="h-4 w-4" />
                       </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={async () => {
-                          // Mobile browsers (especially iOS Safari) block ANY async
-                          // window.open — even when called before the first await.
-                          // Strategy:
-                          //  - Desktop (≥768px): open a real new tab synchronously
-                          //    WITHOUT 'noopener' so we keep the reference and can
-                          //    redirect it once the preview-token arrives.
-                          //  - Mobile (<768px): redirect the current tab. UX is
-                          //    slightly different (no new tab) but reliable.
-                          const isDesktop = window.matchMedia('(min-width: 768px)').matches;
-                          const win = isDesktop ? window.open('about:blank', '_blank') : null;
-                          try {
-                            const { data } = await axios.post(
-                              `${API}/vendors/${vendor.id}/preview-token`,
-                              {},
-                              { withCredentials: true }
-                            );
-                            // Honor the vendor's custom slug when set so the
-                            // anteprima opens the same URL the public visitors see.
-                            const path = (vendor.slug || '').trim() || vendor.id;
-                            const url = `${window.location.origin}/v/${path}?preview=${encodeURIComponent(data.token)}`;
-                            if (win && !win.closed) {
-                              win.location.href = url;
-                            } else {
-                              window.location.href = url;
-                            }
-                          } catch (e) {
-                            if (win && !win.closed) win.close();
-                            toast.error(e.response?.data?.detail || 'Impossibile generare token anteprima');
-                          }
-                        }}
-                        data-testid={`preview-landing-${vendor.id}`}
-                        title="Anteprima landing (valida 30 minuti)"
-                      >
+                      <Button variant="outline" size="sm" onClick={() => handlePreviewLanding(vendor)} data-testid={`preview-landing-${vendor.id}`} title="Anteprima landing (valida 30 minuti)">
                         <Eye className="h-4 w-4 text-sky-500" />
                       </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handlePreviewQR(vendor)}
-                        data-testid={`preview-qr-${vendor.id}`}
-                        title="Anteprima QR Code"
-                      >
+                      <Button variant="outline" size="sm" onClick={() => handlePreviewQR(vendor)} data-testid={`preview-qr-${vendor.id}`} title="Anteprima QR Code">
                         <QrCode className="h-4 w-4" />
                       </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setBadgeVendor(vendor)}
-                        data-testid={`print-badge-${vendor.id}`}
-                        title="Stampa cartellino fronte/retro"
-                      >
+                      <Button variant="outline" size="sm" onClick={() => setBadgeVendor(vendor)} data-testid={`print-badge-${vendor.id}`} title="Stampa cartellino fronte/retro">
                         <Printer className="h-4 w-4 text-indigo-500" />
                       </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleOpenDialog(vendor)}
-                        data-testid={`edit-vendor-${vendor.id}`}
-                      >
+                      <Button variant="outline" size="sm" onClick={() => handleOpenDialog(vendor)} data-testid={`edit-vendor-${vendor.id}`}>
                         <Edit className="h-4 w-4" />
                       </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleResetAnalytics(vendor)}
-                        data-testid={`reset-analytics-${vendor.id}`}
-                        title="Azzera statistiche venditore (utile se il QR viene riassegnato)"
-                      >
+                      <Button variant="outline" size="sm" onClick={() => handleResetAnalytics(vendor)} data-testid={`reset-analytics-${vendor.id}`} title="Azzera statistiche venditore (utile se il QR viene riassegnato)">
                         <RotateCcw className="h-4 w-4 text-amber-500" />
                       </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleDelete(vendor.id)}
-                        data-testid={`delete-vendor-${vendor.id}`}
-                      >
+                      <Button variant="outline" size="sm" onClick={() => handleDelete(vendor.id)} data-testid={`delete-vendor-${vendor.id}`}>
                         <Trash2 className="h-4 w-4 text-red-500" />
                       </Button>
                     </div>
@@ -396,6 +350,52 @@ const Vendors = () => {
             )}
           </TableBody>
         </Table>
+      </div>
+
+      {/* Mobile card stack — Linear/Notion-style with 44×44px tap targets */}
+      <div className="md:hidden space-y-3" data-testid="vendors-mobile-list">
+        {vendors.length === 0 ? (
+          <div className="bg-white dark:bg-[#131316] rounded-xl border border-gray-200 dark:border-white/10 p-6 text-center text-gray-500 dark:text-[#6a6a72]">
+            Nessun venditore. Creane uno per iniziare.
+          </div>
+        ) : vendors.map((vendor) => (
+          <div key={vendor.id}
+                className="bg-white dark:bg-[#131316] rounded-2xl border border-gray-200 dark:border-white/10 p-4 shadow-sm"
+                data-testid={`vendor-card-${vendor.id}`}>
+            <div className="flex items-start gap-3 mb-3">
+              <div className="flex-1 min-w-0">
+                <h3 className="text-base font-semibold text-gray-900 dark:text-white truncate">
+                  {vendor.name}
+                </h3>
+                <p className="text-xs text-gray-500 dark:text-[#8a8a92] truncate mt-0.5">
+                  {vendor.bio || (vendor.email ? vendor.email : 'Nessuna bio')}
+                </p>
+              </div>
+              <div className="text-right flex-shrink-0">
+                <div className="text-[10px] uppercase tracking-wide text-gray-400 dark:text-[#5a5a62] font-medium">Visite</div>
+                <div className="text-xl font-bold text-gray-900 dark:text-white tabular-nums">{vendor.total_views}</div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-4 gap-2" role="group" aria-label={`Azioni per ${vendor.name}`}>
+              <MobileActionBtn icon={Key} label="Login" onClick={() => handleOpenCredentialsDialog(vendor)}
+                                active={vendor.has_credentials}
+                                data-testid={`m-creds-${vendor.id}`} />
+              <MobileActionBtn icon={Eye} label="Vedi" tint="#0ea5e9" onClick={() => handlePreviewLanding(vendor)}
+                                data-testid={`m-preview-${vendor.id}`} />
+              <MobileActionBtn icon={QrCode} label="QR" onClick={() => handlePreviewQR(vendor)}
+                                data-testid={`m-qr-${vendor.id}`} />
+              <MobileActionBtn icon={Printer} label="Stampa" tint="#6366f1" onClick={() => setBadgeVendor(vendor)}
+                                data-testid={`m-print-${vendor.id}`} />
+              <MobileActionBtn icon={Edit} label="Modifica" onClick={() => handleOpenDialog(vendor)}
+                                data-testid={`m-edit-${vendor.id}`} />
+              <MobileActionBtn icon={RotateCcw} label="Reset" tint="#f59e0b" onClick={() => handleResetAnalytics(vendor)}
+                                data-testid={`m-reset-${vendor.id}`} />
+              <MobileActionBtn icon={Trash2} label="Elimina" tint="#ef4444" onClick={() => handleDelete(vendor.id)}
+                                data-testid={`m-delete-${vendor.id}`} />
+            </div>
+          </div>
+        ))}
       </div>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>

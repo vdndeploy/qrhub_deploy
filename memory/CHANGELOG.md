@@ -4,6 +4,17 @@
 
 ---
 
+## 2026-06-01 — Mobile UX restyling + Auto theme + Secondary colors + Brand cleanup
+
+- **Rimossi tutti i brand reali** dagli esempi user-facing (Vendors/Organizations/OrgSettings/Settings copy). Placeholder ora generici ("Nome Brand", "Nome Azienda SRL", "mario-rossi"). Codice di migrazione legacy in `server.py` (auto-anonimizza dati storici) mantenuto funzionante.
+- **Prenotazione appuntamenti via link Google Calendar**: nuovo campo `Store.appointment_url` (max 600). Form in Stores con helper passo-passo. Bottone tondo `CalendarClock` nell'header della landing accanto a MapPin → apre Google Calendar in nuova tab. Event `appointment_click` tracciato nelle analytics. Zero OAuth, zero costi.
+- **Auto theme sunrise/sunset** (`hooks/useTheme.js`): suncalc lib (~3KB). Light tra alba civile (dawn) e tramonto (dusk) di Roma 41.9°N 12.5°E, dark altrimenti. Re-check ogni 5 min senza reload. Se l'utente clicca manualmente il toggle, la sua preferenza prevale (salvata in localStorage).
+- **Mobile UX card stack** stile Linear/Notion per Vendors / Stores / Posts. Tabella attuale resta su desktop (`hidden md:block`), card stack su mobile (`md:hidden`) con tap target ≥ 60×60px, bottoni azione grid responsive (3-4 colonne), nuovo componente riutilizzabile `MobileActionBtn.js`. Mai più cestino e modifica attaccati. Switch attivo/pausa con label esplicita su mobile.
+- **Colore secondario + colore freccia CTA per org** (`Organization.secondary_color`, `cta_arrow_color`): 2 nuovi color picker in OrgSettings tab Brand. Sulla landing: 5 card sociali alternano cornice e icona primary/secondary (assegnazione fissa per posizione). Bottoni "+" e "Condividi" nell'header in secondary. Annunci `PostsCarousel`: cornice + bottone CTA alternati per ogni post via hash FNV-1a deterministico su `post.id` (stesso post → sempre stesso colore). Se secondary non impostato → fallback a primary (nessuna alternanza). CSS variables `--brand-color`, `--brand-secondary`, `--cta-arrow-color` esposte su `.vendor-landing`.
+- **Fix file `OrgSettings.js`** (legacy): rimosso ~2.5KB di JSX orfano dopo `export default` accumulato da edits precedenti + sostituito 0xa0 (NBSP latin-1) con space.
+
+---
+
 ## 2026-05-29 — Tooling super admin + GDPR hardening
 
 - **Fix fuso orario "Pattern Orario (24h)" + Andamento Giornaliero** (`backend/routers/analytics.py::_build_detailed_analytics`): conversione `ZoneInfo('Europe/Rome')` prima di `.hour` / `.date()` (stessa logica già nel daily-counter). Evento DB UTC 11:30 → `hourly_pattern[13]=19`. Deploy Fly v48 → PDF Log Eventi mostra `29/05/2026 13:30` invece di `11:30 UTC`; footer "Report generato il ... (ora Italia)".

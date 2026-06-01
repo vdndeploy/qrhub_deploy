@@ -463,6 +463,8 @@ class OrganizationCreate(BaseModel):
     slug: Optional[str] = Field('', max_length=64)
     brand_name: Optional[str] = Field('', max_length=200)
     primary_color: Optional[str] = Field('#F96815', max_length=20)
+    secondary_color: Optional[str] = Field('', max_length=20)
+    cta_arrow_color: Optional[str] = Field('', max_length=20)
     logo_url: Optional[str] = Field('', max_length=600)
     logo_public_id: Optional[str] = Field('', max_length=300)
     allowed_domains: Optional[List[str]] = []
@@ -473,6 +475,8 @@ class OrganizationUpdate(BaseModel):
     slug: Optional[str] = Field(None, max_length=64)
     brand_name: Optional[str] = Field(None, max_length=200)
     primary_color: Optional[str] = Field(None, max_length=20)
+    secondary_color: Optional[str] = Field(None, max_length=20)
+    cta_arrow_color: Optional[str] = Field(None, max_length=20)
     logo_url: Optional[str] = Field(None, max_length=600)
     logo_public_id: Optional[str] = Field(None, max_length=300)
     allowed_domains: Optional[List[str]] = None
@@ -1047,6 +1051,8 @@ def _org_to_response(o: dict) -> dict:
         'slug': o.get('slug', ''),
         'brand_name': o.get('brand_name', '') or o.get('name', ''),
         'primary_color': o.get('primary_color', '#F96815'),
+        'secondary_color': o.get('secondary_color', '') or '',
+        'cta_arrow_color': o.get('cta_arrow_color', '') or '',
         'logo_url': o.get('logo_url', ''),
         'logo_public_id': o.get('logo_public_id', ''),
         'allowed_domains': o.get('allowed_domains', []) or [],
@@ -1183,6 +1189,8 @@ async def create_organization(payload: OrganizationCreate, user: dict = Depends(
         'slug': slug,
         'brand_name': payload.brand_name or payload.name,
         'primary_color': payload.primary_color or '#F96815',
+        'secondary_color': payload.secondary_color or '',
+        'cta_arrow_color': payload.cta_arrow_color or '',
         'logo_url': payload.logo_url or '',
         'logo_public_id': payload.logo_public_id or '',
         'allowed_domains': payload.allowed_domains or [],
@@ -1225,6 +1233,10 @@ async def update_organization(org_id: str, payload: OrganizationUpdate, user: di
         update['brand_name'] = payload.brand_name
     if payload.primary_color is not None:
         update['primary_color'] = payload.primary_color
+    if payload.secondary_color is not None:
+        update['secondary_color'] = payload.secondary_color
+    if payload.cta_arrow_color is not None:
+        update['cta_arrow_color'] = payload.cta_arrow_color
     if payload.logo_url is not None:
         update['logo_url'] = payload.logo_url
     if payload.logo_public_id is not None:
@@ -2449,7 +2461,7 @@ async def get_vendor_public(vendor_id: str):
     if real_vendor and real_vendor.get('organization_id'):
         org = await db.organizations.find_one(
             {'id': real_vendor['organization_id']},
-            {'_id': 0, 'brand_name': 1, 'primary_color': 1, 'logo_url': 1, 'pwa_icon_url': 1,
+            {'_id': 0, 'brand_name': 1, 'primary_color': 1, 'secondary_color': 1, 'cta_arrow_color': 1, 'logo_url': 1, 'pwa_icon_url': 1,
               'cookie_banner_enabled': 1, 'cookie_banner_text': 1, 'cookie_banner_link': 1,
               'landing_headline': 1, 'name': 1,
               'legal_name': 1, 'vat_number': 1, 'legal_address': 1,
@@ -2464,6 +2476,8 @@ async def get_vendor_public(vendor_id: str):
                 'name': org.get('name', ''),
                 'brand_name': org.get('brand_name', ''),
                 'primary_color': org.get('primary_color', '#F96815'),
+                'secondary_color': (org.get('secondary_color') or '').strip() or org.get('primary_color', '#F96815'),
+                'cta_arrow_color': (org.get('cta_arrow_color') or '').strip(),
                 'logo_url': org.get('logo_url', ''),
                 # PWA icon (512×512). Falls back to logo_url so existing orgs
                 # keep working without re-uploading.

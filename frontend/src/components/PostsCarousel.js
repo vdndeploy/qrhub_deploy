@@ -5,19 +5,10 @@ import useEmblaCarousel from 'embla-carousel-react';
  * Adaptive carousel that auto-detects each slide's aspect ratio and adjusts container height.
  * Manual swipe only (no autoplay).
  *
- * Per request: the frame border and the CTA button of each post alternate between
- * `--brand-color` and `--brand-secondary`. We hash post.id with FNV-1a to keep
- * the assignment STABLE across renders (same post always gets the same color).
+ * Per request: the frame border and the CTA button of each post alternate
+ * strictly by position (even index → primary, odd → secondary). This is more
+ * predictable visually than hashing on id.
  */
-const hashId = (s) => {
-  let h = 0x811c9dc5;
-  for (let i = 0; i < s.length; i++) {
-    h ^= s.charCodeAt(i);
-    h = (h * 0x01000193) >>> 0;
-  }
-  return h;
-};
-
 const PostsCarousel = ({ posts = [], whatsappBase = '', onCtaClick, defaultMessage = '' }) => {
   const [emblaRef, emblaApi] = useEmblaCarousel({ loop: false, align: 'start' });
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -51,13 +42,13 @@ const PostsCarousel = ({ posts = [], whatsappBase = '', onCtaClick, defaultMessa
 
       <div className="posts-carousel" ref={emblaRef}>
         <div className="posts-track">
-          {posts.map((p) => {
+          {posts.map((p, idx) => {
             const ar = aspects[p.id] || p.aspect_ratio || 1;
             const isVideo = p.media_resource_type === 'video' || (p.media_url || '').match(/\.(mp4|webm|mov)$/i);
             const ctaHref = whatsappBase
               ? `${whatsappBase}${p.cta_whatsapp_message || defaultMessage ? `?text=${encodeURIComponent(p.cta_whatsapp_message || defaultMessage)}` : ''}`
               : '#';
-            const accent = hashId(p.id || '') % 2 === 0 ? 'var(--brand-color)' : 'var(--brand-secondary)';
+            const accent = idx % 2 === 0 ? 'var(--brand-color)' : 'var(--brand-secondary)';
             return (
               <div key={p.id} className="posts-slide">
                 <div className="posts-card" style={{ borderColor: accent }}>

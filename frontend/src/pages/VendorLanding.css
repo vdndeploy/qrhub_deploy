@@ -85,9 +85,14 @@ body.qrhub-pwa-standalone #install-banner{padding-top:calc(16px + env(safe-area-
 .card{display:flex;align-items:center;justify-content:space-between;padding:20px;background:white;border:1.5px solid #E8E8E8;border-radius:16px;text-decoration:none;color:inherit;transition:all .2s ease;box-shadow:0 2px 8px rgba(0,0,0,.04)}
 .card:active{transform:scale(.98);box-shadow:0 4px 16px rgba(0,0,0,.08);border-color:var(--brand-color)}
 .card-main{display:flex;align-items:center;gap:16px;flex:1}
-.card-icon{width:56px;height:56px;flex-shrink:0;color:var(--brand-color)}
-.card-icon svg [stroke="#F96815"]{stroke:var(--brand-color)}
-.card-icon svg [fill="#F96815"]{fill:var(--brand-color)}
+.card-icon{width:56px;height:56px;flex-shrink:0;color:#fff;border-radius:14px;display:flex;align-items:center;justify-content:center;background:var(--brand-color)}
+.card-icon svg{width:100%;height:100%}
+.card-icon svg [stroke="#F96815"]{stroke:#fff}
+.card-icon svg [fill="#F96815"]{fill:#fff}
+/* The outermost <rect> in each social SVG was an outline frame meant
+   for a transparent icon; with the new filled background we hide it
+   so the icon glyph reads cleanly on the colored disc. */
+.card-icon svg > rect:first-of-type{display:none}
 .card-label{font-size:16px;font-weight:700;color:#1A1A1A;margin-bottom:2px}
 .card-sublabel{font-size:13px;color:#666}
 .card-chevron{width:24px;height:24px;flex-shrink:0;opacity:.6}

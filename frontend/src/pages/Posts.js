@@ -14,6 +14,7 @@ import {
 import { Switch } from '@/components/ui/switch';
 import MediaPicker from '@/components/MediaPicker';
 import AnnouncementPreview from '@/components/AnnouncementPreview';
+import MobileActionBtn from '../components/MobileActionBtn';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -496,7 +497,7 @@ const Posts = () => {
               <div className="hidden">{/* desktop-only small icon row removed: actions are now visible on every viewport via the grid below */}</div>
 
               {/* Tap-friendly action row visible on every viewport. */}
-              <div className="grid grid-cols-3 gap-2 mt-2 sm:mt-0 sm:w-72 sm:ml-auto pt-3 sm:pt-0 border-t sm:border-t-0 border-gray-100 dark:border-white/5">
+              <div className="grid grid-cols-3 gap-2 mt-2 sm:mt-0 sm:w-72 sm:ml-auto pt-3 sm:pt-0 border-t sm:border-t-0 border-gray-100 dark:border-white/5" role="group" aria-label={`Azioni per ${g.title || 'annuncio'}`}>
                 <button
                   type="button"
                   onClick={() => handleToggleEnabled(g)}
@@ -510,24 +511,19 @@ const Posts = () => {
                     {g.enabled !== false ? 'Attivo' : 'In pausa'}
                   </span>
                 </button>
-                <button
-                  type="button"
+                <MobileActionBtn
+                  icon={Edit}
+                  label="Modifica"
                   onClick={() => openEdit(g)}
-                  className="flex flex-col items-center justify-center gap-1 rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[#0f0f12] min-h-[60px] py-2 active:scale-95 transition-transform touch-manipulation"
                   data-testid={`post-m-edit-${i}`}
-                >
-                  <Edit className="h-5 w-5 text-gray-700 dark:text-[#a8a8b0]" />
-                  <span className="text-[10px] font-medium text-gray-700 dark:text-[#a8a8b0]">Modifica</span>
-                </button>
-                <button
-                  type="button"
+                />
+                <MobileActionBtn
+                  icon={Trash2}
+                  label="Elimina"
+                  tint="#ef4444"
                   onClick={() => handleDelete(g)}
-                  className="flex flex-col items-center justify-center gap-1 rounded-xl border border-red-200 dark:border-red-500/30 bg-white dark:bg-[#0f0f12] min-h-[60px] py-2 active:scale-95 transition-transform touch-manipulation"
                   data-testid={`post-m-delete-${i}`}
-                >
-                  <Trash2 className="h-5 w-5 text-red-500" />
-                  <span className="text-[10px] font-medium text-red-600 dark:text-red-400">Elimina</span>
-                </button>
+                />
               </div>
             </div>
           ))}

@@ -6,6 +6,10 @@
 
 ## 2026-06-01 — Mobile UX restyling + Auto theme + Secondary colors + Brand cleanup
 
+- **Desktop Card-grid unificato per Stores & Posts** (chiusura task UI mobile/desktop coerente):
+  - `Stores.js`: rimossi import `Table*` inutilizzati. Aggiunto filtro ricerca case-insensitive su nome/whatsapp/instagram/facebook/tiktok (mirror del search Vendors). Bottoni Annunci/Modifica/Elimina convertiti a `<MobileActionBtn>` con tap target ≥ 60px (lime per Annunci, rosso per Elimina). Aggiornata copy del DialogDescription ("…sulla card del negozio" invece di "…in tabella").
+  - `Posts.js`: bottoni Modifica/Elimina sulla card riga convertiti a `<MobileActionBtn>` (toggle Attivo/Pausa custom mantenuto per il visual indicator).
+  - Risultato: Vendors / Stores / Posts ora hanno markup azioni 100% identico, riusabile in futuro per altri elenchi.
 - **Rimossi tutti i brand reali** dagli esempi user-facing (Vendors/Organizations/OrgSettings/Settings copy). Placeholder ora generici ("Nome Brand", "Nome Azienda SRL", "mario-rossi"). Codice di migrazione legacy in `server.py` (auto-anonimizza dati storici) mantenuto funzionante.
 - **Prenotazione appuntamenti via link Google Calendar**: nuovo campo `Store.appointment_url` (max 600). Form in Stores con helper passo-passo. Bottone tondo `CalendarClock` nell'header della landing accanto a MapPin → apre Google Calendar in nuova tab. Event `appointment_click` tracciato nelle analytics. Zero OAuth, zero costi.
 - **Auto theme sunrise/sunset** (`hooks/useTheme.js`): suncalc lib (~3KB). Light tra alba civile (dawn) e tramonto (dusk) di Roma 41.9°N 12.5°E, dark altrimenti. Re-check ogni 5 min senza reload. Se l'utente clicca manualmente il toggle, la sua preferenza prevale (salvata in localStorage).

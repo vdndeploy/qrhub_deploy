@@ -132,9 +132,10 @@ Browser ──→ qrhub.it / dominio-org ──→ Vercel (React SPA)
 
 ---
 
-## Stato corrente (2026-05-29)
+## Stato corrente (2026-06-01)
 
 🟢 **Live e stabile** · 0 bug aperti · costi entro free tier (+ ~$0.43 Fly pay-as-you-go).
+UI Desktop/Mobile ora unificata su card responsive per Vendors / Stores / Posts (componente `MobileActionBtn` riusabile).
 
 Per il dettaglio di **cosa è stato fatto** → vedi `CHANGELOG.md`.  
 Per il dettaglio di **cosa resta da fare** → vedi `ROADMAP.md`.

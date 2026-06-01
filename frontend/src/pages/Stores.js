@@ -5,9 +5,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { toast } from 'sonner';
-import { Plus, Edit, Trash2, Store as StoreIcon, Megaphone } from 'lucide-react';
+import { Plus, Edit, Trash2, Store as StoreIcon, Megaphone, Search, X } from 'lucide-react';
+import MobileActionBtn from '../components/MobileActionBtn';
 import HoursEditor, { formatHoursText, ensureHoursShape } from '@/components/HoursEditor';
 import {
   normalizeWhatsapp,
@@ -20,6 +20,7 @@ const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 const Stores = () => {
   const [stores, setStores] = useState([]);
+  const [search, setSearch] = useState('');
   const [postsCounts, setPostsCounts] = useState({});
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -120,68 +121,107 @@ const Stores = () => {
           <span className="sm:hidden">Nuovo</span>
         </Button>
       </div>
-      {/* Mobile card stack — generous tap targets, edit & delete spaced */}
+      {/* Search filter — case-insensitive across name / social handles */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-[#6a6a72] pointer-events-none" />
+        <Input
+          type="search"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Cerca negozio per nome, WhatsApp, Instagram…"
+          className="pl-10 h-11 text-base bg-white dark:bg-[#131316]"
+          data-testid="stores-search-input"
+        />
+        {search && (
+          <button
+            type="button"
+            onClick={() => setSearch('')}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-900 dark:hover:text-white"
+            aria-label="Cancella ricerca"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        )}
+      </div>
+
+      {/* Unified card grid — same generous tap targets on every viewport.
+          Responsive columns: 1 col mobile, 2 col tablet, 3 col desktop. */}
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3" data-testid="stores-list">
-        {stores.length === 0 ? (
-          <div className="bg-white dark:bg-[#131316] rounded-xl border border-gray-200 dark:border-white/10 p-6 text-center text-gray-500 dark:text-[#6a6a72]">
-            Nessun negozio. Creane uno per iniziare.
-          </div>
-        ) : stores.map(s => {
-          const social = [s.whatsapp, s.instagram, s.facebook, s.tiktok].filter(Boolean).length;
-          return (
-            <div key={s.id}
-                  className="bg-white dark:bg-[#131316] rounded-2xl border border-gray-200 dark:border-white/10 p-4 shadow-sm"
-                  data-testid={`store-card-${s.id}`}>
-              <div className="flex items-start gap-3 mb-4">
-                <StoreIcon className="h-5 w-5 text-[#D2FA46] flex-shrink-0 mt-0.5" />
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-base font-semibold text-gray-900 dark:text-white truncate">{s.name}</h3>
-                  <p className="text-xs text-gray-500 dark:text-[#8a8a92] mt-0.5">
-                    {social}/4 social attivi · {postsCounts[s.id] || 0} {(postsCounts[s.id] === 1) ? 'annuncio' : 'annunci'}
-                  </p>
+        {(() => {
+          const q = search.trim().toLowerCase();
+          const filtered = q
+            ? stores.filter(s =>
+                (s.name || '').toLowerCase().includes(q) ||
+                (s.whatsapp || '').toLowerCase().includes(q) ||
+                (s.instagram || '').toLowerCase().includes(q) ||
+                (s.facebook || '').toLowerCase().includes(q) ||
+                (s.tiktok || '').toLowerCase().includes(q)
+              )
+            : stores;
+
+          if (stores.length === 0) {
+            return (
+              <div className="bg-white dark:bg-[#131316] rounded-xl border border-gray-200 dark:border-white/10 p-6 text-center text-gray-500 dark:text-[#6a6a72] sm:col-span-2 xl:col-span-3">
+                Nessun negozio. Creane uno per iniziare.
+              </div>
+            );
+          }
+          if (filtered.length === 0) {
+            return (
+              <div className="bg-white dark:bg-[#131316] rounded-xl border border-dashed border-gray-300 dark:border-white/15 p-6 text-center text-gray-500 dark:text-[#6a6a72] sm:col-span-2 xl:col-span-3">
+                Nessun negozio corrisponde a "<strong>{search}</strong>".
+              </div>
+            );
+          }
+          return filtered.map(s => {
+            const social = [s.whatsapp, s.instagram, s.facebook, s.tiktok].filter(Boolean).length;
+            return (
+              <div key={s.id}
+                    className="bg-white dark:bg-[#131316] rounded-2xl border border-gray-200 dark:border-white/10 p-4 shadow-sm"
+                    data-testid={`store-card-${s.id}`}>
+                <div className="flex items-start gap-3 mb-4">
+                  <StoreIcon className="h-5 w-5 text-[#D2FA46] flex-shrink-0 mt-0.5" />
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-base font-semibold text-gray-900 dark:text-white truncate">{s.name}</h3>
+                    <p className="text-xs text-gray-500 dark:text-[#8a8a92] mt-0.5">
+                      {social}/4 social attivi · {postsCounts[s.id] || 0} {(postsCounts[s.id] === 1) ? 'annuncio' : 'annunci'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-3" role="group" aria-label={`Azioni per ${s.name}`}>
+                  <Link to={`/dashboard/posts?store=${s.id}`} className="contents">
+                    <MobileActionBtn
+                      icon={Megaphone}
+                      label="Annunci"
+                      data-testid={`store-m-posts-${s.id}`}
+                    />
+                  </Link>
+                  <MobileActionBtn
+                    icon={Edit}
+                    label="Modifica"
+                    onClick={() => handleOpenDialog(s)}
+                    data-testid={`store-m-edit-${s.id}`}
+                  />
+                  <MobileActionBtn
+                    icon={Trash2}
+                    label="Elimina"
+                    tint="#ef4444"
+                    onClick={() => handleDelete(s.id)}
+                    data-testid={`store-m-delete-${s.id}`}
+                  />
                 </div>
               </div>
-
-              <div className="grid grid-cols-3 gap-3">
-                <Link to={`/dashboard/posts?store=${s.id}`} className="contents">
-                  <button
-                    type="button"
-                    className="flex flex-col items-center justify-center gap-1 rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[#0f0f12] min-h-[60px] py-2 active:scale-95 transition-transform touch-manipulation"
-                    data-testid={`store-m-posts-${s.id}`}
-                  >
-                    <Megaphone className="h-5 w-5 text-[#D2FA46]" />
-                    <span className="text-[10px] font-medium text-gray-700 dark:text-[#a8a8b0]">Annunci</span>
-                  </button>
-                </Link>
-                <button
-                  type="button"
-                  onClick={() => handleOpenDialog(s)}
-                  className="flex flex-col items-center justify-center gap-1 rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[#0f0f12] min-h-[60px] py-2 active:scale-95 transition-transform touch-manipulation"
-                  data-testid={`store-m-edit-${s.id}`}
-                >
-                  <Edit className="h-5 w-5 text-gray-700 dark:text-[#a8a8b0]" />
-                  <span className="text-[10px] font-medium text-gray-700 dark:text-[#a8a8b0]">Modifica</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleDelete(s.id)}
-                  className="flex flex-col items-center justify-center gap-1 rounded-xl border border-red-200 dark:border-red-500/30 bg-white dark:bg-[#0f0f12] min-h-[60px] py-2 active:scale-95 transition-transform touch-manipulation"
-                  data-testid={`store-m-delete-${s.id}`}
-                >
-                  <Trash2 className="h-5 w-5 text-red-500" />
-                  <span className="text-[10px] font-medium text-red-600 dark:text-red-400">Elimina</span>
-                </button>
-              </div>
-            </div>
-          );
-        })}
+            );
+          });
+        })()}
       </div>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="max-w-2xl w-[95vw] max-h-[90vh] overflow-y-auto overflow-x-hidden p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle>{editingStore ? 'Modifica' : 'Nuovo'} Negozio</DialogTitle>
-            <DialogDescription>Configura i social e i contatti del negozio. Gli annunci si gestiscono dal pulsante "Annunci" in tabella.</DialogDescription>
+            <DialogDescription>Configura i social e i contatti del negozio. Gli annunci si gestiscono dal pulsante "Annunci" sulla card del negozio.</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>

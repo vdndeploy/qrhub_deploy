@@ -246,13 +246,14 @@ const Vendors = () => {
     }
   };
 
-  // Preview landing helper. iOS Safari blocks `window.open` after the first
-  // `await`, so we synchronously open a blank tab on desktop and reuse it
-  // once the preview-token arrives. On mobile (<768px) we redirect in place
-  // because the blank-tab trick is also unreliable inside many WebViews.
-  const handlePreviewLanding = async (vendor) => {
-    const isDesktop = window.matchMedia('(min-width: 768px)').matches;
-    const win = isDesktop ? window.open('about:blank', '_blank') : null;
+  // Preview landing helper.
+  //
+  // iOS Safari and many Android browsers block `window.open` calls that happen
+  // INSIDE an async function — even before the first `await` — because the
+  // popup-blocker only treats the outermost SYNC click handler as "user
+  // gesture". So we open the blank tab in the caller's onClick (sync) and
+  // pass the handle in.
+  const handlePreviewLanding = async (vendor, win) => {
     try {
       const { data } = await axios.post(
         `${API}/vendors/${vendor.id}/preview-token`,
@@ -270,6 +271,14 @@ const Vendors = () => {
       if (win && !win.closed) win.close();
       toast.error(e.response?.data?.detail || 'Impossibile generare token anteprima');
     }
+  };
+
+  // Wrapper used by buttons: opens the blank tab synchronously (so popup
+  // blockers see a real user gesture) THEN delegates to the async helper.
+  const openPreview = (vendor) => {
+    const isDesktop = window.matchMedia('(min-width: 768px)').matches;
+    const win = isDesktop ? window.open('about:blank', '_blank') : null;
+    handlePreviewLanding(vendor, win);
   };
 
   if (loading) {
@@ -325,7 +334,7 @@ const Vendors = () => {
                       <Button variant="outline" size="sm" onClick={() => handleOpenCredentialsDialog(vendor)} data-testid={`create-credentials-${vendor.id}`} title={vendor.has_credentials ? `Aggiorna credenziali (${vendor.email})` : 'Crea credenziali accesso'} className={vendor.has_credentials ? 'border-emerald-500 text-emerald-700' : ''}>
                         <Key className="h-4 w-4" />
                       </Button>
-                      <Button variant="outline" size="sm" onClick={() => handlePreviewLanding(vendor)} data-testid={`preview-landing-${vendor.id}`} title="Anteprima landing (valida 30 minuti)">
+                      <Button variant="outline" size="sm" onClick={() => openPreview(vendor)} data-testid={`preview-landing-${vendor.id}`} title="Anteprima landing (valida 30 minuti)">
                         <Eye className="h-4 w-4 text-sky-500" />
                       </Button>
                       <Button variant="outline" size="sm" onClick={() => handlePreviewQR(vendor)} data-testid={`preview-qr-${vendor.id}`} title="Anteprima QR Code">
@@ -381,7 +390,7 @@ const Vendors = () => {
               <MobileActionBtn icon={Key} label="Login" onClick={() => handleOpenCredentialsDialog(vendor)}
                                 active={vendor.has_credentials}
                                 data-testid={`m-creds-${vendor.id}`} />
-              <MobileActionBtn icon={Eye} label="Vedi" tint="#0ea5e9" onClick={() => handlePreviewLanding(vendor)}
+              <MobileActionBtn icon={Eye} label="Vedi" tint="#0ea5e9" onClick={() => openPreview(vendor)}
                                 data-testid={`m-preview-${vendor.id}`} />
               <MobileActionBtn icon={QrCode} label="QR" onClick={() => handlePreviewQR(vendor)}
                                 data-testid={`m-qr-${vendor.id}`} />

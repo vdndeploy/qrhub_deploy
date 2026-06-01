@@ -2799,7 +2799,7 @@ async def get_config(user: dict = Depends(require_super_admin)):
     return config
 
 @api_router.put('/config')
-async def update_config(config: DeployConfig, user: dict = Depends(require_super_admin)):
+async def update_config(config: DeployConfig, response: Response, user: dict = Depends(require_super_admin)):
     # Use exclude_unset to only update fields explicitly provided by the client
     # (avoids overwriting tokens/secrets with empty defaults from the model)
     config_doc = config.model_dump(exclude_unset=True)
@@ -2816,7 +2816,9 @@ async def update_config(config: DeployConfig, user: dict = Depends(require_super
     # the Settings → Secrets tab, also rehash and persist it on the actual
     # `users` document. Previously the value lived ONLY in db.config and the
     # bcrypt hash was never refreshed, so login kept rejecting the new pwd.
-    # We additionally bump token_version to invalidate any existing session.
+    # We additionally bump token_version to invalidate any existing session,
+    # then refresh the *current* tab's cookie so consecutive saves keep working
+    # (otherwise the second save fails with 401 "Sessione invalidata").
     if 'prod_superadmin_password' in config_doc and (config_doc['prod_superadmin_password'] or '').strip():
         new_pwd = config_doc['prod_superadmin_password'].strip()
         existing_cfg = await db.config.find_one({'type': 'deployment'}, {'prod_superadmin_email': 1})
@@ -2826,21 +2828,40 @@ async def update_config(config: DeployConfig, user: dict = Depends(require_super
             or os.environ.get('SUPERADMIN_EMAIL')
             or 'superadmin@qrhub.it'
         ).lower()
-        res = await db.users.update_one(
+        # Only refresh the cookie if the acting user IS the super_admin being
+        # rotated (same email). Otherwise we'd hand over a cookie for another
+        # account.
+        acting_is_target = (user.get('email', '').lower() == super_email)
+        # Read current token_version from DB to compute the new one atomically.
+        target_user = await db.users.find_one(
             {'email': super_email, 'role': 'super_admin'},
-            {
-                '$set': {
-                    'password_hash': hash_password(new_pwd),
-                    'password_changed_at': datetime.now(timezone.utc).isoformat(),
-                },
-                '$inc': {'token_version': 1},
-            }
+            {'token_version': 1, '_id': 1}
         )
-        if res.matched_count == 0:
+        if not target_user:
             logger.warning(
                 f'[config] prod_superadmin_password set in config but no super_admin user with email {super_email} '
                 'was found in db.users — login will keep using the old hash.'
             )
+        else:
+            new_tv = int(target_user.get('token_version', 1)) + 1
+            await db.users.update_one(
+                {'_id': target_user['_id']},
+                {'$set': {
+                    'password_hash': hash_password(new_pwd),
+                    'password_changed_at': datetime.now(timezone.utc).isoformat(),
+                    'token_version': new_tv,
+                }}
+            )
+            if acting_is_target:
+                # Refresh the cookie in-place so consecutive `/config` saves
+                # from the same tab don't trip the token_version mismatch
+                # check in get_current_user.
+                new_token = create_access_token(str(target_user['_id']), super_email, new_tv)
+                response.set_cookie(
+                    key='access_token', value=new_token,
+                    httponly=True, secure=COOKIE_SECURE, samesite=COOKIE_SAMESITE,
+                    max_age=86400, path='/'
+                )
 
     return {'message': 'Configuration updated'}
 

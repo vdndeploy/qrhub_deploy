@@ -57,9 +57,10 @@ const PostsCarousel = ({ posts = [], whatsappBase = '', onCtaClick, defaultMessa
             const ctaHref = whatsappBase
               ? `${whatsappBase}${p.cta_whatsapp_message || defaultMessage ? `?text=${encodeURIComponent(p.cta_whatsapp_message || defaultMessage)}` : ''}`
               : '#';
+            const accent = hashId(p.id || '') % 2 === 0 ? 'var(--brand-color)' : 'var(--brand-secondary)';
             return (
               <div key={p.id} className="posts-slide">
-                <div className="posts-card">
+                <div className="posts-card" style={{ borderColor: accent }}>
                   {p.media_url && (
                     <div className="posts-media-wrap" style={{ aspectRatio: ar }}>
                       {isVideo ? (

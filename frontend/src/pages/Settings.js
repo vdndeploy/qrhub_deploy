@@ -149,9 +149,27 @@ const Settings = () => {
   const handleSubmit = async (e) => {
     e?.preventDefault?.();
     setSaving(true);
+    // Detect whether the super admin password was actually rotated this save:
+    // we compare against the value just fetched from the server. If different,
+    // the backend will bump token_version and refresh our cookie — surface
+    // an explicit toast so the user knows other tabs were signed out.
+    const savedPwd = (config.prod_superadmin_password || '').trim();
+    let pwdRotated = false;
+    try {
+      if (savedPwd) {
+        const { data: current } = await axios.get(`${API}/config`, { withCredentials: true });
+        pwdRotated = ((current?.prod_superadmin_password || '').trim() !== savedPwd);
+      }
+    } catch { /* best-effort detection — not a blocker */ }
     try {
       await axios.put(`${API}/config`, config, { withCredentials: true });
-      toast.success('Configurazione salvata');
+      if (pwdRotated) {
+        toast.success('Password super admin aggiornata · le altre sessioni aperte sono state disconnesse', {
+          duration: 6000,
+        });
+      } else {
+        toast.success('Configurazione salvata');
+      }
     } catch (err) {
       toast.error(err.response?.data?.detail || 'Errore nel salvataggio');
     } finally { setSaving(false); }

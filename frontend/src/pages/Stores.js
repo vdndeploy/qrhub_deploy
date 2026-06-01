@@ -120,48 +120,8 @@ const Stores = () => {
           <span className="sm:hidden">Nuovo</span>
         </Button>
       </div>
-      <div className="bg-white dark:bg-[#131316] rounded-lg border overflow-x-auto hidden md:block">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Nome</TableHead>
-              <TableHead>Social attivi</TableHead>
-              <TableHead>Annunci</TableHead>
-              <TableHead className="text-right">Azioni</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {stores.length === 0 ? (
-              <TableRow><TableCell colSpan={4} className="text-center py-8">Nessun negozio</TableCell></TableRow>
-            ) : (
-              stores.map(s => (
-                <TableRow key={s.id}>
-                  <TableCell className="font-semibold">
-                    <div className="flex items-center gap-2"><StoreIcon className="h-4 w-4 text-[#D2FA46]" />{s.name}</div>
-                  </TableCell>
-                  <TableCell>{[s.whatsapp, s.instagram, s.facebook, s.tiktok].filter(Boolean).length}/4</TableCell>
-                  <TableCell>
-                    <Link to={`/dashboard/posts?store=${s.id}`} data-testid={`store-posts-link-${s.id}`}>
-                      <Button variant="outline" size="sm">
-                        <Megaphone className="h-4 w-4 sm:mr-2 text-[#D2FA46]" />
-                        <span className="hidden sm:inline">{postsCounts[s.id] || 0} {(postsCounts[s.id] === 1) ? 'annuncio' : 'annunci'}</span>
-                        <span className="sm:hidden ml-1">{postsCounts[s.id] || 0}</span>
-                      </Button>
-                    </Link>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Button variant="outline" size="sm" onClick={() => handleOpenDialog(s)}><Edit className="h-4 w-4" /></Button>
-                    <Button variant="outline" size="sm" onClick={() => handleDelete(s.id)} className="ml-1 sm:ml-2"><Trash2 className="h-4 w-4 text-red-500" /></Button>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
-
       {/* Mobile card stack — generous tap targets, edit & delete spaced */}
-      <div className="md:hidden space-y-3" data-testid="stores-mobile-list">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3" data-testid="stores-list">
         {stores.length === 0 ? (
           <div className="bg-white dark:bg-[#131316] rounded-xl border border-gray-200 dark:border-white/10 p-6 text-center text-gray-500 dark:text-[#6a6a72]">
             Nessun negozio. Creane uno per iniziare.

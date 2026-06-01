@@ -15,6 +15,7 @@ import MyAccount from './MyAccount';
 import Dpa from './Dpa';
 import Audit from './Audit';
 import Posts from './Posts';
+import MobileNavDrawer from '../components/MobileNavDrawer';
 import { LogOut, BarChart3, Users, Settings as SettingsIcon, Store, FolderOpen, Building2, Sliders, FileText, UserCircle, AlertTriangle, Sun, Moon, Shield, Megaphone } from 'lucide-react';
 import { useTheme } from '@/hooks/useTheme';
 
@@ -42,6 +43,7 @@ const Dashboard = () => {
       <header className="bg-white dark:bg-[#131316] border-b border-gray-200 dark:border-white/10 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-3 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            <MobileNavDrawer isSuper={isSuper} dpaNeeded={dpaNeeded} />
             <div className="flex items-center gap-2">
               <div className="w-9 h-9 rounded-lg bg-[#D2FA46] flex items-center justify-center flex-shrink-0">
                 <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" className="w-5 h-5">
@@ -53,7 +55,7 @@ const Dashboard = () => {
                   <line x1="14" y1="21" x2="21" y2="21"/>
                 </svg>
               </div>
-              <span className="text-xl sm:text-2xl font-black tracking-tight text-gray-900 dark:text-white">QRHub</span>
+              <span className="text-xl sm:text-2xl font-black tracking-tight text-gray-900 dark:text-white hidden sm:inline">QRHub</span>
             </div>
             <span className="text-xs sm:text-sm text-gray-500 dark:text-[#6a6a72] hidden sm:inline">
               {isSuper ? 'Super Admin' : 'Admin'}
@@ -105,7 +107,7 @@ const Dashboard = () => {
             </Button>
           </div>
         )}
-        <nav className="flex gap-1 sm:gap-2 mb-6 sm:mb-8 overflow-x-auto pb-2 -mx-3 px-3 sm:mx-0 sm:px-0 scrollbar-hide" data-testid="dashboard-nav">
+        <nav className="hidden md:flex gap-1 sm:gap-2 mb-6 sm:mb-8 overflow-x-auto pb-2 -mx-3 px-3 sm:mx-0 sm:px-0 scrollbar-hide" data-testid="dashboard-nav">
           {!isSuper && (
             <>
               <Link to="/dashboard" className="flex-shrink-0">

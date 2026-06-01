@@ -2811,6 +2811,37 @@ async def update_config(config: DeployConfig, user: dict = Depends(require_super
         {'$set': config_doc},
         upsert=True
     )
+
+    # CRITICAL: when the super admin changes `prod_superadmin_password` from
+    # the Settings → Secrets tab, also rehash and persist it on the actual
+    # `users` document. Previously the value lived ONLY in db.config and the
+    # bcrypt hash was never refreshed, so login kept rejecting the new pwd.
+    # We additionally bump token_version to invalidate any existing session.
+    if 'prod_superadmin_password' in config_doc and (config_doc['prod_superadmin_password'] or '').strip():
+        new_pwd = config_doc['prod_superadmin_password'].strip()
+        existing_cfg = await db.config.find_one({'type': 'deployment'}, {'prod_superadmin_email': 1})
+        super_email = (
+            (config_doc.get('prod_superadmin_email') or '')
+            or (existing_cfg or {}).get('prod_superadmin_email')
+            or os.environ.get('SUPERADMIN_EMAIL')
+            or 'superadmin@qrhub.it'
+        ).lower()
+        res = await db.users.update_one(
+            {'email': super_email, 'role': 'super_admin'},
+            {
+                '$set': {
+                    'password_hash': hash_password(new_pwd),
+                    'password_changed_at': datetime.now(timezone.utc).isoformat(),
+                },
+                '$inc': {'token_version': 1},
+            }
+        )
+        if res.matched_count == 0:
+            logger.warning(
+                f'[config] prod_superadmin_password set in config but no super_admin user with email {super_email} '
+                'was found in db.users — login will keep using the old hash.'
+            )
+
     return {'message': 'Configuration updated'}
 
 

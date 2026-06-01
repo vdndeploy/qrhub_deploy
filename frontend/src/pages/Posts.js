@@ -493,23 +493,10 @@ const Posts = () => {
                 )}
               </div>
 
-              <div className="hidden sm:flex gap-1 flex-shrink-0">
-                <Switch
-                  checked={g.enabled !== false}
-                  onCheckedChange={() => handleToggleEnabled(g)}
-                  data-testid={`post-group-enable-toggle-${i}`}
-                  title={g.enabled === false ? 'Riattiva' : 'Metti in pausa'}
-                />
-                <Button variant="ghost" size="icon" onClick={() => openEdit(g)} title="Modifica" data-testid={`post-group-edit-${i}`}>
-                  <Edit className="h-4 w-4" />
-                </Button>
-                <Button variant="ghost" size="icon" onClick={() => handleDelete(g)} title="Elimina" data-testid={`post-group-delete-${i}`}>
-                  <Trash2 className="h-4 w-4 text-red-500" />
-                </Button>
-              </div>
+              <div className="hidden">{/* desktop-only small icon row removed: actions are now visible on every viewport via the grid below */}</div>
 
-              {/* Mobile: tap-friendly action row, full width below preview/title */}
-              <div className="sm:hidden grid grid-cols-3 gap-2 mt-2 pt-3 border-t border-gray-100 dark:border-white/5">
+              {/* Tap-friendly action row visible on every viewport. */}
+              <div className="grid grid-cols-3 gap-2 mt-2 sm:mt-0 sm:w-72 sm:ml-auto pt-3 sm:pt-0 border-t sm:border-t-0 border-gray-100 dark:border-white/5">
                 <button
                   type="button"
                   onClick={() => handleToggleEnabled(g)}

@@ -29,13 +29,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Plus, Edit, Trash2, QrCode, Eye, Key, Download, ExternalLink, Copy, RotateCcw, Printer } from 'lucide-react';
+import { Plus, Edit, Trash2, QrCode, Eye, Key, Download, ExternalLink, Copy, RotateCcw, Printer, Search, X } from 'lucide-react';
 import BadgePrintDialog from '@/components/BadgePrintDialog';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 const Vendors = () => {
   const [vendors, setVendors] = useState([]);
+  const [search, setSearch] = useState('');
   const [stores, setStores] = useState([]);
   const [organization, setOrganization] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -302,109 +303,96 @@ const Vendors = () => {
         </Button>
       </div>
 
-      <div className="bg-white dark:bg-[#131316] rounded-lg border border-gray-200 dark:border-white/10 overflow-x-auto hidden md:block">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Nome</TableHead>
-              <TableHead>Bio</TableHead>
-              <TableHead className="text-center">
-                <Eye className="h-4 w-4 inline" /> Visite
-              </TableHead>
-              <TableHead className="text-right">Azioni</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {vendors.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={4} className="text-center text-gray-500 dark:text-[#6a6a72] py-8">
-                  Nessun venditore. Creane uno per iniziare.
-                </TableCell>
-              </TableRow>
-            ) : (
-              vendors.map((vendor) => (
-                <TableRow key={vendor.id} data-testid={`vendor-row-${vendor.id}`}>
-                  <TableCell className="font-semibold">{vendor.name}</TableCell>
-                  <TableCell className="text-sm text-gray-600 dark:text-[#8a8a92]">
-                    {vendor.bio || 'N/A'}
-                  </TableCell>
-                  <TableCell className="text-center">{vendor.total_views}</TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      <Button variant="outline" size="sm" onClick={() => handleOpenCredentialsDialog(vendor)} data-testid={`create-credentials-${vendor.id}`} title={vendor.has_credentials ? `Aggiorna credenziali (${vendor.email})` : 'Crea credenziali accesso'} className={vendor.has_credentials ? 'border-emerald-500 text-emerald-700' : ''}>
-                        <Key className="h-4 w-4" />
-                      </Button>
-                      <Button variant="outline" size="sm" onClick={() => openPreview(vendor)} data-testid={`preview-landing-${vendor.id}`} title="Anteprima landing (valida 30 minuti)">
-                        <Eye className="h-4 w-4 text-sky-500" />
-                      </Button>
-                      <Button variant="outline" size="sm" onClick={() => handlePreviewQR(vendor)} data-testid={`preview-qr-${vendor.id}`} title="Anteprima QR Code">
-                        <QrCode className="h-4 w-4" />
-                      </Button>
-                      <Button variant="outline" size="sm" onClick={() => setBadgeVendor(vendor)} data-testid={`print-badge-${vendor.id}`} title="Stampa cartellino fronte/retro">
-                        <Printer className="h-4 w-4 text-indigo-500" />
-                      </Button>
-                      <Button variant="outline" size="sm" onClick={() => handleOpenDialog(vendor)} data-testid={`edit-vendor-${vendor.id}`}>
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button variant="outline" size="sm" onClick={() => handleResetAnalytics(vendor)} data-testid={`reset-analytics-${vendor.id}`} title="Azzera statistiche venditore (utile se il QR viene riassegnato)">
-                        <RotateCcw className="h-4 w-4 text-amber-500" />
-                      </Button>
-                      <Button variant="outline" size="sm" onClick={() => handleDelete(vendor.id)} data-testid={`delete-vendor-${vendor.id}`}>
-                        <Trash2 className="h-4 w-4 text-red-500" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+      {/* Search filter — case-insensitive across name / email / slug / bio */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-[#6a6a72] pointer-events-none" />
+        <Input
+          type="search"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Cerca per nome, email, slug, bio…"
+          className="pl-10 h-11 text-base bg-white dark:bg-[#131316]"
+          data-testid="vendors-search-input"
+        />
+        {search && (
+          <button
+            type="button"
+            onClick={() => setSearch('')}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-900 dark:hover:text-white"
+            aria-label="Cancella ricerca"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        )}
       </div>
 
-      {/* Mobile card stack — Linear/Notion-style with 44×44px tap targets */}
-      <div className="md:hidden space-y-3" data-testid="vendors-mobile-list">
-        {vendors.length === 0 ? (
-          <div className="bg-white dark:bg-[#131316] rounded-xl border border-gray-200 dark:border-white/10 p-6 text-center text-gray-500 dark:text-[#6a6a72]">
-            Nessun venditore. Creane uno per iniziare.
-          </div>
-        ) : vendors.map((vendor) => (
-          <div key={vendor.id}
-                className="bg-white dark:bg-[#131316] rounded-2xl border border-gray-200 dark:border-white/10 p-4 shadow-sm"
-                data-testid={`vendor-card-${vendor.id}`}>
-            <div className="flex items-start gap-3 mb-3">
-              <div className="flex-1 min-w-0">
-                <h3 className="text-base font-semibold text-gray-900 dark:text-white truncate">
-                  {vendor.name}
-                </h3>
-                <p className="text-xs text-gray-500 dark:text-[#8a8a92] truncate mt-0.5">
-                  {vendor.bio || (vendor.email ? vendor.email : 'Nessuna bio')}
-                </p>
-              </div>
-              <div className="text-right flex-shrink-0">
-                <div className="text-[10px] uppercase tracking-wide text-gray-400 dark:text-[#5a5a62] font-medium">Visite</div>
-                <div className="text-xl font-bold text-gray-900 dark:text-white tabular-nums">{vendor.total_views}</div>
-              </div>
-            </div>
+      {/* Unified card grid — same generous tap targets on every viewport.
+          Responsive columns: 1 col mobile, 2 col tablet, 3 col desktop. */}
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3" data-testid="vendors-list">
+        {(() => {
+          const q = search.trim().toLowerCase();
+          const filtered = q
+            ? vendors.filter(v =>
+                (v.name || '').toLowerCase().includes(q) ||
+                (v.email || '').toLowerCase().includes(q) ||
+                (v.slug || '').toLowerCase().includes(q) ||
+                (v.bio || '').toLowerCase().includes(q)
+              )
+            : vendors;
 
-            <div className="grid grid-cols-4 gap-2" role="group" aria-label={`Azioni per ${vendor.name}`}>
-              <MobileActionBtn icon={Key} label="Login" onClick={() => handleOpenCredentialsDialog(vendor)}
-                                active={vendor.has_credentials}
-                                data-testid={`m-creds-${vendor.id}`} />
-              <MobileActionBtn icon={Eye} label="Vedi" tint="#0ea5e9" onClick={() => openPreview(vendor)}
-                                data-testid={`m-preview-${vendor.id}`} />
-              <MobileActionBtn icon={QrCode} label="QR" onClick={() => handlePreviewQR(vendor)}
-                                data-testid={`m-qr-${vendor.id}`} />
-              <MobileActionBtn icon={Printer} label="Stampa" tint="#6366f1" onClick={() => setBadgeVendor(vendor)}
-                                data-testid={`m-print-${vendor.id}`} />
-              <MobileActionBtn icon={Edit} label="Modifica" onClick={() => handleOpenDialog(vendor)}
-                                data-testid={`m-edit-${vendor.id}`} />
-              <MobileActionBtn icon={RotateCcw} label="Reset" tint="#f59e0b" onClick={() => handleResetAnalytics(vendor)}
-                                data-testid={`m-reset-${vendor.id}`} />
-              <MobileActionBtn icon={Trash2} label="Elimina" tint="#ef4444" onClick={() => handleDelete(vendor.id)}
-                                data-testid={`m-delete-${vendor.id}`} />
+          if (vendors.length === 0) {
+            return (
+              <div className="bg-white dark:bg-[#131316] rounded-xl border border-gray-200 dark:border-white/10 p-6 text-center text-gray-500 dark:text-[#6a6a72] sm:col-span-2 xl:col-span-3">
+                Nessun venditore. Creane uno per iniziare.
+              </div>
+            );
+          }
+          if (filtered.length === 0) {
+            return (
+              <div className="bg-white dark:bg-[#131316] rounded-xl border border-dashed border-gray-300 dark:border-white/15 p-6 text-center text-gray-500 dark:text-[#6a6a72] sm:col-span-2 xl:col-span-3">
+                Nessun venditore corrisponde a "<strong>{search}</strong>".
+              </div>
+            );
+          }
+          return filtered.map((vendor) => (
+            <div key={vendor.id}
+                  className="bg-white dark:bg-[#131316] rounded-2xl border border-gray-200 dark:border-white/10 p-4 shadow-sm"
+                  data-testid={`vendor-card-${vendor.id}`}>
+              <div className="flex items-start gap-3 mb-3">
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-base font-semibold text-gray-900 dark:text-white truncate">
+                    {vendor.name}
+                  </h3>
+                  <p className="text-xs text-gray-500 dark:text-[#8a8a92] truncate mt-0.5">
+                    {vendor.bio || (vendor.email ? vendor.email : 'Nessuna bio')}
+                  </p>
+                </div>
+                <div className="text-right flex-shrink-0">
+                  <div className="text-[10px] uppercase tracking-wide text-gray-400 dark:text-[#5a5a62] font-medium">Visite</div>
+                  <div className="text-xl font-bold text-gray-900 dark:text-white tabular-nums">{vendor.total_views}</div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-4 gap-2" role="group" aria-label={`Azioni per ${vendor.name}`}>
+                <MobileActionBtn icon={Key} label="Login" onClick={() => handleOpenCredentialsDialog(vendor)}
+                                  active={vendor.has_credentials}
+                                  data-testid={`m-creds-${vendor.id}`} />
+                <MobileActionBtn icon={Eye} label="Vedi" tint="#0ea5e9" onClick={() => openPreview(vendor)}
+                                  data-testid={`m-preview-${vendor.id}`} />
+                <MobileActionBtn icon={QrCode} label="QR" onClick={() => handlePreviewQR(vendor)}
+                                  data-testid={`m-qr-${vendor.id}`} />
+                <MobileActionBtn icon={Printer} label="Stampa" tint="#6366f1" onClick={() => setBadgeVendor(vendor)}
+                                  data-testid={`m-print-${vendor.id}`} />
+                <MobileActionBtn icon={Edit} label="Modifica" onClick={() => handleOpenDialog(vendor)}
+                                  data-testid={`m-edit-${vendor.id}`} />
+                <MobileActionBtn icon={RotateCcw} label="Reset" tint="#f59e0b" onClick={() => handleResetAnalytics(vendor)}
+                                  data-testid={`m-reset-${vendor.id}`} />
+                <MobileActionBtn icon={Trash2} label="Elimina" tint="#ef4444" onClick={() => handleDelete(vendor.id)}
+                                  data-testid={`m-delete-${vendor.id}`} />
+              </div>
             </div>
-          </div>
-        ))}
+          ));
+        })()}
       </div>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>

@@ -11,13 +11,46 @@ import { toast } from 'sonner';
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 const CLICK_LABELS = {
-  whatsapp_click: 'WhatsApp', instagram_click: 'Instagram', facebook_click: 'Facebook',
-  review_click: 'Recensione Google', tiktok_click: 'TikTok', maps_click: 'Google Maps', post_cta_click: 'CTA Post'
+  whatsapp_click: 'WhatsApp',
+  instagram_click: 'Instagram',
+  facebook_click: 'Facebook',
+  review_click: 'Recensione Google',
+  tiktok_click: 'TikTok',
+  maps_click: 'Google Maps',
+  post_cta_click: 'CTA Annunci',
+  appointment_click: 'Prenota appuntamento',
+  pwa_install: 'Installa app (PWA)',
 };
+// Brand-true tints per channel — used by the bar chart so the admin can
+// scan the chart and instantly map color → action.
+const CLICK_COLORS = {
+  whatsapp_click:    '#25D366',
+  instagram_click:   '#E1306C',
+  facebook_click:    '#1877F2',
+  review_click:      '#FBBC04',
+  tiktok_click:      '#000000',
+  maps_click:        '#34A853',
+  post_cta_click:    '#9B7BFF',
+  appointment_click: '#0EA5E9',
+  pwa_install:       '#D2FA46',
+};
+// Display order — keeps the bar chart predictable regardless of API order.
+const CLICK_ORDER = [
+  'whatsapp_click', 'review_click', 'appointment_click',
+  'maps_click', 'post_cta_click',
+  'instagram_click', 'facebook_click', 'tiktok_click',
+  'pwa_install',
+];
 // Soft palette matching the Overview chart aesthetic.
 const PALETTE = ['#D2FA46', '#9B7BFF', '#5DD4A0', '#FFB86B', '#FF7A8A', '#6EC1E4', '#C58FFF'];
 
-const PERIOD_LABELS = { '7d': 'Ultimi 7 giorni', '30d': 'Ultimi 30 giorni', month: 'Mese corrente' };
+const PERIOD_LABELS = {
+  today: 'Oggi',
+  yesterday: 'Ieri',
+  '7d': 'Ultimi 7 giorni',
+  '30d': 'Ultimi 30 giorni',
+  month: 'Mese corrente',
+};
 
 // Convert a UTC ISO timestamp from the backend into a human-readable local
 // time string in Europe/Rome. The event log was previously cutting the raw
@@ -115,9 +148,16 @@ export default function AnalyticsDetailed({ mode = 'admin', vendors = [], defaul
   if (loading && !data) return <div className="text-center py-12 text-gray-500 dark:text-[#6a6a72]">Caricamento...</div>;
   if (!data) return null;
 
-  const clickPie = Object.entries(data.click_breakdown || {})
-    .filter(([, v]) => v > 0)
-    .map(([k, v]) => ({ name: CLICK_LABELS[k] || k, value: v }));
+  // Sorted breakdown for the new "by-channel" view: always include every
+  // known channel (even zero) so the admin can see at a glance what's
+  // converting and what is dead. Sorted by descending count.
+  const clickByChannel = CLICK_ORDER.map((k) => ({
+    key: k,
+    label: CLICK_LABELS[k] || k,
+    color: CLICK_COLORS[k] || '#9B7BFF',
+    value: (data.click_breakdown || {})[k] || 0,
+  })).sort((a, b) => b.value - a.value);
+  const clickByChannelTotal = clickByChannel.reduce((s, r) => s + r.value, 0);
 
   const devicePie = Object.entries(data.device_breakdown || {})
     .map(([k, v]) => ({ name: k.charAt(0).toUpperCase() + k.slice(1), value: v }));
@@ -177,15 +217,41 @@ export default function AnalyticsDetailed({ mode = 'admin', vendors = [], defaul
         </Card>
 
         <Card title="Distribuzione Click per Canale">
-          {clickPie.length > 0 ? (
-            <ResponsiveContainer width="100%" height={260}>
-              <PieChart>
-                <Pie data={clickPie} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={50} outerRadius={92} paddingAngle={3}>
-                  {clickPie.map((_, i) => <Cell key={i} fill={PALETTE[i % PALETTE.length]} stroke="transparent" />)}
-                </Pie>
-                <Tooltip content={<SoftTooltip />} />
-              </PieChart>
-            </ResponsiveContainer>
+          {clickByChannelTotal > 0 ? (
+            <div className="space-y-2.5" data-testid="click-by-channel-list">
+              {clickByChannel.map((row) => {
+                const pct = clickByChannelTotal > 0
+                  ? Math.round((row.value / clickByChannelTotal) * 100)
+                  : 0;
+                return (
+                  <div key={row.key} className="flex items-center gap-3" data-testid={`click-channel-${row.key}`}>
+                    <span
+                      className="inline-block w-3 h-3 rounded-full flex-shrink-0"
+                      style={{ background: row.color }}
+                      aria-hidden="true"
+                    />
+                    <span className="text-sm text-gray-700 dark:text-[#a8a8b0] w-44 sm:w-48 flex-shrink-0 truncate">
+                      {row.label}
+                    </span>
+                    <div className="flex-1 h-2.5 rounded-full bg-gray-100 dark:bg-white/[0.06] overflow-hidden">
+                      <div
+                        className="h-full rounded-full transition-all"
+                        style={{
+                          width: `${Math.max(pct, row.value > 0 ? 4 : 0)}%`,
+                          background: row.color,
+                        }}
+                      />
+                    </div>
+                    <span className="text-sm font-semibold text-gray-900 dark:text-white tabular-nums w-10 text-right">
+                      {row.value}
+                    </span>
+                    <span className="text-[10px] text-gray-400 dark:text-[#6a6a72] tabular-nums w-9 text-right">
+                      {pct}%
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
           ) : <Empty />}
         </Card>
 

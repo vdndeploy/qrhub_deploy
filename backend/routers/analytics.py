@@ -156,14 +156,31 @@ async def _geo_lookup(ip: str) -> dict:
 
 
 def _period_to_dates(period: str):
-    now = datetime.now(timezone.utc)
+    """Resolve a period label to (start_iso, end_iso) in UTC.
+
+    Calendar day boundaries (today/yesterday) follow Europe/Rome to match the
+    in-store team's mental model: a 23:30 italian scan belongs to today, not
+    the next UTC day.
+    """
+    LOCAL_TZ = ZoneInfo('Europe/Rome')
+    now_utc = datetime.now(timezone.utc)
+    now_local = now_utc.astimezone(LOCAL_TZ)
+    if period == 'today':
+        start_local = now_local.replace(hour=0, minute=0, second=0, microsecond=0)
+        return start_local.astimezone(timezone.utc).isoformat(), now_utc.isoformat()
+    if period == 'yesterday':
+        end_local = now_local.replace(hour=0, minute=0, second=0, microsecond=0)
+        start_local = end_local - timedelta(days=1)
+        return (start_local.astimezone(timezone.utc).isoformat(),
+                end_local.astimezone(timezone.utc).isoformat())
     if period == '7d':
-        start = now - timedelta(days=7)
+        start = now_utc - timedelta(days=7)
     elif period == 'month':
-        start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        start_local = now_local.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        return start_local.astimezone(timezone.utc).isoformat(), now_utc.isoformat()
     else:  # 30d default
-        start = now - timedelta(days=30)
-    return start.isoformat(), now.isoformat()
+        start = now_utc - timedelta(days=30)
+    return start.isoformat(), now_utc.isoformat()
 
 
 async def _build_detailed_analytics(query_filter: dict, period: str, limit_log: int = 200) -> dict:
@@ -495,6 +512,7 @@ async def get_analytics_overview(user: dict = Depends(get_current_user)):
 async def get_daily_counter(
     store_id: Optional[str] = None,
     days: int = 30,
+    offset_days: int = 0,
     user: dict = Depends(get_current_user),
 ):
     """Daily counter KPI — scans (QR page_view) and WhatsApp clicks aggregated
@@ -502,15 +520,25 @@ async def get_daily_counter(
     in-store "people counter": each scan ≈ a customer interaction, each
     WhatsApp click ≈ a conversation started.
 
+    `offset_days`: shift the window back by N calendar days. Combined with
+    `days=1&offset_days=1` yields the "Ieri" view (yesterday's hourly chart).
+
     Returns: { series: [{date, scans, whatsapp}], totals: {scans, whatsapp},
                stores: [{id, name}] }
     """
     days = max(1, min(int(days or 30), 180))
+    offset_days = max(0, min(int(offset_days or 0), 365))
     tz_utc = timezone.utc
     today = datetime.now(tz_utc).date()
-    start_date = today - timedelta(days=days - 1)
+    # Window: last day inclusive = today - offset_days. First day = last - (days-1).
+    end_date = today - timedelta(days=offset_days)
+    start_date = end_date - timedelta(days=days - 1)
     start_iso = datetime(start_date.year, start_date.month, start_date.day,
                           tzinfo=tz_utc).isoformat()
+    # Exclusive upper bound: start of (end_date + 1).
+    end_excl = end_date + timedelta(days=1)
+    end_iso = datetime(end_excl.year, end_excl.month, end_excl.day,
+                       tzinfo=tz_utc).isoformat()
 
     # Build vendor scope: tenant first, then optional store filter.
     vendor_filter = _tenant_filter(user)
@@ -552,7 +580,7 @@ async def get_daily_counter(
             {'$match': {
                 'vendor_id': {'$in': vendor_ids},
                 'event_type': {'$in': ['page_view', 'whatsapp_click']},
-                'timestamp': {'$gte': start_iso},
+                'timestamp': {'$gte': start_iso, '$lt': end_iso},
             }},
             {'$group': {
                 '_id': {
@@ -598,7 +626,7 @@ async def get_daily_counter(
             {'$match': {
                 'vendor_id': {'$in': vendor_ids},
                 'event_type': {'$in': ['page_view', 'whatsapp_click']},
-                'timestamp': {'$gte': start_iso},
+                'timestamp': {'$gte': start_iso, '$lt': end_iso},
             }},
             {'$group': {
                 '_id': {

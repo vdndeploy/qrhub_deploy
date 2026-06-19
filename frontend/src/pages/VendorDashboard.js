@@ -18,6 +18,7 @@ const VendorDashboard = () => {
   const { vendor, logout, refreshVendor } = useVendorAuth();
   const { isDark, toggle: toggleTheme } = useTheme();
   const [stats, setStats] = useState(null);
+  const [clickPeriod, setClickPeriod] = useState('all');
   const [formData, setFormData] = useState({
     name: '',
     bio: '',
@@ -37,14 +38,14 @@ const VendorDashboard = () => {
         profile_image_url: vendor.profile_image_url || '',
         profile_image_enabled: !!vendor.profile_image_enabled,
       });
-      fetchStats();
+      fetchStats(clickPeriod);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [vendor]);
+  }, [vendor, clickPeriod]);
 
-  const fetchStats = async () => {
+  const fetchStats = async (period = 'all') => {
     try {
       const { data } = await axios.get(`${API}/vendor/stats`, {
+        params: { period },
         withCredentials: true,
       });
       setStats(data);
@@ -205,18 +206,49 @@ const VendorDashboard = () => {
             </div>
 
             {stats?.click_breakdown && (
-              <div className="bg-white dark:bg-[#131316] rounded-lg border border-gray-200 dark:border-white/10 p-6 mt-6">
-                <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">
-                  Dettaglio Click
-                </h3>
-                <div className="grid grid-cols-3 md:grid-cols-7 gap-4">
-                  <div className="text-center"><p className="text-2xl font-bold text-[#25D366]">{stats.click_breakdown.whatsapp_click || 0}</p><p className="text-xs text-gray-600 dark:text-[#8a8a92]">WhatsApp</p></div>
-                  <div className="text-center"><p className="text-2xl font-bold text-[#E1306C]">{stats.click_breakdown.instagram_click || 0}</p><p className="text-xs text-gray-600 dark:text-[#8a8a92]">Instagram</p></div>
-                  <div className="text-center"><p className="text-2xl font-bold text-[#1877F2]">{stats.click_breakdown.facebook_click || 0}</p><p className="text-xs text-gray-600 dark:text-[#8a8a92]">Facebook</p></div>
-                  <div className="text-center"><p className="text-2xl font-bold text-[#FBBC04]">{stats.click_breakdown.review_click || 0}</p><p className="text-xs text-gray-600 dark:text-[#8a8a92]">Recensioni</p></div>
-                  <div className="text-center"><p className="text-2xl font-bold text-black">{stats.click_breakdown.tiktok_click || 0}</p><p className="text-xs text-gray-600 dark:text-[#8a8a92]">TikTok</p></div>
-                  <div className="text-center"><p className="text-2xl font-bold text-[#D2FA46]">{stats.click_breakdown.maps_click || 0}</p><p className="text-xs text-gray-600 dark:text-[#8a8a92]">Maps</p></div>
-                  <div className="text-center"><p className="text-2xl font-bold text-[#4A2D8C]">{stats.click_breakdown.post_cta_click || 0}</p><p className="text-xs text-gray-600 dark:text-[#8a8a92]">CTA Post</p></div>
+              <div className="bg-white dark:bg-[#131316] rounded-lg border border-gray-200 dark:border-white/10 p-6 mt-6" data-testid="vendor-click-breakdown">
+                <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                    Dettaglio Click
+                  </h3>
+                  {/* Period filter — segmented control matching the rest of
+                      the platform's analytics filters (Conta persone, Analytics
+                      Dettagliata). Same scope is also passed to the backend so
+                      the counters reflect only the selected window. */}
+                  <div className="inline-flex items-center bg-gray-100 dark:bg-[#1a1a1c] rounded-full p-0.5" data-testid="vendor-click-period-tabs">
+                    {[
+                      { v: 'today',     l: 'Oggi'     },
+                      { v: 'yesterday', l: 'Ieri'     },
+                      { v: '7d',        l: '7 giorni' },
+                      { v: 'month',     l: 'Mese'     },
+                      { v: 'all',       l: 'Sempre'   },
+                    ].map(opt => (
+                      <button
+                        key={opt.v}
+                        type="button"
+                        onClick={() => setClickPeriod(opt.v)}
+                        data-testid={`vendor-click-period-${opt.v}`}
+                        className={`px-3 py-1 text-xs font-medium rounded-full transition ${
+                          clickPeriod === opt.v
+                            ? 'bg-white dark:bg-[#0a0a0b] text-gray-900 dark:text-white shadow-sm'
+                            : 'text-gray-500 dark:text-[#8a8a92] hover:text-gray-900 dark:hover:text-white'
+                        }`}
+                      >
+                        {opt.l}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-5 gap-4">
+                  <ClickStat color="#25D366" label="WhatsApp"     value={stats.click_breakdown.whatsapp_click} testid="vendor-c-whatsapp"     />
+                  <ClickStat color="#FBBC04" label="Recensione"   value={stats.click_breakdown.review_click}   testid="vendor-c-review"       />
+                  <ClickStat color="#0EA5E9" label="Appuntamento" value={stats.click_breakdown.appointment_click} testid="vendor-c-appointment" />
+                  <ClickStat color="#34A853" label="Google Maps"  value={stats.click_breakdown.maps_click}     testid="vendor-c-maps"         />
+                  <ClickStat color="#9B7BFF" label="CTA Annunci"  value={stats.click_breakdown.post_cta_click} testid="vendor-c-cta"          />
+                  <ClickStat color="#E1306C" label="Instagram"    value={stats.click_breakdown.instagram_click} testid="vendor-c-instagram"   />
+                  <ClickStat color="#1877F2" label="Facebook"     value={stats.click_breakdown.facebook_click} testid="vendor-c-facebook"     />
+                  <ClickStat color="#000000" label="TikTok"       value={stats.click_breakdown.tiktok_click}   testid="vendor-c-tiktok"       />
+                  <ClickStat color="#D2FA46" label="Installa PWA" value={stats.click_breakdown.pwa_install}    testid="vendor-c-pwa"          />
                 </div>
               </div>
             )}
@@ -441,5 +473,16 @@ const VendorDashboard = () => {
     </div>
   );
 };
+
+// Single click-counter tile reused across the breakdown grid above.
+// Centers the value with a brand-tinted color and a tiny label below.
+const ClickStat = ({ color, label, value, testid }) => (
+  <div className="text-center" data-testid={testid}>
+    <p className="text-2xl font-bold tabular-nums" style={{ color }}>
+      {value || 0}
+    </p>
+    <p className="text-xs text-gray-600 dark:text-[#8a8a92] truncate">{label}</p>
+  </div>
+);
 
 export default VendorDashboard;

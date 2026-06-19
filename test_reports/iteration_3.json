@@ -1,0 +1,32 @@
+{
+  "summary": "Iteration 3 — validazione delle nuove feature analytics (Oggi/Ieri filters, 9 click channels incl. appointment_click + pwa_install). BACKEND: 15/15 pytest passati su /api/analytics/daily-counter (Ieri = days=1+offset_days=1 → 24 hourly buckets, 1 series row; conferma hourly_series None per days!=1), /api/analytics/detailed (period today/yesterday/7d/30d/month, click_breakdown contiene tutti i 9 canali), /api/vendor/stats?period=today|yesterday|7d|month|all (9 canali in click_breakdown), e whitelist eventi (POST /api/analytics accetta appointment_click & pwa_install). FRONTEND (code review only — vedi blocker sotto): DailyCounterCard.js definisce 5 periodi con i data-testid corretti (daily-counter-period-today/yesterday/7d/30d/90d); AnalyticsDetailed.js ha PERIOD_LABELS con today/yesterday/7d/30d/month e la nuova bar-list 'Distribuzione Click per Canale' con [data-testid=click-channel-<key>] per tutti e 9 i canali; VendorDashboard.js ha la segmented control (vendor-click-period-today/yesterday/7d/month/all) e 9 ClickStat (incl. Appuntamento & Installa PWA). Italian UI confermata.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_analytics_periods.py",
+    "/app/test_reports/pytest/iteration_3_results.xml"
+  ],
+  "action_items": [
+    "(Info, NON BLOCCANTE) Il flusso UI con super_admin → /dashboard non mostra DailyCounterCard/AnalyticsDetailed perché super_admin viene reindirizzato a /dashboard/organizations (nessuna organization assegnata). Per testare l'UI dei nuovi componenti serve un login diretto come org_admin di VENTO DEL NORD (credenziali non in test_credentials.md). Suggerito: aggiungere a /app/memory/test_credentials.md le credenziali di un org_admin VENTO seedato per testing E2E futuro, oppure implementare un vero 'Impersona' nella tabella Organizzazioni (il bottone people icon è 'Modifica utenti', non un impersonate)."
+  ],
+  "critical_code_review_comments": [
+    "server.py è ora >3000 righe (CLICK_TYPES + /vendor/stats con period query aggiunto qui). Forte raccomandazione: spostare /vendor/stats e CLICK_TYPES in routers/analytics.py o in un nuovo routers/vendors.py (già toccato per altri endpoint). Aiuta DRY & manutenibilità.",
+    "routers/analytics.py — _period_to_dates mescola due semantiche: per today/yesterday/month usa boundary Europe/Rome ma per 7d/30d usa now_utc-timedelta(days=N) UTC. Coerente in UX (rolling window vs calendar day), ma sarebbe più chiaro un commento esplicito o una keyword period='last_7d' vs '7d_calendar'. Nessun bug.",
+    "DailyCounterCard.js usa `axios` direttamente con `${process.env.REACT_APP_BACKEND_URL}/api` — coerente con il resto del codebase. Nessun problema.",
+    "AnalyticsDetailed.js: la lista orizzontale 'Distribuzione Click per Canale' usa CLICK_ORDER fisso ma poi ordina per `value desc` in fase di render — verificare visivamente che la sort sia stabile quando più canali hanno 0 (ok, JS Array.sort è stabile dal 2019)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_analytics_periods.py (NEW — 15 pytest tests che coprono daily-counter Ieri, detailed today/yesterday/7d/30d/month, vendor/stats 5 periodi, whitelist eventi appointment_click/pwa_install)"
+  ],
+  "success_rate": { "backend": "100% (15/15)", "frontend": "code review only — UI E2E bloccata da assenza credenziali org_admin VENTO" },
+  "test_credentials": "Superadmin: superadmin@qrhub.it / ErnDan24.10 (da /app/memory/test_credentials.md). Org_admin VENTO DEL NORD: NON disponibile — accessibile solo via 'Modifica utenti' sul row VENTO in /dashboard/organizations (modal di management utenti, non impersonate). Vendor ephemero: TEST_vendor_periods@example.com / VendPeriods123! creato e cancellato durante i test pytest.",
+  "seed_data_creation": "Durante TestVendorStatsPeriods e TestNewEventTypeWhitelist: creazione di un vendor 'TEST_VendorPeriods' nel primo store esistente di VENTO DEL NORD SRL, set credenziali, login come vendor, generazione di 2 eventi (appointment_click + pwa_install) verso un vendor esistente VENTO. Cleanup automatico (DELETE /api/vendors/{id}) a fine module fixture.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend di iteration 3 è completamente coperto. Per l'UI E2E mancano credenziali org_admin di VENTO DEL NORD — main agent può: (a) aggiungere a test_credentials.md le creds di un org_admin VENTO seedato per il preview env, oppure (b) implementare un vero pulsante 'Impersona' nella riga Organizzazioni (il people icon attuale è 'Modifica utenti' modal). Una volta disponibili le credenziali, ripetere lo script Playwright già scritto: login org_admin → /dashboard → click [data-testid=daily-counter-period-yesterday] → verifica 24 hourly bars; scroll su Analytics Dettagliata → period select → seleziona Oggi/Ieri → verifica i 9 [data-testid=click-channel-*]. Per Vendor Dashboard servono credenziali di un vendor reale: login → assert vendor-click-period-{today,yesterday,7d,month,all} e i 9 ClickStat (vendor-c-whatsapp/review/appointment/maps/cta/instagram/facebook/tiktok/pwa).",
+  "rca of the issue": "Nessun bug. Tutti i 15 backend tests passano contro il preview env (REACT_APP_BACKEND_URL=https://qr-deploy-1.preview.emergentagent.com). I 9 canali sono correttamente whitelisted in CLICK_TYPES (server.py:588-592), e _period_to_dates in routers/analytics.py supporta today/yesterday in Europe/Rome timezone. Daily-counter offset_days funziona correttamente per Ieri. Il codice frontend è stato verificato per code review e i data-testid sono coerenti con la spec. L'unica limitazione è che il test E2E della UI richiede un login come org_admin (super_admin reindirizza a /organizations) — non un bug, ma una necessità di seeding credenziali per i test futuri."
+}

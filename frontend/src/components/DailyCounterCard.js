@@ -11,10 +11,11 @@ const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const COLORS = { scans: '#D2FA46', whatsapp: '#25D366', peak: '#FB923C' };
 const PEAK_FACTOR = 1.2; // a day counts as "picco" when scans > 1.2x the rolling avg
 const PERIODS = [
-  { value: 1,  label: 'Oggi' },
-  { value: 7,  label: '7 giorni' },
-  { value: 30, label: '30 giorni' },
-  { value: 90, label: '90 giorni' },
+  { value: 'today',     label: 'Oggi',      days: 1, offset: 0 },
+  { value: 'yesterday', label: 'Ieri',      days: 1, offset: 1 },
+  { value: '7d',        label: '7 giorni',  days: 7, offset: 0 },
+  { value: '30d',       label: '30 giorni', days: 30, offset: 0 },
+  { value: '90d',       label: '90 giorni', days: 90, offset: 0 },
 ];
 
 const SoftTooltip = ({ active, payload, label }) => {
@@ -41,21 +42,30 @@ const fmtShort = (iso) => {
 };
 
 const DailyCounterCard = () => {
-  const [days, setDays] = useState(7);
+  const [periodKey, setPeriodKey] = useState('7d');
   const [storeId, setStoreId] = useState('');
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  const period = useMemo(
+    () => PERIODS.find(p => p.value === periodKey) || PERIODS[2],
+    [periodKey],
+  );
+  const days = period.days;
+
   useEffect(() => {
     setLoading(true);
-    const params = new URLSearchParams({ days: String(days) });
+    const params = new URLSearchParams({
+      days: String(period.days),
+      offset_days: String(period.offset || 0),
+    });
     if (storeId) params.set('store_id', storeId);
     axios
       .get(`${API}/analytics/daily-counter?${params.toString()}`, { withCredentials: true })
       .then((r) => setData(r.data))
       .catch(() => setData(null))
       .finally(() => setLoading(false));
-  }, [days, storeId]);
+  }, [period, storeId]);
 
   const chartData = useMemo(() => {
     // When the admin picks "Oggi" the backend returns an hourly_series with
@@ -148,10 +158,10 @@ const DailyCounterCard = () => {
             {PERIODS.map((p) => (
               <button
                 key={p.value}
-                onClick={() => setDays(p.value)}
+                onClick={() => setPeriodKey(p.value)}
                 data-testid={`daily-counter-period-${p.value}`}
                 className={`px-3 py-1 text-xs font-medium rounded-full transition ${
-                  days === p.value
+                  periodKey === p.value
                     ? 'bg-white dark:bg-[#0a0a0b] text-gray-900 dark:text-white shadow-sm'
                     : 'text-gray-500 dark:text-[#8a8a92] hover:text-gray-900 dark:hover:text-white'
                 }`}

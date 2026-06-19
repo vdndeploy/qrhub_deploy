@@ -140,8 +140,12 @@ def verify_password(plain: str, hashed: str) -> bool:
 # ──────────────────────────────────────────────────────────────────
 # Brute-force / rate limiting on login endpoints (GDPR art. 32)
 # ──────────────────────────────────────────────────────────────────
-LOGIN_MAX_ATTEMPTS = int(os.environ.get('LOGIN_MAX_ATTEMPTS', '5'))
-LOGIN_WINDOW_SEC = int(os.environ.get('LOGIN_WINDOW_SEC', '900'))  # 15 minutes
+# Defaults tuned for usability: 10 tentativi in 5 minuti basta a fermare
+# attacchi automatici (un brute-force serio fa migliaia/s) ma non punisce
+# un umano che sbaglia 5-6 volte la password con varianti maiuscole/simboli.
+# Overridabili via env var per ambienti high-security.
+LOGIN_MAX_ATTEMPTS = int(os.environ.get('LOGIN_MAX_ATTEMPTS', '10'))
+LOGIN_WINDOW_SEC = int(os.environ.get('LOGIN_WINDOW_SEC', '300'))  # 5 minutes
 
 
 def _client_ip(request: Request) -> str:
@@ -581,7 +585,11 @@ class DeployConfig(BaseModel):
     uptime_interval_sec: Optional[int] = 60
 
 
-CLICK_TYPES = ['whatsapp_click', 'instagram_click', 'facebook_click', 'review_click', 'tiktok_click', 'maps_click', 'post_cta_click']
+CLICK_TYPES = [
+    'whatsapp_click', 'instagram_click', 'facebook_click', 'review_click',
+    'tiktok_click', 'maps_click', 'post_cta_click',
+    'appointment_click', 'pwa_install',
+]
 
 
 # ──────────────────────────────────────────────────────────────────
@@ -2752,23 +2760,52 @@ async def get_vendor_me(vendor: dict = Depends(get_current_vendor)):
     return vendor
 
 @api_router.get('/vendor/stats')
-async def get_vendor_stats(vendor: dict = Depends(get_current_vendor)):
+async def get_vendor_stats(period: str = 'all', vendor: dict = Depends(get_current_vendor)):
+    """Vendor self-stats. `period`:
+      - 'all' (default, no filter — historic counters)
+      - 'today' / 'yesterday' — Europe/Rome calendar day
+      - '7d' / 'month' — last 7 days / current calendar month
+    """
     vendor_id = vendor['id']
-    views = await db.analytics.count_documents({'vendor_id': vendor_id, 'event_type': 'page_view'})
-    clicks = await db.analytics.count_documents({
-        'vendor_id': vendor_id,
-        'event_type': {'$in': CLICK_TYPES}
-    })
-    
+
+    # Build the timestamp filter for the requested period. The Europe/Rome
+    # calendar day is what the in-store admin expects (a 23:30 italian scan
+    # belongs to that day, not the next UTC day).
+    from zoneinfo import ZoneInfo as _ZI
+    tz = _ZI('Europe/Rome')
+    now_local = datetime.now(tz)
+    period_filter = {}
+    if period == 'today':
+        start_local = now_local.replace(hour=0, minute=0, second=0, microsecond=0)
+        period_filter = {'timestamp': {'$gte': start_local.astimezone(timezone.utc).isoformat()}}
+    elif period == 'yesterday':
+        end_local = now_local.replace(hour=0, minute=0, second=0, microsecond=0)
+        start_local = end_local - timedelta(days=1)
+        period_filter = {'timestamp': {
+            '$gte': start_local.astimezone(timezone.utc).isoformat(),
+            '$lt': end_local.astimezone(timezone.utc).isoformat(),
+        }}
+    elif period == '7d':
+        start_local = now_local - timedelta(days=7)
+        period_filter = {'timestamp': {'$gte': start_local.astimezone(timezone.utc).isoformat()}}
+    elif period == 'month':
+        start_local = now_local.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        period_filter = {'timestamp': {'$gte': start_local.astimezone(timezone.utc).isoformat()}}
+
+    base = {'vendor_id': vendor_id, **period_filter}
+    views = await db.analytics.count_documents({**base, 'event_type': 'page_view'})
+    clicks = await db.analytics.count_documents({**base, 'event_type': {'$in': CLICK_TYPES}})
+
     click_breakdown = {}
     for click_type in CLICK_TYPES:
-        count = await db.analytics.count_documents({'vendor_id': vendor_id, 'event_type': click_type})
+        count = await db.analytics.count_documents({**base, 'event_type': click_type})
         click_breakdown[click_type] = count
-    
+
     return {
         'views': views,
         'total_clicks': clicks,
-        'click_breakdown': click_breakdown
+        'click_breakdown': click_breakdown,
+        'period': period,
     }
 
 @api_router.put('/vendor/profile')

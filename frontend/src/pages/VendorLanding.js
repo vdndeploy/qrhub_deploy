@@ -343,6 +343,13 @@ const VendorLanding = () => {
       // Clear cached prompt if the app gets installed while the page is open.
       window.addEventListener('appinstalled', () => {
         setDeferredPrompt(null);
+        // Track the install as a one-off analytics event so the admin can
+        // count how many PWA installs each landing generates. We bypass the
+        // 90-min anti-duplicate filter on purpose: an `appinstalled` event
+        // fires at most once per device anyway.
+        try {
+          axios.post(`${API}/analytics`, { vendor_id: vendorId, event_type: 'pwa_install' }).catch(() => {});
+        } catch (e) {}
       });
       // iOS auto-popup banner disabled: the "+" button in the header now
       // serves as a universal manual entry point for all devices.

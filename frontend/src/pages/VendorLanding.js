@@ -333,6 +333,17 @@ const VendorLanding = () => {
 
   const setupPWA = () => {
     try {
+      // Register the bare-minimum Service Worker. This is REQUIRED for
+      // Samsung Internet to consider the site as a "modern WebAPK target":
+      // without an SW it falls back to the legacy install path that
+      // produces an APK with old targetSdk, which Play Protect on Android
+      // 14+ Samsung devices then blocks with "App non sicura · versione
+      // precedente di Android". See public/qrhub-sw.js for the rationale.
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker
+          .register('/qrhub-sw.js', { scope: '/' })
+          .catch(() => { /* SW failed — install will still work on Chrome */ });
+      }
       // The visitor already opened this landing from the saved PWA on their
       // home screen — never re-prompt to install (neither Android nor iOS).
       // We check both signals: Chrome/Android/desktop expose `display-mode:

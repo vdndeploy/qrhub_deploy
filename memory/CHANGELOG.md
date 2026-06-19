@@ -6,6 +6,15 @@
 
 ## 2026-06-01 — Mobile UX restyling + Auto theme + Secondary colors + Brand cleanup
 
+- **Analytics più granulari** (filtri Oggi/Ieri + 9 canali tracciati):
+  - **`CLICK_TYPES`** in `server.py` ora include `appointment_click` (Prenota appuntamento) e `pwa_install` (installazione PWA su home screen). Tracking lato landing: `VendorLanding.js` listener `appinstalled` invia `event_type='pwa_install'` (bypassa il filtro anti-duplicato 90min — l'evento è già naturalmente one-shot per device).
+  - **`/api/analytics/daily-counter`** accetta `offset_days` (combinato con `days=1` → "Ieri" con 24 bucket orari Europe/Rome). End-window esclusiva calcolata correttamente per non sconfinare al giorno successivo.
+  - **`/api/analytics/detailed`** `_period_to_dates` supporta `today` e `yesterday` con calendario Europe/Rome (un evento alle 23:30 IT cade sul giorno italiano, non sul next UTC day). 7d/30d restano rolling window UTC.
+  - **`/api/vendor/stats`** accetta `period=today|yesterday|7d|month|all` (default `all` per retro-compatibilità). Stessa logica timezone-aware.
+  - **`DailyCounterCard.js`**: nuovo bottone "Ieri" tra Oggi e 7 giorni (5 totale: Oggi/Ieri/7/30/90).
+  - **`AnalyticsDetailed.js`**: periodo select esteso con "Oggi" e "Ieri". Card "Distribuzione Click per Canale" trasformata da pie chart in **vista a barre orizzontali**: tutti i 9 canali sempre visibili (anche con 0 click), ordinati per valore, con dot colorato brand-true, label, progress bar, count e %. Molto più leggibile della pie a fette piccole.
+  - **`VendorDashboard.js`** "Dettaglio Click": segmented control con 5 periodi (Oggi/Ieri/7gg/Mese/Sempre) + grid responsive 3-5 colonne con 9 tile colorati (incluse 2 nuove voci: Appuntamento `#0EA5E9`, Installa PWA `#D2FA46`). Refetch automatico su cambio periodo.
+  - Testing: 15/15 pytest backend passati su iteration_3.
 - **Rate limit login più umano** (`server.py`): default da 5 tentativi/15min → **10 tentativi/5min**. Comment esteso che spiega il trade-off (uno scriptato fa migliaia/s, un umano che testa varianti maiuscole/simboli si blocca in 5 tentativi). Restano overridabili via env var `LOGIN_MAX_ATTEMPTS` e `LOGIN_WINDOW_SEC` per ambienti high-security. Deploy Fly v56 live. Pulizia opportunistica della collection `login_attempts` lanciata per sbloccare immediatamente account già locked.
 - **Bug fix: superadmin password rotabile più volte nella stessa sessione** (`server.py::update_config`). Il salvataggio bumpava `token_version` per invalidare le sessioni MA non rinfrescava il cookie del tab attivo → il secondo `PUT /api/config` consecutivo falliva con 401 "Sessione invalidata", e l'admin pensava che la nuova password non venisse applicata. Fix: ora la response include `Set-Cookie` con un access_token rigenerato per la nuova `token_version` (stesso pattern già usato in `/me/password`). Aggiunto anche fetch esplicito di `token_version` da DB per garantire atomicità. Verificato con 3 cambi password consecutivi → tutti HTTP 200, login finale OK.
 - **Desktop Card-grid unificato per Stores & Posts** (chiusura task UI mobile/desktop coerente):

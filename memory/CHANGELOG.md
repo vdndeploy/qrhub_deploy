@@ -6,6 +6,15 @@
 
 ## 2026-06-01 — Mobile UX restyling + Auto theme + Secondary colors + Brand cleanup
 
+- **Fix Play Protect ("App non sicura · versione precedente di Android" su Samsung A17/Android 14+)**:
+  - `VendorLanding.js`: il manifest era caricato da `qrhub.fly.dev` mentre la pagina era servita da `app.vdn.srl` → Chrome generava un WebAPK con template legacy che Play Protect bloccava. Cambiato `manifestHref` a path relativo `/api/manifest/v/...` → la rewrite Vercel lo serve same-origin con la landing. Stessa cosa per `apple-touch-startup-image` splash.
+  - `server.py::vendor_manifest`: `id` ora è URL ASSOLUTO (era relativo, causava ricalcolo WebAPK), aggiunti `lang: 'it'`, `dir: 'ltr'`, `description`, `display_override: ['standalone', 'minimal-ui']`, `orientation: 'portrait-primary'`, `categories: ['business', 'productivity']`, `prefer_related_applications: false`. Icone: ora 4 (192/512 `any` + 192/512 `maskable`) — il 192 maskable era mancante, alcuni skin Samsung facevano fallback al globo generico.
+  - `short_name` cappato a 12 caratteri (Android Home tronca dopo, e WebAPK validator richiede ≤ 12 per il primo accept).
+- **Nascondere "+" se PWA già installata**:
+  - Aggiunto state React `isStandalone` (init via `display-mode: standalone` / `navigator.standalone` / `android-app://` referrer).
+  - Setter chiamato anche dentro `setupPWA()` (oltre alla classe CSS `qrhub-pwa-standalone` sul body) e sull'evento `appinstalled`.
+  - Render del bottone `<Plus />` wrappato in `{!isStandalone && ...}` — sparisce automaticamente quando l'utente apre la PWA dall'icona home.
+
 - **Self-service backend deploy** (`routers/deploy.py` + `Settings.js` + `backend/Dockerfile`):
   - Nuovo endpoint `POST /api/deploy/fly/deploy-code` esegue `flyctl deploy --remote-only --strategy immediate` come subprocess background. Stato live polling via `GET /api/deploy/fly/deploy-code/status` (ring buffer 200 righe + release URL + exit code + chi l'ha triggerato).
   - `backend/Dockerfile` ora installa `flyctl` in `/usr/local/bin/` durante il build — il backend in produzione può rebuilds-elf via il proprio token (`db.config.flyio_api_key`).

@@ -113,6 +113,40 @@ async def _run_fly_deploy(token: str, app_name: str):
     in-memory log buffer so the dashboard can poll it."""
     src_dir = _resolve_fly_source_dir()
     _push_log(f'[setup] flyctl deploy from {src_dir} (app={app_name})')
+
+    # Locate flyctl. In production it's installed via the Dockerfile in
+    # /usr/local/bin. In the preview pod the binary may live under
+    # /root/.fly/bin which is NOT on the default PATH inherited by uvicorn
+    # workers spawned by supervisord — so we look in known fallbacks too.
+    probe_env = {**os.environ}
+    probe_env.setdefault('HOME', '/tmp')
+    flyctl_bin = None
+    for candidate in ('/usr/local/bin/flyctl', '/root/.fly/bin/flyctl', 'flyctl'):
+        try:
+            check = await asyncio.create_subprocess_exec(
+                candidate, 'version',
+                env=probe_env,
+                stdout=asyncio.subprocess.DEVNULL,
+                stderr=asyncio.subprocess.DEVNULL,
+            )
+            await check.wait()
+            if check.returncode == 0:
+                flyctl_bin = candidate
+                break
+        except (FileNotFoundError, PermissionError):
+            continue
+
+    if not flyctl_bin:
+        _push_log('[error] flyctl non installato in questo container. '
+                  "Rebuilda l'image con il nuovo Dockerfile o usa flyctl da CLI.")
+        _DEPLOY_STATE.update({
+            'running': False,
+            'finished_at': datetime.now(timezone.utc).isoformat(),
+            'exit_code': -127,
+        })
+        return
+
+    _push_log(f'[setup] using {flyctl_bin}')
     env = {**os.environ, 'FLY_API_TOKEN': token}
     # flyctl needs $HOME for its config cache. Provide a writable fallback
     # if the running process inherited a stripped environment (e.g. when
@@ -120,7 +154,7 @@ async def _run_fly_deploy(token: str, app_name: str):
     env.setdefault('HOME', '/tmp')
     # Use `--strategy immediate` to mirror what we ship from CLI: single
     # machine restart is fine (no need for canary on a hobby tier).
-    cmd = ['flyctl', 'deploy', '--remote-only', '--app', app_name,
+    cmd = [flyctl_bin, 'deploy', '--remote-only', '--app', app_name,
            '--strategy', 'immediate']
     try:
         proc = await asyncio.create_subprocess_exec(
@@ -131,8 +165,7 @@ async def _run_fly_deploy(token: str, app_name: str):
             stderr=asyncio.subprocess.STDOUT,
         )
     except FileNotFoundError:
-        _push_log('[error] flyctl non installato in questo container. '
-                  'Rebuilda l\'image con il nuovo Dockerfile o usa flyctl da CLI.')
+        _push_log('[error] flyctl improvvisamente sparito durante l\'esecuzione.')
         _DEPLOY_STATE.update({
             'running': False,
             'finished_at': datetime.now(timezone.utc).isoformat(),

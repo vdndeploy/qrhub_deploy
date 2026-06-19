@@ -68,6 +68,18 @@ const VendorLanding = () => {
   const [addToHomeOpen, setAddToHomeOpen] = useState(false);
   const [blockedReason, setBlockedReason] = useState('');
   const [previewMode, setPreviewMode] = useState(false);
+  // True when the page is rendered inside the installed PWA (standalone).
+  // We hide the "+" install button in that case — pointless prompt for a
+  // user who already has the icon on their home screen.
+  const [isStandalone, setIsStandalone] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return (
+      window.matchMedia?.('(display-mode: standalone)').matches ||
+      window.matchMedia?.('(display-mode: minimal-ui)').matches ||
+      // iOS Safari
+      window.navigator?.standalone === true
+    );
+  });
   // Tick every minute so the "open now" badge stays accurate without a refresh.
   const [, setNowTick] = useState(0);
   useEffect(() => {
@@ -177,8 +189,14 @@ const VendorLanding = () => {
   // their phone after "Add to Home Screen".
   useEffect(() => {
     if (!vendor?.id) return;
-    const apiBase = process.env.REACT_APP_BACKEND_URL || '';
-    const manifestHref = `${apiBase}/api/manifest/v/${vendor.id}`;
+    // CRITICAL: the manifest MUST be served from the SAME ORIGIN as the
+    // landing page, otherwise Chrome falls back to a legacy WebAPK build
+    // that Play Protect on recent Samsung/Android 14+ devices blocks with
+    // the "App non sicura · versione precedente di Android" banner.
+    // The Vercel rewrite (/api/* → qrhub.fly.dev/api/*) lets us use a
+    // relative URL here so the manifest is fetched from app.vdn.srl
+    // (or whatever custom domain the tenant uses).
+    const manifestHref = `/api/manifest/v/${vendor.id}`;
     const iconUrl = vendor.organization?.pwa_icon_url || vendor.organization?.logo_url || '';
     const themeColor = vendor.organization?.primary_color || '#F96815';
 
@@ -252,7 +270,8 @@ const VendorLanding = () => {
         `(device-width: ${cssW}px) and (device-height: ${cssH}px) ` +
         `and (-webkit-device-pixel-ratio: ${dpr}) ` +
         `and (orientation: portrait)`;
-      link.href = `${apiBase}/api/splash/v/${vendor.id}/${w}x${h}.png`;
+      // Same-origin splash too (consistency with the manifest fix).
+      link.href = `/api/splash/v/${vendor.id}/${w}x${h}.png`;
       document.head.appendChild(link);
       splashLinks.push(link);
     });
@@ -319,17 +338,19 @@ const VendorLanding = () => {
       // We check both signals: Chrome/Android/desktop expose `display-mode:
       // standalone`, while iOS Safari only exposes the legacy
       // `navigator.standalone` flag and ignores the media query.
-      const isStandalone =
+      const detectedStandalone =
         window.matchMedia('(display-mode: standalone)').matches ||
         window.matchMedia('(display-mode: fullscreen)').matches ||
         window.matchMedia('(display-mode: minimal-ui)').matches ||
         window.navigator.standalone === true ||
         document.referrer.startsWith('android-app://');
-      if (isStandalone) {
+      if (detectedStandalone) {
         // Mark <body> so our CSS can apply iOS safe-area-inset padding to the
         // sticky header & bottom banners (iOS Safari ignores the
         // `(display-mode: standalone)` media query, so we need a JS hook).
         document.body.classList.add('qrhub-pwa-standalone');
+        // Sync the React state too so the "+" install button auto-hides.
+        setIsStandalone(true);
         return;
       }
 
@@ -343,6 +364,9 @@ const VendorLanding = () => {
       // Clear cached prompt if the app gets installed while the page is open.
       window.addEventListener('appinstalled', () => {
         setDeferredPrompt(null);
+        // Also flip the standalone flag so the "+" install button vanishes
+        // even before the user reloads the page in the installed app.
+        setIsStandalone(true);
         // Track the install as a one-off analytics event so the admin can
         // count how many PWA installs each landing generates. We bypass the
         // 90-min anti-duplicate filter on purpose: an `appinstalled` event
@@ -674,17 +698,22 @@ const VendorLanding = () => {
                 </button>
               );
             })()}
-            <button
-              type="button"
-              onClick={() => setAddToHomeOpen(true)}
-              className="map-btn"
-              aria-label="Aggiungi alla schermata Home"
-              title="Salva sul telefono"
-              data-testid="vendor-add-to-home-button"
-              style={{ background: 'var(--brand-secondary)' }}
-            >
-              <Plus className="h-6 w-6" />
-            </button>
+            {/* "+" install button — hidden when the PWA is already
+                installed (standalone mode). Pointless to prompt for an
+                action the user has already completed. */}
+            {!isStandalone && (
+              <button
+                type="button"
+                onClick={() => setAddToHomeOpen(true)}
+                className="map-btn"
+                aria-label="Aggiungi alla schermata Home"
+                title="Salva sul telefono"
+                data-testid="vendor-add-to-home-button"
+                style={{ background: 'var(--brand-secondary)' }}
+              >
+                <Plus className="h-6 w-6" />
+              </button>
+            )}
             <button
               type="button"
               onClick={handleShare}

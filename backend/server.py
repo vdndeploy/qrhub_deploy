@@ -3181,23 +3181,42 @@ async def vendor_manifest(vendor_id: str, request: Request):
 
     manifest = {
         'name': f"{brand} · {vendor.get('name', '')}".strip(' ·'),
-        'short_name': vendor.get('name', '') or brand,
+        'short_name': (vendor.get('name', '') or brand)[:12],
+        'description': f"Contatta {vendor.get('name', '')} · {brand}".strip(' ·'),
+        'lang': 'it',
+        'dir': 'ltr',
         'start_url': f"{base}/v/{landing_key}",
         'scope': f"{base}/v/{landing_key}",
-        'id': f"/v/{landing_key}",
+        # `id` MUST be an absolute URL on the same origin as start_url for
+        # Chrome to consider the install "modern" — a relative `/v/...`
+        # makes Chrome regenerate the WebAPK from a legacy template, which
+        # Play Protect on Android 14+ Samsung devices then blocks with the
+        # "App non sicura · versione precedente di Android" banner.
+        'id': f"{base}/v/{landing_key}",
         'display': 'standalone',
+        'display_override': ['standalone', 'minimal-ui'],
+        'orientation': 'portrait-primary',
+        'categories': ['business', 'productivity'],
         'background_color': '#ffffff',
         'theme_color': org.get('primary_color') or '#F96815',
         'icons': [],
+        # `prefer_related_applications: false` is an explicit signal to
+        # Chrome that there is NO native app for this site and the WebAPK
+        # is the canonical install target.
+        'prefer_related_applications': False,
     }
     if icon_url:
-        # Provide both 192 and 512 — Android requires at least these two sizes
-        # to honour the icon (otherwise it falls back to a generated globe).
+        # Modern Chrome WebAPK requires BOTH 192 + 512 at purpose=any AND
+        # at least one maskable (Android 14+ adaptive icon shape). Without
+        # the 192 maskable some Samsung skins fall back to the rounded
+        # generic globe icon.
         manifest['icons'] = [
             {'src': _cloudinary_resize(icon_url, 192), 'sizes': '192x192',
              'type': 'image/png', 'purpose': 'any'},
             {'src': _cloudinary_resize(icon_url, 512), 'sizes': '512x512',
              'type': 'image/png', 'purpose': 'any'},
+            {'src': _cloudinary_resize(icon_url, 192), 'sizes': '192x192',
+             'type': 'image/png', 'purpose': 'maskable'},
             {'src': _cloudinary_resize(icon_url, 512), 'sizes': '512x512',
              'type': 'image/png', 'purpose': 'maskable'},
         ]

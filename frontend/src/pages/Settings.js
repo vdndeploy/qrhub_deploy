@@ -264,6 +264,32 @@ const Settings = () => {
   const updateFlyImage = () => callOp('fly-update-image', 'POST', '/deploy/fly/update-image', {});
   const triggerVercel = () => callOp('vercel-trigger', 'POST', '/deploy/vercel/trigger');
 
+  // ── Deploy NEW backend code (build + push fresh image to Fly registry)
+  // Polls status every 2s while running to stream logs to the UI.
+  const [deployRun, setDeployRun] = useState(null);
+  const pollDeploy = async () => {
+    try {
+      const { data } = await axios.get(`${API}/deploy/fly/deploy-code/status`, { withCredentials: true });
+      setDeployRun(data);
+      return data;
+    } catch { return null; }
+  };
+  useEffect(() => { pollDeploy(); }, []);
+  useEffect(() => {
+    if (!deployRun?.running) return;
+    const t = setInterval(async () => {
+      const d = await pollDeploy();
+      if (d && !d.running) clearInterval(t);
+    }, 2000);
+    return () => clearInterval(t);
+  }, [deployRun?.running]);
+  const deployCode = async () => {
+    try {
+      await callOp('deploy-code', 'POST', '/deploy/fly/deploy-code', {});
+      await pollDeploy();
+    } catch { /* toast already shown */ }
+  };
+
   // ── Rotate credentials ─────────────────────────────────────────
   const [rotate, setRotate] = useState({
     rotate_jwt: true,
@@ -421,6 +447,13 @@ const Settings = () => {
                     desc="Tutte le operazioni Fly.io direttamente da qui — niente terminale."
                     accent="#10B981">
             <div className="flex flex-wrap gap-2">
+              <Button onClick={deployCode} disabled={opsLoading['deploy-code'] || deployRun?.running}
+                      className="bg-[#0a0a0b] hover:bg-[#1a1a1c] text-[#D2FA46] border border-[#D2FA46]/40"
+                      data-testid="btn-fly-deploy-code"
+                      title="Builda e pusha una nuova image del backend (dopo aver modificato il codice in server.py / routers/)">
+                <Rocket className={`h-4 w-4 mr-2 ${deployRun?.running ? 'animate-pulse' : ''}`} />
+                {deployRun?.running ? 'Deploy in corso…' : 'Deploy Backend Code'}
+              </Button>
               <Button onClick={applyFlySecrets} disabled={opsLoading['fly-secrets']}
                       className="bg-emerald-600 hover:bg-emerald-700 text-white"
                       data-testid="btn-fly-apply-secrets">
@@ -447,8 +480,34 @@ const Settings = () => {
               </Button>
             </div>
             <p className="text-[11px] text-gray-500 dark:text-[#6a6a72]">
-              Il <strong>primo deploy</strong> dell'immagine deve essere fatto una volta con <code className="bg-gray-100 dark:bg-[#1a1a1c] px-1 rounded">fly deploy</code> (per buildare e pushare su <code className="bg-gray-100 dark:bg-[#1a1a1c] px-1 rounded">registry.fly.io</code>). Dopo, redeploy e secret-apply funzionano da qui.
+              <strong>Deploy Backend Code</strong>: builda una nuova image dal codice corrente e la pusha a Fly (~2-3 min, log live qui sotto).{' '}
+              <strong>Redeploy immagine attuale</strong>: restarta la machine con l&apos;image già pushata (per applicare secrets staged).{' '}
+              <strong>Force update image</strong>: rifà l&apos;attach machine ↔ image se il deploy è andato in stallo.
             </p>
+
+            {/* Live deploy log — only visible while a deploy is running or
+                immediately after one finished. Auto-polls every 2s. */}
+            {(deployRun?.running || (deployRun?.log_tail || []).length > 0) && (
+              <div
+                className="border rounded-lg p-3 bg-gray-900 text-gray-100 font-mono text-[11px] max-h-64 overflow-y-auto space-y-0.5"
+                data-testid="fly-deploy-log"
+              >
+                <div className="flex items-center justify-between gap-2 sticky top-0 bg-gray-900 pb-1 mb-1 border-b border-gray-700">
+                  <span className="font-sans text-xs font-semibold text-emerald-300">
+                    {deployRun?.running ? '● Deploy in corso' : (deployRun?.exit_code === 0 ? '✓ Deploy completato' : `✗ Deploy fallito (exit ${deployRun?.exit_code})`)}
+                  </span>
+                  {deployRun?.release_url && (
+                    <a href={deployRun.release_url} target="_blank" rel="noopener noreferrer"
+                        className="font-sans text-xs text-sky-300 underline">
+                      Monitora su Fly.io <ExternalLink className="inline h-3 w-3" />
+                    </a>
+                  )}
+                </div>
+                {(deployRun?.log_tail || []).map((ln, i) => (
+                  <div key={i} className="whitespace-pre-wrap break-all">{ln}</div>
+                ))}
+              </div>
+            )}
 
             {flyStatus && (
               <div className="border rounded-lg p-3 bg-gray-50 dark:bg-[#0a0a0b] space-y-2 text-sm" data-testid="fly-status-panel">

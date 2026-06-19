@@ -6,6 +6,13 @@
 
 ## 2026-06-01 — Mobile UX restyling + Auto theme + Secondary colors + Brand cleanup
 
+- **Self-service backend deploy** (`routers/deploy.py` + `Settings.js` + `backend/Dockerfile`):
+  - Nuovo endpoint `POST /api/deploy/fly/deploy-code` esegue `flyctl deploy --remote-only --strategy immediate` come subprocess background. Stato live polling via `GET /api/deploy/fly/deploy-code/status` (ring buffer 200 righe + release URL + exit code + chi l'ha triggerato).
+  - `backend/Dockerfile` ora installa `flyctl` in `/usr/local/bin/` durante il build — il backend in produzione può rebuilds-elf via il proprio token (`db.config.flyio_api_key`).
+  - Settings tab Deploy: nuovo bottone "Deploy Backend Code" (lime su nero) accanto a "Redeploy immagine attuale" + log box live (sticky header con stato ● running / ✓ done / ✗ failed + link "Monitora su Fly.io"). Polling auto ogni 2s mentre `running=true`. Spinner pulse durante il build.
+  - Comments inline che spiegano la differenza tra i 3 tasti (Deploy Code = nuova image, Redeploy = restart con secrets staged, Force update = re-attach machine).
+  - Verificato live: deploy completato in ~3 min, exit_code=0, machine v57 attiva su prod. Risolve definitivamente il flusso "modifico codice → come lo porto in prod?".
+
 - **Analytics più granulari** (filtri Oggi/Ieri + 9 canali tracciati):
   - **`CLICK_TYPES`** in `server.py` ora include `appointment_click` (Prenota appuntamento) e `pwa_install` (installazione PWA su home screen). Tracking lato landing: `VendorLanding.js` listener `appinstalled` invia `event_type='pwa_install'` (bypassa il filtro anti-duplicato 90min — l'evento è già naturalmente one-shot per device).
   - **`/api/analytics/daily-counter`** accetta `offset_days` (combinato con `days=1` → "Ieri" con 24 bucket orari Europe/Rome). End-window esclusiva calcolata correttamente per non sconfinare al giorno successivo.

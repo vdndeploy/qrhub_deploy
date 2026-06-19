@@ -71,6 +71,156 @@ async def fly_apply_secrets(user: dict = Depends(require_super_admin)):
     }
 
 
+# ────────────────────────────────────────────────────────────────────
+# Deploy NEW backend code — build & push a fresh image to Fly registry
+# ────────────────────────────────────────────────────────────────────
+# Logs of the most recent in-flight deploy. Kept in-process (single
+# machine) so the dashboard can poll progress while the build runs.
+_DEPLOY_STATE = {
+    'running': False,
+    'started_at': None,
+    'finished_at': None,
+    'started_by': None,
+    'exit_code': None,
+    'log_tail': [],     # last ~200 lines, ring buffer
+    'release_url': None,
+}
+_DEPLOY_LOG_MAX = 200
+
+
+def _push_log(line: str):
+    buf = _DEPLOY_STATE['log_tail']
+    buf.append(line)
+    if len(buf) > _DEPLOY_LOG_MAX:
+        del buf[: len(buf) - _DEPLOY_LOG_MAX]
+
+
+def _resolve_fly_source_dir() -> str:
+    """Locate the directory containing fly.toml. Works for both:
+      - Preview pod: repo cloned at /app, fly.toml in /app/backend/
+      - Production container: backend files copied to /app, fly.toml in /app/
+    """
+    if os.path.isfile('/app/backend/fly.toml'):
+        return '/app/backend'
+    if os.path.isfile('/app/fly.toml'):
+        return '/app'
+    # Fallback: current working dir
+    return os.getcwd()
+
+
+async def _run_fly_deploy(token: str, app_name: str):
+    """Spawn `flyctl deploy --remote-only` and stream output into the
+    in-memory log buffer so the dashboard can poll it."""
+    src_dir = _resolve_fly_source_dir()
+    _push_log(f'[setup] flyctl deploy from {src_dir} (app={app_name})')
+    env = {**os.environ, 'FLY_API_TOKEN': token}
+    # flyctl needs $HOME for its config cache. Provide a writable fallback
+    # if the running process inherited a stripped environment (e.g. when
+    # spawned by uvicorn from supervisord).
+    env.setdefault('HOME', '/tmp')
+    # Use `--strategy immediate` to mirror what we ship from CLI: single
+    # machine restart is fine (no need for canary on a hobby tier).
+    cmd = ['flyctl', 'deploy', '--remote-only', '--app', app_name,
+           '--strategy', 'immediate']
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            *cmd,
+            cwd=src_dir,
+            env=env,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.STDOUT,
+        )
+    except FileNotFoundError:
+        _push_log('[error] flyctl non installato in questo container. '
+                  'Rebuilda l\'image con il nuovo Dockerfile o usa flyctl da CLI.')
+        _DEPLOY_STATE.update({
+            'running': False,
+            'finished_at': datetime.now(timezone.utc).isoformat(),
+            'exit_code': -127,
+        })
+        return
+
+    # Stream output line-by-line into the ring buffer.
+    assert proc.stdout is not None
+    while True:
+        line = await proc.stdout.readline()
+        if not line:
+            break
+        text = line.decode('utf-8', errors='replace').rstrip()
+        if text:
+            _push_log(text)
+            # Capture release URL for the dashboard "view deploy" link
+            if 'monitoring' in text and 'fly.io/apps' in text:
+                idx = text.find('https://')
+                if idx >= 0:
+                    _DEPLOY_STATE['release_url'] = text[idx:].split()[0]
+    exit_code = await proc.wait()
+    _DEPLOY_STATE.update({
+        'running': False,
+        'finished_at': datetime.now(timezone.utc).isoformat(),
+        'exit_code': exit_code,
+    })
+    _push_log(f'[done] exit_code={exit_code}')
+
+
+@router.post('/deploy/fly/deploy-code')
+async def fly_deploy_code(user: dict = Depends(require_super_admin)):
+    """Build & push a fresh backend image to Fly. Runs `flyctl deploy
+    --remote-only` in the background; the active super-admin can poll
+    `GET /deploy/fly/deploy-code/status` for live logs.
+
+    Returns 409 if a deploy is already running."""
+    if _DEPLOY_STATE['running']:
+        raise HTTPException(status_code=409,
+                              detail='Un deploy è già in corso. Attendi che finisca o controlla i log.')
+    cfg = await _load_deploy_config()
+    token = cfg.get('flyio_api_key', '')
+    app_name = cfg.get('flyio_app_name', '')
+    if not token or not app_name:
+        raise HTTPException(status_code=400,
+                              detail='Fly Token o Nome App mancante in Configurazione Deploy')
+
+    # Reset state for the new run
+    _DEPLOY_STATE.update({
+        'running': True,
+        'started_at': datetime.now(timezone.utc).isoformat(),
+        'finished_at': None,
+        'started_by': user.get('email', ''),
+        'exit_code': None,
+        'log_tail': [],
+        'release_url': None,
+    })
+    _push_log(f'[start] triggered by {user.get("email", "?")}')
+
+    # Run in background — the response returns immediately so the dashboard
+    # can show a "deploy in corso" banner. The machine restarts only AFTER
+    # the build is pushed (release_command stage), so the response will
+    # reliably reach the client before the current machine dies.
+    asyncio.create_task(_run_fly_deploy(token, app_name))
+
+    return {
+        'message': 'Deploy avviato. Il build richiede ~2-3 minuti, poi la '
+                    'machine si riavvia automaticamente. Controlla il log live qui sotto.',
+        'started_at': _DEPLOY_STATE['started_at'],
+        'app': app_name,
+    }
+
+
+@router.get('/deploy/fly/deploy-code/status')
+async def fly_deploy_code_status(user: dict = Depends(require_super_admin)):
+    """Return the live status + recent log lines for the in-flight (or
+    last) `flyctl deploy` run."""
+    return {
+        'running': _DEPLOY_STATE['running'],
+        'started_at': _DEPLOY_STATE['started_at'],
+        'finished_at': _DEPLOY_STATE['finished_at'],
+        'started_by': _DEPLOY_STATE['started_by'],
+        'exit_code': _DEPLOY_STATE['exit_code'],
+        'release_url': _DEPLOY_STATE['release_url'],
+        'log_tail': list(_DEPLOY_STATE['log_tail']),
+    }
+
+
 @router.get('/deploy/fly/status')
 async def fly_status(user: dict = Depends(require_super_admin)):
     """Return machines status + current release info for the configured Fly app."""

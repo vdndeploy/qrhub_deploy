@@ -95,6 +95,9 @@ const StoreLanding = () => {
 
   const track = (type) => {
     if (isPreviewSession()) return;
+    // Any meaningful interaction disarms the bounce tracker — not just WA.
+    // Otherwise a visitor who taps "Leggi recensioni" within 10s would be
+    // wrongly counted as bounce (false negative on engagement).
     interactedRef.current = true;
     axios.post(`${API}/analytics`, {
       vendor_id: '', store_id: storeIdRef.current, event_type: type,

@@ -3663,9 +3663,12 @@ async def og_store_landing_preview(slug: str, request: Request):
         {'_id': 0},
     )
     if not store:
-        # Soft 200 with empty meta so crawlers don't poison the cache.
+        # Soft 200 with noindex so crawlers don't poison the cache with a
+        # generic title — but the URL itself is still walkable for late
+        # propagation if the admin enables the landing later.
         return HTMLResponse(
             f'<!doctype html><meta charset="utf-8"><title>QRHub</title>'
+            f'<meta name="robots" content="noindex,nofollow" />'
             f'<meta http-equiv="refresh" content="0;url={frontend_url}/" />',
             status_code=200,
         )

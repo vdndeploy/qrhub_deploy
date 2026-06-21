@@ -174,7 +174,18 @@ const Landings = () => {
       )}
 
       {/* ── Editor dialog ──────────────────────────────────────────── */}
-      <Dialog open={!!editing} onOpenChange={(o) => !o && closeEditor()}>
+      <Dialog
+        open={!!editing}
+        onOpenChange={(o) => {
+          // Defensive guard: when the MediaPicker (a nested Radix Dialog)
+          // opens/closes, Radix dispatches `onOpenChange(false)` on this
+          // parent dialog too — the so-called "focus-trap stacking" issue.
+          // Ignore those cascading closes so the editor keeps its unsaved
+          // form state (incl. the just-selected hero image).
+          if (!o && pickerOpen) return;
+          if (!o) closeEditor();
+        }}
+      >
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           {editing && (
             <form onSubmit={handleSave} className="space-y-5">
@@ -434,16 +445,18 @@ const Landings = () => {
 
       <MediaPicker
         open={pickerOpen}
-        modal={false}
         onClose={() => setPickerOpen(false)}
         onSelect={(it) => {
           // Defensive: rely on functional setState so we don't drop other
           // unsaved fields if the picker re-opens before this commits.
+          // The parent dialog's onOpenChange is guarded by `pickerOpen`
+          // so the editor stays open while we set this.
           setFormData((f) => ({ ...f, landing_hero_image: it.url }));
-          setPickerOpen(false);
           toast.success('Immagine selezionata');
+          // Defer the picker close so React commits formData first.
+          setTimeout(() => setPickerOpen(false), 0);
         }}
-        title="Banner landing — Sfoglia o carica"
+        title="Banner landing — Sfoglia libreria"
       />
     </div>
   );

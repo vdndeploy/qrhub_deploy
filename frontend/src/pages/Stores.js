@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -26,6 +26,7 @@ const Stores = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingStore, setEditingStore] = useState(null);
   const [formData, setFormData] = useState(empty());
+  const navigate = useNavigate();
 
   useEffect(() => { fetchStores(); }, []);
 
@@ -177,7 +178,7 @@ const Stores = () => {
             const social = [s.whatsapp, s.instagram, s.facebook, s.tiktok].filter(Boolean).length;
             return (
               <div key={s.id}
-                    className="bg-white dark:bg-[#131316] rounded-2xl border border-gray-200 dark:border-white/10 p-4 shadow-sm"
+                    className="bg-white dark:bg-[#131316] rounded-2xl border border-gray-200 dark:border-white/10 p-4 shadow-sm min-w-0 overflow-hidden"
                     data-testid={`store-card-${s.id}`}>
                 <div className="flex items-start gap-3 mb-4">
                   <StoreIcon className="h-5 w-5 text-[#D2FA46] flex-shrink-0 mt-0.5" />
@@ -190,13 +191,18 @@ const Stores = () => {
                 </div>
 
                 <div className="grid grid-cols-3 gap-3" role="group" aria-label={`Azioni per ${s.name}`}>
-                  <Link to={`/dashboard/posts?store=${s.id}`} className="contents">
-                    <MobileActionBtn
-                      icon={Megaphone}
-                      label="Annunci"
-                      data-testid={`store-m-posts-${s.id}`}
-                    />
-                  </Link>
+                  {/* "Annunci" navigates via onClick instead of wrapping the
+                      button in a <Link className="contents">. Safari iOS has
+                      a long-standing bug where `display: contents` on an
+                      anchor inside a CSS grid still emits a layout box, which
+                      caused the 3 buttons to overflow to the right of the
+                      card on mobile. */}
+                  <MobileActionBtn
+                    icon={Megaphone}
+                    label="Annunci"
+                    onClick={() => navigate(`/dashboard/posts?store=${s.id}`)}
+                    data-testid={`store-m-posts-${s.id}`}
+                  />
                   <MobileActionBtn
                     icon={Edit}
                     label="Modifica"

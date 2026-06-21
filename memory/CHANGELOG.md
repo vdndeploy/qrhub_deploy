@@ -6,6 +6,12 @@
 
 ## 2026-06-01 — Mobile UX restyling + Auto theme + Secondary colors + Brand cleanup
 
+- **Samsung Internet workaround intelligente** (`AddToHomeDialog.js`):
+  - Fix detection bug: l'ordine dei test UA controllava `chrome` PRIMA di `samsung`, ma Samsung Internet UA contiene anche `Chrome/X` → tutti gli utenti Samsung venivano marcati come `chrome`. Ora `samsungbrowser` testato per primo.
+  - Branch dedicato Samsung Internet: banner ambra con `ShieldAlert` icon che spiega il problema Play Protect ("Samsung firma il WebAPK con cert proprio, Play Protect blocca → Chrome firma con cert Google, accettato"). CTA grosso lime "Apri in Chrome" che usa Android Intent URI (`intent://...package=com.android.chrome;S.browser_fallback_url=...`) per deep-link verso Chrome con la pagina corrente. Fallback URL incluso per device senza Chrome installato.
+  - Accordion `<details>` "Non hai Chrome installato?" → istruzioni Play Store.
+  - Test E2E con Playwright iniettando UA spoof: branch rendered correctly, intent URL valido, fallback URL encoded correctly.
+
 - **Fix Play Protect ("App non sicura · versione precedente di Android" su Samsung A17/Android 14+)**:
   - `VendorLanding.js`: il manifest era caricato da `qrhub.fly.dev` mentre la pagina era servita da `app.vdn.srl` → Chrome generava un WebAPK con template legacy che Play Protect bloccava. Cambiato `manifestHref` a path relativo `/api/manifest/v/...` → la rewrite Vercel lo serve same-origin con la landing. Stessa cosa per `apple-touch-startup-image` splash.
   - `server.py::vendor_manifest`: `id` ora è URL ASSOLUTO (era relativo, causava ricalcolo WebAPK), aggiunti `lang: 'it'`, `dir: 'ltr'`, `description`, `display_override: ['standalone', 'minimal-ui']`, `orientation: 'portrait-primary'`, `categories: ['business', 'productivity']`, `prefer_related_applications: false`. Icone: ora 4 (192/512 `any` + 192/512 `maskable`) — il 192 maskable era mancante, alcuni skin Samsung facevano fallback al globo generico.

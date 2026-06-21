@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Share, Plus, ChevronRight, X, Smartphone } from 'lucide-react';
+import { Share, Plus, ChevronRight, X, Smartphone, ShieldAlert, ExternalLink } from 'lucide-react';
 
 /**
  * AddToHomeDialog — universal "Aggiungi alla home" CTA that works on every
@@ -34,9 +34,12 @@ const detectDevice = () => {
     else if (/fxios/.test(lower)) browser = 'firefox';
     else if (/safari/.test(lower)) browser = 'safari';
   } else if (os === 'android') {
-    if (/chrome/.test(lower)) browser = 'chrome';
-    else if (/firefox/.test(lower)) browser = 'firefox';
-    else if (/samsung/.test(lower)) browser = 'samsung';
+    // ORDER MATTERS: Samsung Internet UA contains "Chrome/X" too, so
+    // SamsungBrowser must be matched BEFORE chrome. Same logic for
+    // Firefox vs Chrome (firefox UA contains "Chrome" on some forks).
+    if (/samsungbrowser/.test(lower)) browser = 'samsung';
+    else if (/firefox|fxios/.test(lower)) browser = 'firefox';
+    else if (/chrome/.test(lower)) browser = 'chrome';
   }
   return { os, browser };
 };
@@ -108,7 +111,7 @@ const AddToHomeDialog = ({ open, onClose, deferredPrompt, vendorName }) => {
 
         <div className="flex-1 overflow-y-auto px-5 pb-5">
           {/* Android Chrome — try native first, otherwise instructions */}
-          {os === 'android' && (
+          {os === 'android' && browser !== 'samsung' && (
             <>
               {canUseNative ? (
                 <button
@@ -128,10 +131,70 @@ const AddToHomeDialog = ({ open, onClose, deferredPrompt, vendorName }) => {
                   Tocca il menu <span className="inline-flex w-6 h-6 rounded items-center justify-center bg-gray-200 dark:bg-white/10 font-bold">⋮</span> in alto a destra
                 </StepRow>
                 <StepRow n="2">
-                  Scegli <strong>"Aggiungi alla schermata Home"</strong>
+                  Scegli <strong>&quot;Aggiungi alla schermata Home&quot;</strong>
                 </StepRow>
                 <StepRow n="3">Tocca <strong>Aggiungi</strong></StepRow>
               </div>
+            </>
+          )}
+
+          {/* Samsung Internet — has a known issue where Play Protect on
+              Android 14+ blocks the WebAPK as "App non sicura" because
+              Samsung signs the package with its own certificate (not Google
+              Play). The reliable workaround is to install the PWA from
+              Chrome instead. We deep-link via Android Intent URI which
+              opens THIS exact URL inside Chrome, then the user taps
+              ⋮ → "Installa app". */}
+          {os === 'android' && browser === 'samsung' && (
+            <>
+              <div className="rounded-2xl bg-amber-50 dark:bg-amber-500/[0.07] border border-amber-200 dark:border-amber-500/30 p-4 mb-3">
+                <div className="flex items-start gap-2.5">
+                  <ShieldAlert className="h-5 w-5 text-amber-700 dark:text-amber-300 flex-shrink-0 mt-0.5" />
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-amber-900 dark:text-amber-200 text-sm mb-1">
+                      Samsung Internet rilevato
+                    </p>
+                    <p className="text-xs text-amber-800 dark:text-amber-300 leading-snug">
+                      Per evitare il blocco <em>&quot;App non sicura&quot;</em> di Play Protect,
+                      installa l&apos;app da <strong>Chrome</strong>. È la stessa pagina,
+                      ma il WebAPK viene firmato da Google e accettato sempre.
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <a
+                href={(() => {
+                  // Android intent URI that opens the current URL in Chrome
+                  // specifically (package=com.android.chrome). The
+                  // `S.browser_fallback_url` query is honored when Chrome
+                  // is not installed — in that case we fall back to the
+                  // original https URL so Samsung Internet still does
+                  // something sensible (re-open same page).
+                  if (typeof window === 'undefined') return '#';
+                  const href = window.location.href;
+                  const hostAndPath = href.replace(/^https?:\/\//, '');
+                  const fb = encodeURIComponent(href);
+                  return `intent://${hostAndPath}#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url=${fb};end`;
+                })()}
+                className="w-full block bg-[#D2FA46] hover:bg-[#bce63d] text-[#0a0a0b] font-semibold rounded-2xl py-3 text-sm text-center"
+                data-testid="add-to-home-open-in-chrome"
+              >
+                <ExternalLink className="inline h-4 w-4 mr-2 -mt-0.5" />
+                Apri in Chrome
+              </a>
+              <p className="text-[11px] text-gray-500 dark:text-[#8a8a92] mt-2 text-center">
+                Una volta su Chrome → tocca <strong>⋮</strong> →{' '}
+                <strong>&quot;Installa app&quot;</strong>
+              </p>
+              <details className="mt-4 text-xs text-gray-600 dark:text-[#8a8a92]">
+                <summary className="cursor-pointer font-medium select-none">
+                  Non hai Chrome installato?
+                </summary>
+                <p className="mt-2 leading-snug pl-1">
+                  Apri il <strong>Play Store</strong>, cerca <strong>Chrome</strong> e
+                  installalo (è gratis). Poi torna qui e usa il tasto qui sopra.
+                </p>
+              </details>
             </>
           )}
 

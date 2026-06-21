@@ -84,8 +84,19 @@ async def track_event(event: AnalyticsEvent, request: Request):
         if v and v.get('id'):
             canonical_vid = v['id']
 
+    # Store-landing events (event_type starts with `store_landing_`) may
+    # arrive WITHOUT a vendor_id — they reference a store directly. We
+    # accept both shapes and persist whatever is provided. The analytics
+    # downstream filter on (vendor_id OR store_id) accordingly.
+    store_id_val = (event.store_id or '').strip()
+    is_store_event = (event.event_type or '').startswith('store_landing_')
+    if not canonical_vid and not store_id_val and not is_store_event:
+        # Legacy guard: a normal click event with neither id is invalid.
+        # We don't raise to keep the endpoint forgiving, but we skip writes.
+        return {'message': 'Event ignored — no vendor/store id'}
+
     event_doc = {
-        'vendor_id': canonical_vid,
+        'vendor_id': canonical_vid or '',
         'event_type': event.event_type,
         'timestamp': event.timestamp or datetime.now(timezone.utc).isoformat(),
         'device': device_type,
@@ -95,6 +106,8 @@ async def track_event(event: AnalyticsEvent, request: Request):
         'region': geo.get('region', ''),
         'country': geo.get('country', '')
     }
+    if store_id_val:
+        event_doc['store_id'] = store_id_val
     await db.analytics.insert_one(event_doc)
     return {'message': 'Event tracked'}
 
@@ -472,6 +485,117 @@ async def export_vendor_analytics_pdf(period: str = '30d', vendor: dict = Depend
     fname = f"analytics_{period}_{datetime.now(timezone.utc).strftime('%Y%m%d')}.pdf"
     return FastAPIResponse(content=pdf_bytes, media_type='application/pdf',
                               headers={'Content-Disposition': f'attachment; filename={fname}'})
+
+@router.get('/analytics/store-landings')
+async def get_store_landings_analytics(period: str = '7d', user: dict = Depends(get_current_user)):
+    """Per-store funnel KPIs for the /s/:slug lead-gen landings.
+
+    Returns:
+      - global KPIs (views, whatsapp/cta clicks, conversion %, bounce %)
+      - per-store table (name, slug, views, clicks, CR%, bounce%)
+      - funnel breakdown (view → engaged → click → form_view)
+    """
+    start_iso, end_iso = _period_to_dates(period)
+    ts_match = {'$gte': start_iso, '$lt': end_iso}
+
+    # Tenant scoping: org-admin sees only own stores; super-admin sees all.
+    store_filter = {} if _is_super_admin(user) else {
+        'organization_id': user.get('organization_id'),
+    }
+    stores = await db.stores.find(
+        store_filter,
+        {'_id': 0, 'id': 1, 'name': 1, 'landing_slug': 1,
+         'landing_enabled': 1, 'landing_cta_mode': 1}
+    ).to_list(1000)
+    store_ids = [s['id'] for s in stores]
+
+    # Base match for landing events scoped to the tenant's stores.
+    base_match = {
+        'timestamp': ts_match,
+        'event_type': {'$regex': '^store_landing_'},
+    }
+    if store_ids:
+        base_match['store_id'] = {'$in': store_ids}
+    else:
+        # No stores at all → return empty quick.
+        return {
+            'period': period,
+            'totals': {'views': 0, 'cta_clicks': 0, 'review_clicks': 0,
+                        'maps_clicks': 0, 'social_clicks': 0, 'form_views': 0,
+                        'bounces': 0, 'conversion_rate': 0.0, 'bounce_rate': 0.0},
+            'by_store': [],
+        }
+
+    # Aggregate by event_type + store_id in one shot.
+    cursor = db.analytics.aggregate([
+        {'$match': base_match},
+        {'$group': {
+            '_id': {'store_id': '$store_id', 'event_type': '$event_type'},
+            'count': {'$sum': 1},
+        }}
+    ])
+    matrix = {}
+    async for row in cursor:
+        sid = row['_id'].get('store_id', '') or ''
+        et = row['_id'].get('event_type', '')
+        if not sid:
+            continue
+        matrix.setdefault(sid, {})
+        matrix[sid][et] = row['count']
+
+    by_store = []
+    totals = {
+        'views': 0, 'cta_clicks': 0, 'review_clicks': 0,
+        'maps_clicks': 0, 'social_clicks': 0, 'form_views': 0,
+        'bounces': 0,
+    }
+    for s in stores:
+        cells = matrix.get(s['id'], {})
+        views = cells.get('store_landing_view', 0)
+        cta = cells.get('store_landing_whatsapp_click', 0)
+        rev = cells.get('store_landing_review_click', 0)
+        maps_ = cells.get('store_landing_maps_click', 0)
+        soc = cells.get('store_landing_social_click', 0)
+        form = cells.get('store_landing_form_view', 0)
+        bounce = cells.get('store_landing_bounce', 0)
+        cr = round(((cta + form) / views * 100), 1) if views > 0 else 0.0
+        br = round((bounce / views * 100), 1) if views > 0 else 0.0
+        by_store.append({
+            'id': s['id'],
+            'name': s.get('name', ''),
+            'slug': s.get('landing_slug', ''),
+            'enabled': bool(s.get('landing_enabled', False)),
+            'cta_mode': s.get('landing_cta_mode', 'whatsapp'),
+            'views': views,
+            'cta_clicks': cta,
+            'review_clicks': rev,
+            'maps_clicks': maps_,
+            'social_clicks': soc,
+            'form_views': form,
+            'bounces': bounce,
+            'conversion_rate': cr,
+            'bounce_rate': br,
+        })
+        totals['views'] += views
+        totals['cta_clicks'] += cta
+        totals['review_clicks'] += rev
+        totals['maps_clicks'] += maps_
+        totals['social_clicks'] += soc
+        totals['form_views'] += form
+        totals['bounces'] += bounce
+
+    totals['conversion_rate'] = (
+        round(((totals['cta_clicks'] + totals['form_views']) / totals['views'] * 100), 1)
+        if totals['views'] > 0 else 0.0
+    )
+    totals['bounce_rate'] = (
+        round((totals['bounces'] / totals['views'] * 100), 1)
+        if totals['views'] > 0 else 0.0
+    )
+    # Sort descending by conversion rate then views for a "top performers" feel.
+    by_store.sort(key=lambda r: (r['conversion_rate'], r['views']), reverse=True)
+    return {'period': period, 'totals': totals, 'by_store': by_store}
+
 
 @router.get('/analytics/overview')
 async def get_analytics_overview(user: dict = Depends(get_current_user)):

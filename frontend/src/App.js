@@ -9,6 +9,7 @@ import Terms from '@/pages/Terms';
 import Privacy from '@/pages/Privacy';
 import License from '@/pages/License';
 import VendorLanding from '@/pages/VendorLanding';
+import StoreLanding from '@/pages/StoreLanding';
 import VendorLogin from '@/pages/VendorLogin';
 import VendorDashboard from '@/pages/VendorDashboard';
 import VendorPrivacy from '@/pages/VendorPrivacy';
@@ -28,6 +29,8 @@ function App() {
               <Route path="/vendor-login" element={<VendorLogin />} />
               <Route path="/v/:vendorId" element={<VendorLanding />} />
               <Route path="/v/:vendorId/privacy" element={<VendorPrivacy />} />
+              {/* Store lead-gen landing page (Meta/Google Ads funnel). */}
+              <Route path="/s/:slug" element={<StoreLanding />} />
               <Route
                 path="/dashboard/*"
                 element={

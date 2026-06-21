@@ -434,6 +434,24 @@ class StoreCreate(BaseModel):
     post_media_url: Optional[str] = Field('', max_length=600)
     post_cta_text: Optional[str] = Field('', max_length=60)
     post_whatsapp_message: Optional[str] = Field('', max_length=1000)
+    # ── Lead-gen landing page fields (per-store opt-in). When `landing_enabled`
+    # is true the store is reachable at /s/:landing_slug as a Meta/Google Ads
+    # friendly funnel page. See StoreLanding.js for the UI.
+    landing_enabled: Optional[bool] = False
+    landing_slug: Optional[str] = Field('', max_length=80)
+    landing_title: Optional[str] = Field('', max_length=120)
+    landing_subtitle: Optional[str] = Field('', max_length=200)
+    landing_hero_image: Optional[str] = Field('', max_length=600)
+    # CTA mode toggle: 'whatsapp' (default) shows the WhatsApp button as the
+    # primary action; 'html_widget' hides WhatsApp and renders `landing_html_widget`
+    # as innerHTML inside a sandboxed wrapper (intended for WINDTRE/Partner
+    # native lead-capture forms).
+    landing_cta_mode: Optional[str] = Field('whatsapp', max_length=20)
+    landing_whatsapp_message: Optional[str] = Field('', max_length=600)
+    landing_html_widget: Optional[str] = Field('', max_length=20000)
+    landing_show_reviews: Optional[bool] = True
+    landing_show_hours: Optional[bool] = True
+    landing_show_map: Optional[bool] = True
 
 class StoreResponse(BaseModel):
     id: str
@@ -455,6 +473,17 @@ class StoreResponse(BaseModel):
     post_media_url: str = ''
     post_cta_text: str = ''
     post_whatsapp_message: str = ''
+    landing_enabled: bool = False
+    landing_slug: str = ''
+    landing_title: str = ''
+    landing_subtitle: str = ''
+    landing_hero_image: str = ''
+    landing_cta_mode: str = 'whatsapp'
+    landing_whatsapp_message: str = ''
+    landing_html_widget: str = ''
+    landing_show_reviews: bool = True
+    landing_show_hours: bool = True
+    landing_show_map: bool = True
     created_at: str
 
 class VendorCredentials(BaseModel):
@@ -543,6 +572,10 @@ class AnalyticsEvent(BaseModel):
     vendor_id: str
     event_type: str
     timestamp: Optional[str] = None
+    # Store-landing events use `store_id` instead of (or in addition to) a
+    # `vendor_id`. We accept an empty `vendor_id` (sentinel "store-only")
+    # when the visitor came from a store landing instead of a vendor QR.
+    store_id: Optional[str] = ''
 
 class DeployConfig(BaseModel):
     # Fly.io
@@ -589,6 +622,17 @@ CLICK_TYPES = [
     'whatsapp_click', 'instagram_click', 'facebook_click', 'review_click',
     'tiktok_click', 'maps_click', 'post_cta_click',
     'appointment_click', 'pwa_install',
+    # Store-landing funnel events (used by /s/:slug). Tracked alongside
+    # the vendor events so AnalyticsDetailed can compute conversion-rate
+    # per-store. `store_landing_bounce` fires from `beforeunload` when the
+    # visitor leaves within 10s WITHOUT clicking any CTA.
+    'store_landing_view',
+    'store_landing_whatsapp_click',
+    'store_landing_review_click',
+    'store_landing_maps_click',
+    'store_landing_social_click',
+    'store_landing_form_view',
+    'store_landing_bounce',
 ]
 
 
@@ -927,6 +971,17 @@ async def get_stores(user: dict = Depends(get_current_user)):
         store.setdefault('post_media_url', '')
         store.setdefault('post_cta_text', '')
         store.setdefault('post_whatsapp_message', '')
+        store.setdefault('landing_enabled', False)
+        store.setdefault('landing_slug', '')
+        store.setdefault('landing_title', '')
+        store.setdefault('landing_subtitle', '')
+        store.setdefault('landing_hero_image', '')
+        store.setdefault('landing_cta_mode', 'whatsapp')
+        store.setdefault('landing_whatsapp_message', '')
+        store.setdefault('landing_html_widget', '')
+        store.setdefault('landing_show_reviews', True)
+        store.setdefault('landing_show_hours', True)
+        store.setdefault('landing_show_map', True)
     return stores
 
 @api_router.post('/stores', response_model=StoreResponse)
@@ -938,6 +993,11 @@ async def create_store(store: StoreCreate, user: dict = Depends(get_current_user
     hours_payload = None
     if store.hours:
         hours_payload = {k: (v.model_dump() if hasattr(v, 'model_dump') else dict(v)) for k, v in store.hours.items()}
+    # Resolve a unique landing slug. If the admin provided one we use it
+    # (after slugifying), otherwise we derive it from the store name.
+    raw_slug = (store.landing_slug or '').strip() or store.name
+    base_slug = _slugify(raw_slug)
+    final_slug = await _ensure_unique_store_landing_slug(base_slug)
     store_doc = {
         'id': store_id,
         'organization_id': user.get('organization_id'),
@@ -959,9 +1019,20 @@ async def create_store(store: StoreCreate, user: dict = Depends(get_current_user
         'post_media_url': store.post_media_url or '',
         'post_cta_text': store.post_cta_text or '',
         'post_whatsapp_message': store.post_whatsapp_message or '',
+        'landing_enabled': bool(store.landing_enabled),
+        'landing_slug': final_slug,
+        'landing_title': store.landing_title or '',
+        'landing_subtitle': store.landing_subtitle or '',
+        'landing_hero_image': store.landing_hero_image or '',
+        'landing_cta_mode': (store.landing_cta_mode or 'whatsapp') if (store.landing_cta_mode in ('whatsapp', 'html_widget')) else 'whatsapp',
+        'landing_whatsapp_message': store.landing_whatsapp_message or '',
+        'landing_html_widget': store.landing_html_widget or '',
+        'landing_show_reviews': True if store.landing_show_reviews is None else bool(store.landing_show_reviews),
+        'landing_show_hours': True if store.landing_show_hours is None else bool(store.landing_show_hours),
+        'landing_show_map': True if store.landing_show_map is None else bool(store.landing_show_map),
         'created_at': datetime.now(timezone.utc).isoformat()
     }
-    
+
     await db.stores.insert_one(store_doc)
     store_doc.pop('_id', None)
     store_doc.pop('organization_id', None)
@@ -976,6 +1047,20 @@ async def update_store(store_id: str, store: StoreCreate, user: dict = Depends(g
     hours_payload = None
     if store.hours:
         hours_payload = {k: (v.model_dump() if hasattr(v, 'model_dump') else dict(v)) for k, v in store.hours.items()}
+
+    # Resolve landing slug. We only re-slugify if the admin explicitly cleared
+    # the slug field OR submitted a value different from the stored one.
+    # Otherwise we keep the existing slug intact (so changing other fields
+    # doesn't accidentally rename the public URL the admin has already shared
+    # in Meta Ads).
+    existing_slug = (existing.get('landing_slug') or '').strip()
+    submitted_slug = (store.landing_slug or '').strip()
+    if submitted_slug and submitted_slug != existing_slug:
+        final_slug = await _ensure_unique_store_landing_slug(_slugify(submitted_slug), exclude_store_id=store_id)
+    elif not existing_slug:
+        final_slug = await _ensure_unique_store_landing_slug(_slugify(store.name), exclude_store_id=store_id)
+    else:
+        final_slug = existing_slug
 
     update_doc = {
         'name': store.name,
@@ -995,7 +1080,18 @@ async def update_store(store_id: str, store: StoreCreate, user: dict = Depends(g
         'post_text': store.post_text or '',
         'post_media_url': store.post_media_url or '',
         'post_cta_text': store.post_cta_text or '',
-        'post_whatsapp_message': store.post_whatsapp_message or ''
+        'post_whatsapp_message': store.post_whatsapp_message or '',
+        'landing_enabled': bool(store.landing_enabled),
+        'landing_slug': final_slug,
+        'landing_title': store.landing_title or '',
+        'landing_subtitle': store.landing_subtitle or '',
+        'landing_hero_image': store.landing_hero_image or '',
+        'landing_cta_mode': (store.landing_cta_mode or 'whatsapp') if (store.landing_cta_mode in ('whatsapp', 'html_widget')) else 'whatsapp',
+        'landing_whatsapp_message': store.landing_whatsapp_message or '',
+        'landing_html_widget': store.landing_html_widget or '',
+        'landing_show_reviews': True if store.landing_show_reviews is None else bool(store.landing_show_reviews),
+        'landing_show_hours': True if store.landing_show_hours is None else bool(store.landing_show_hours),
+        'landing_show_map': True if store.landing_show_map is None else bool(store.landing_show_map),
     }
     
     await db.stores.update_one({'id': store_id}, {'$set': update_doc})
@@ -1050,6 +1146,32 @@ def _slugify(s: str) -> str:
     while '--' in out:
         out = out.replace('--', '-')
     return out.strip('-') or str(uuid.uuid4())[:8]
+
+
+async def _ensure_unique_store_landing_slug(base_slug: str, exclude_store_id: str = '') -> str:
+    """Make sure the landing slug is unique across ALL tenants (it lives at
+    the public /s/:slug route which has no tenant prefix). If the slug
+    collides we append a short suffix `-2`, `-3`, ...
+
+    The check ignores `exclude_store_id` so callers can refresh-set the same
+    slug on the same store without colliding with themselves.
+    """
+    base_slug = (base_slug or '').strip().lower()
+    if not base_slug:
+        return ''
+    candidate = base_slug
+    n = 1
+    while True:
+        q = {'landing_slug': candidate}
+        if exclude_store_id:
+            q['id'] = {'$ne': exclude_store_id}
+        existing = await db.stores.find_one(q, {'_id': 0, 'id': 1})
+        if not existing:
+            return candidate
+        n += 1
+        candidate = f'{base_slug}-{n}'
+        if n > 200:  # paranoia stop
+            return f'{base_slug}-{uuid.uuid4().hex[:6]}'
 
 
 def _org_to_response(o: dict) -> dict:
@@ -3466,6 +3588,163 @@ async def og_vendor_preview(vendor_id: str, request: Request):
         headers={
             'Cache-Control': 'public, max-age=300, s-maxage=3600',
             'X-Robots-Tag': 'noindex',
+        },
+    )
+
+
+# ──────────────────────────────────────────────────────────────────
+# Store Landing pages — lead-gen public funnel (/s/:slug)
+# ──────────────────────────────────────────────────────────────────
+@app.get('/api/store-landing/{slug}')
+async def get_store_landing(slug: str):
+    """Public store landing data. No auth — anyone with the slug can fetch.
+    Returns ONLY the fields needed to render the public landing (no tenant
+    IDs, no internal metadata)."""
+    slug = (slug or '').strip().lower()
+    if not slug:
+        raise HTTPException(status_code=404, detail='Store not found')
+    store = await db.stores.find_one(
+        {'landing_slug': slug, 'landing_enabled': True},
+        {'_id': 0},
+    )
+    if not store:
+        raise HTTPException(status_code=404, detail='Landing non disponibile')
+    org = {}
+    if store.get('organization_id'):
+        org = await db.organizations.find_one(
+            {'id': store['organization_id']},
+            {'_id': 0, 'name': 1, 'brand_name': 1, 'primary_color': 1,
+             'secondary_color': 1, 'logo_url': 1, 'pwa_icon_url': 1,
+             'cta_arrow_color': 1}
+        ) or {}
+    return {
+        'id': store.get('id', ''),
+        'name': store.get('name', ''),
+        'whatsapp': store.get('whatsapp', ''),
+        'instagram': store.get('instagram', ''),
+        'facebook': store.get('facebook', ''),
+        'tiktok': store.get('tiktok', ''),
+        'google_review': store.get('google_review', ''),
+        'google_maps_url': store.get('google_maps_url', ''),
+        'address': store.get('address', ''),
+        'phone': store.get('phone', ''),
+        'hours_text': store.get('hours_text', ''),
+        'hours': store.get('hours') or None,
+        'landing_slug': store.get('landing_slug', ''),
+        'landing_title': store.get('landing_title', '') or store.get('name', ''),
+        'landing_subtitle': store.get('landing_subtitle', ''),
+        'landing_hero_image': store.get('landing_hero_image', ''),
+        'landing_cta_mode': store.get('landing_cta_mode', 'whatsapp'),
+        'landing_whatsapp_message': store.get('landing_whatsapp_message', ''),
+        'landing_html_widget': store.get('landing_html_widget', ''),
+        'landing_show_reviews': store.get('landing_show_reviews', True),
+        'landing_show_hours': store.get('landing_show_hours', True),
+        'landing_show_map': store.get('landing_show_map', True),
+        'organization': {
+            'name': org.get('brand_name') or org.get('name', ''),
+            'logo_url': org.get('logo_url', ''),
+            'pwa_icon_url': org.get('pwa_icon_url', ''),
+            'primary_color': org.get('primary_color', '#F96815'),
+            'secondary_color': org.get('secondary_color', ''),
+            'cta_arrow_color': org.get('cta_arrow_color', ''),
+        }
+    }
+
+
+@app.get('/og/s/{slug}', response_class=HTMLResponse)
+async def og_store_landing_preview(slug: str, request: Request):
+    """Server-rendered preview consumed by social-media crawlers (FB/IG/WA).
+    Returns minimal HTML with OG/Twitter meta tags + JSON-LD LocalBusiness
+    structured data for Google. Mirrors `og_vendor_preview` but for stores."""
+    frontend_url = os.environ.get('FRONTEND_URL', 'https://qrhub-app.vercel.app').rstrip('/')
+    slug = (slug or '').strip().lower()
+    store = await db.stores.find_one(
+        {'landing_slug': slug, 'landing_enabled': True},
+        {'_id': 0},
+    )
+    if not store:
+        # Soft 200 with empty meta so crawlers don't poison the cache.
+        return HTMLResponse(
+            f'<!doctype html><meta charset="utf-8"><title>QRHub</title>'
+            f'<meta http-equiv="refresh" content="0;url={frontend_url}/" />',
+            status_code=200,
+        )
+    org = {}
+    if store.get('organization_id'):
+        org = await db.organizations.find_one(
+            {'id': store['organization_id']},
+            {'_id': 0, 'brand_name': 1, 'name': 1, 'primary_color': 1, 'logo_url': 1}
+        ) or {}
+    brand = (org.get('brand_name') or org.get('name') or 'QRHub').strip()
+    title = (store.get('landing_title') or store.get('name') or brand).strip()
+    description = (store.get('landing_subtitle') or '').strip() \
+        or f"Contatta {store.get('name', brand)} su WhatsApp. Risposta in pochi minuti."
+    spa_url = f"{frontend_url}/s/{slug}"
+    image_url = (store.get('landing_hero_image') or '').strip() or org.get('logo_url', '')
+    if image_url and 'res.cloudinary.com' in image_url and '/upload/' in image_url and '/upload/w_' not in image_url:
+        # Cloudinary on-the-fly resize for a 1200×630 OG card. We pick a
+        # `c_fill` crop so the focal subject stays centered.
+        image_url = image_url.replace('/upload/', '/upload/w_1200,h_630,c_fill,q_auto,f_auto/', 1)
+    primary_color = org.get('primary_color') or '#F96815'
+    e = html_lib.escape
+
+    # JSON-LD LocalBusiness for Google rich result eligibility. Phone /
+    # address are filled only when the store actually has them.
+    ld = {
+        '@context': 'https://schema.org',
+        '@type': 'LocalBusiness',
+        'name': store.get('name', ''),
+        'description': description,
+        'url': spa_url,
+    }
+    if store.get('phone'):
+        ld['telephone'] = store['phone']
+    if store.get('address'):
+        ld['address'] = {'@type': 'PostalAddress', 'streetAddress': store['address']}
+    if image_url:
+        ld['image'] = image_url
+    if store.get('google_review'):
+        ld['hasMap'] = store['google_review']
+    import json as _json
+    ld_json = _json.dumps(ld, ensure_ascii=False)
+
+    tags = [
+        f'<title>{e(title)} · {e(brand)}</title>',
+        f'<meta name="description" content="{e(description)}" />',
+        f'<meta name="theme-color" content="{e(primary_color)}" />',
+        '<meta name="robots" content="index, follow" />',
+        '<meta property="og:type" content="website" />',
+        f'<meta property="og:title" content="{e(title)}" />',
+        f'<meta property="og:description" content="{e(description)}" />',
+        f'<meta property="og:url" content="{e(spa_url)}" />',
+        f'<meta property="og:site_name" content="{e(brand)}" />',
+        '<meta property="og:locale" content="it_IT" />',
+        '<meta name="twitter:card" content="summary_large_image" />',
+        f'<meta name="twitter:title" content="{e(title)}" />',
+        f'<meta name="twitter:description" content="{e(description)}" />',
+    ]
+    if image_url:
+        tags += [
+            f'<meta property="og:image" content="{e(image_url)}" />',
+            '<meta property="og:image:width" content="1200" />',
+            '<meta property="og:image:height" content="630" />',
+            f'<meta name="twitter:image" content="{e(image_url)}" />',
+        ]
+    tags.append(f'<script type="application/ld+json">{ld_json}</script>')
+
+    html = (
+        '<!doctype html><html lang="it"><head><meta charset="utf-8" />'
+        '<meta name="viewport" content="width=device-width, initial-scale=1" />'
+        + '\n'.join(tags) +
+        f'<meta http-equiv="refresh" content="0;url={spa_url}" />'
+        '</head><body><script>window.location.replace('
+        f'{html_lib.escape(spa_url)!r});</script></body></html>'
+    )
+    return HTMLResponse(
+        content=html,
+        status_code=200,
+        headers={
+            'Cache-Control': 'public, max-age=300, s-maxage=3600',
         },
     )
 

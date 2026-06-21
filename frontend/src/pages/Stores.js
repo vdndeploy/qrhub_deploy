@@ -60,6 +60,21 @@ const Stores = () => {
         appointment_url: store.appointment_url || '',
         hours_text: store.hours_text || '',
         hours: ensureHoursShape(store.hours),
+        address: store.address || '',
+        phone: store.phone || '',
+        // Landing fields — defaults match the backend StoreCreate model so a
+        // store that's never had landing config still gets the same blank form.
+        landing_enabled: !!store.landing_enabled,
+        landing_slug: store.landing_slug || '',
+        landing_title: store.landing_title || '',
+        landing_subtitle: store.landing_subtitle || '',
+        landing_hero_image: store.landing_hero_image || '',
+        landing_cta_mode: store.landing_cta_mode || 'whatsapp',
+        landing_whatsapp_message: store.landing_whatsapp_message || '',
+        landing_html_widget: store.landing_html_widget || '',
+        landing_show_reviews: store.landing_show_reviews !== false,
+        landing_show_hours: store.landing_show_hours !== false,
+        landing_show_map: store.landing_show_map !== false,
       });
     } else {
       setEditingStore(null);
@@ -308,11 +323,201 @@ const Stores = () => {
               </div>
             </div>
             <div className="border-t pt-4 space-y-3">
-              <div className="text-sm font-semibold text-gray-700 dark:text-[#a8a8b0]">Scheda negozio (pulsante "Store" sulla landing)</div>
+              <div className="text-sm font-semibold text-gray-700 dark:text-[#a8a8b0]">Scheda negozio (pulsante &quot;Store&quot; sulla landing)</div>
               <HoursEditor
                 value={formData.hours}
                 onChange={(h) => setFormData({ ...formData, hours: h })}
               />
+              <div>
+                <Label>Indirizzo</Label>
+                <Input
+                  placeholder="Via Roma 10, Verona"
+                  value={formData.address}
+                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                  data-testid="store-address-input"
+                />
+              </div>
+              <div>
+                <Label>Telefono</Label>
+                <Input
+                  placeholder="+39 045 1234567"
+                  value={formData.phone}
+                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  data-testid="store-phone-input"
+                />
+              </div>
+            </div>
+
+            {/* ── Lead-gen Landing Page (Meta/Google Ads funnel) ────────── */}
+            <div className="border-t pt-4 space-y-3" data-testid="store-landing-section">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="text-sm font-semibold text-gray-700 dark:text-[#a8a8b0]">
+                    Landing lead-gen <span className="text-[10px] uppercase tracking-wider text-emerald-600 ml-1">NEW</span>
+                  </div>
+                  <p className="text-[11px] text-gray-500 dark:text-[#6a6a72] mt-0.5">
+                    Pagina pubblica per Meta/Google Ads. Un solo CTA principale, analytics integrate.
+                  </p>
+                </div>
+                <label className="inline-flex items-center cursor-pointer flex-shrink-0">
+                  <input
+                    type="checkbox"
+                    className="sr-only peer"
+                    checked={!!formData.landing_enabled}
+                    onChange={(e) => setFormData({ ...formData, landing_enabled: e.target.checked })}
+                    data-testid="store-landing-enabled-toggle"
+                  />
+                  <div className="w-11 h-6 bg-gray-200 dark:bg-white/15 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-[#D2FA46]/40 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500 relative" />
+                </label>
+              </div>
+
+              {formData.landing_enabled && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                  <div className="sm:col-span-2">
+                    <Label>Slug (URL pubblico)</Label>
+                    <div className="flex items-center gap-1">
+                      <span className="text-xs text-gray-500 dark:text-[#6a6a72]">/s/</span>
+                      <Input
+                        placeholder="windtre-castelnuovo-garda"
+                        value={formData.landing_slug}
+                        onChange={(e) => setFormData({ ...formData, landing_slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-') })}
+                        data-testid="store-landing-slug-input"
+                        className="flex-1"
+                      />
+                    </div>
+                    <p className="text-[10px] text-gray-500 dark:text-[#6a6a72] mt-1">
+                      Lascia vuoto per auto-generare dal nome del negozio.
+                    </p>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <Label>Titolo principale</Label>
+                    <Input
+                      placeholder="Attiva la tua offerta in 30 secondi"
+                      value={formData.landing_title}
+                      onChange={(e) => setFormData({ ...formData, landing_title: e.target.value })}
+                      data-testid="store-landing-title-input"
+                      maxLength={120}
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <Label>Sottotitolo / descrizione breve</Label>
+                    <Input
+                      placeholder="Parla con un nostro consulente"
+                      value={formData.landing_subtitle}
+                      onChange={(e) => setFormData({ ...formData, landing_subtitle: e.target.value })}
+                      data-testid="store-landing-subtitle-input"
+                      maxLength={200}
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <Label>Immagine hero (URL Cloudinary)</Label>
+                    <Input
+                      placeholder="https://res.cloudinary.com/…"
+                      value={formData.landing_hero_image}
+                      onChange={(e) => setFormData({ ...formData, landing_hero_image: e.target.value })}
+                      data-testid="store-landing-hero-input"
+                    />
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <Label className="block mb-2">Modalità CTA principale</Label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setFormData({ ...formData, landing_cta_mode: 'whatsapp' })}
+                        className={`p-3 rounded-xl border-2 text-xs font-medium transition-all ${
+                          formData.landing_cta_mode === 'whatsapp'
+                            ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+                            : 'border-gray-200 dark:border-white/10 text-gray-600 dark:text-[#a8a8b0]'
+                        }`}
+                        data-testid="store-landing-cta-whatsapp"
+                      >
+                        💬 WhatsApp
+                        <div className="text-[10px] text-gray-500 mt-1">Pulsante diretto</div>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setFormData({ ...formData, landing_cta_mode: 'html_widget' })}
+                        className={`p-3 rounded-xl border-2 text-xs font-medium transition-all ${
+                          formData.landing_cta_mode === 'html_widget'
+                            ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-300'
+                            : 'border-gray-200 dark:border-white/10 text-gray-600 dark:text-[#a8a8b0]'
+                        }`}
+                        data-testid="store-landing-cta-widget"
+                      >
+                        📋 Widget HTML
+                        <div className="text-[10px] text-gray-500 mt-1">Form partner (WINDTRE)</div>
+                      </button>
+                    </div>
+                  </div>
+
+                  {formData.landing_cta_mode === 'whatsapp' && (
+                    <div className="sm:col-span-2">
+                      <Label>Messaggio pre-compilato WhatsApp</Label>
+                      <Input
+                        placeholder="Ciao! Vorrei info sulle offerte attive."
+                        value={formData.landing_whatsapp_message}
+                        onChange={(e) => setFormData({ ...formData, landing_whatsapp_message: e.target.value })}
+                        data-testid="store-landing-wa-msg-input"
+                        maxLength={600}
+                      />
+                    </div>
+                  )}
+
+                  {formData.landing_cta_mode === 'html_widget' && (
+                    <div className="sm:col-span-2">
+                      <Label>HTML del widget</Label>
+                      <textarea
+                        rows={6}
+                        placeholder="<form action='...'>...</form>  (incolla qui il widget WINDTRE)"
+                        value={formData.landing_html_widget}
+                        onChange={(e) => setFormData({ ...formData, landing_html_widget: e.target.value })}
+                        data-testid="store-landing-html-input"
+                        maxLength={20000}
+                        className="w-full font-mono text-[11px] p-2 border rounded-md bg-white dark:bg-[#0a0a0b] border-gray-300 dark:border-white/10 text-gray-900 dark:text-white"
+                      />
+                      <p className="text-[10px] text-amber-700 dark:text-amber-300 mt-1">
+                        ⚠️ Solo HTML/form. Niente <code>&lt;script&gt;</code> arbitrari. Il widget viene renderizzato in sandbox.
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="sm:col-span-2 grid grid-cols-3 gap-2 pt-2">
+                    <CheckboxRow
+                      label="Recensioni Google"
+                      checked={formData.landing_show_reviews}
+                      onChange={(v) => setFormData({ ...formData, landing_show_reviews: v })}
+                      testId="store-landing-show-reviews"
+                    />
+                    <CheckboxRow
+                      label="Orari"
+                      checked={formData.landing_show_hours}
+                      onChange={(v) => setFormData({ ...formData, landing_show_hours: v })}
+                      testId="store-landing-show-hours"
+                    />
+                    <CheckboxRow
+                      label="Mappa/Indirizzo"
+                      checked={formData.landing_show_map}
+                      onChange={(v) => setFormData({ ...formData, landing_show_map: v })}
+                      testId="store-landing-show-map"
+                    />
+                  </div>
+
+                  {formData.landing_slug && (
+                    <div className="sm:col-span-2 mt-2 p-3 rounded-xl bg-gray-50 dark:bg-[#0a0a0b] border border-gray-200 dark:border-white/10">
+                      <p className="text-[11px] text-gray-500 dark:text-[#6a6a72] mb-1">Link pubblico (condividi per Meta/Google Ads):</p>
+                      <a
+                        href={`/s/${formData.landing_slug}`}
+                        target="_blank" rel="noopener noreferrer"
+                        className="text-sm font-mono text-[#D2FA46] hover:underline break-all"
+                        data-testid="store-landing-preview-link"
+                      >
+                        /s/{formData.landing_slug}
+                      </a>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>Annulla</Button>
@@ -328,6 +533,25 @@ const Stores = () => {
 const empty = () => ({
   name: '', whatsapp: '', whatsapp_message: '', instagram: '', facebook: '', tiktok: '',
   google_review: '', google_maps_url: '', appointment_url: '', hours_text: '', hours: ensureHoursShape(null),
+  address: '', phone: '',
+  landing_enabled: false, landing_slug: '', landing_title: '', landing_subtitle: '',
+  landing_hero_image: '', landing_cta_mode: 'whatsapp', landing_whatsapp_message: '',
+  landing_html_widget: '', landing_show_reviews: true, landing_show_hours: true, landing_show_map: true,
 });
+
+// Compact checkbox row used inside the landing config (shows/hides
+// each section of the public page). Centralized so the 3 rows stay
+// visually consistent without verbose JSX.
+const CheckboxRow = ({ label, checked, onChange, testId }) => (
+  <label className="flex items-center gap-2 cursor-pointer select-none" data-testid={testId}>
+    <input
+      type="checkbox"
+      checked={!!checked}
+      onChange={(e) => onChange(e.target.checked)}
+      className="h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+    />
+    <span className="text-xs text-gray-700 dark:text-[#a8a8b0]">{label}</span>
+  </label>
+);
 
 export default Stores;

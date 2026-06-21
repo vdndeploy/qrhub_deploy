@@ -103,6 +103,9 @@ export default function AnalyticsDetailed({ mode = 'admin', vendors = [], defaul
   const [loading, setLoading] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [logOpen, setLogOpen] = useState(false);
+  // Lead-gen landing analytics — admin only. Vendor mode never sees this
+  // because landings are per-STORE, not per-vendor.
+  const [landingsData, setLandingsData] = useState(null);
 
   const endpoint = mode === 'vendor' ? '/vendor/analytics/detailed' : '/analytics/detailed';
   const pdfEndpoint = mode === 'vendor' ? '/vendor/analytics/export/pdf' : '/analytics/export/pdf';
@@ -118,6 +121,14 @@ export default function AnalyticsDetailed({ mode = 'admin', vendors = [], defaul
       toast.error('Errore caricamento analytics');
     } finally {
       setLoading(false);
+    }
+    if (mode === 'admin') {
+      try {
+        const { data: ld } = await axios.get(`${API}/analytics/store-landings`, {
+          params: { period }, withCredentials: true,
+        });
+        setLandingsData(ld);
+      } catch { /* non-blocking — sezione opzionale */ }
     }
   }, [period, vendorId, mode, endpoint]);
 
@@ -357,10 +368,144 @@ export default function AnalyticsDetailed({ mode = 'admin', vendors = [], defaul
             </div>
           </CollapsibleContent>
         </Collapsible>
+
+        {/* ── Lead-gen Landing Negozi — only renders for admin AND if at least
+            one store has activated the public landing page. */}
+        {mode === 'admin' && landingsData && landingsData.totals.views > 0 && (
+          <StoreLandingsSection data={landingsData} />
+        )}
       </div>
     </div>
   );
 }
+
+// ── Lead-gen funnel section for /s/:slug landing pages ────────────────────
+const StoreLandingsSection = ({ data }) => {
+  const t = data.totals;
+  // 4-stage funnel: Atterraggi → Engaged (any non-bounce) → CTA click → Form view
+  const engaged = Math.max(0, t.views - t.bounces);
+  const ctaTotal = t.cta_clicks + t.form_views;
+  const funnel = [
+    { label: 'Atterraggi',          value: t.views,    color: '#9B7BFF' },
+    { label: 'Visitatori coinvolti', value: engaged,    color: '#6EC1E4' },
+    { label: 'Click CTA',            value: ctaTotal,   color: '#D2FA46' },
+    { label: 'Form WINDTRE visti',   value: t.form_views, color: '#5DD4A0' },
+  ];
+  const max = funnel[0].value || 1;
+  return (
+    <div className="space-y-4" data-testid="landings-analytics-section">
+      <div className="flex items-center gap-2 pt-2">
+        <span className="inline-block w-2 h-6 rounded-full bg-emerald-500" />
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white">
+          Landing Negozi — Funnel lead-gen
+        </h3>
+        <span className="text-[10px] uppercase tracking-widest font-semibold text-emerald-600 ml-1">NEW</span>
+      </div>
+
+      {/* KPI cards specifico landing */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <LandingKpi label="Atterraggi" value={t.views} sub="Visite uniche/90min" />
+        <LandingKpi label="Conversion Rate" value={`${t.conversion_rate}%`} tone="emerald" sub="Click CTA / Atterraggi" />
+        <LandingKpi label="Click CTA" value={t.cta_clicks + t.form_views} sub={`${t.cta_clicks} WA + ${t.form_views} Form`} />
+        <LandingKpi label="Bounce Rate" value={`${t.bounce_rate}%`} tone={t.bounce_rate > 60 ? 'red' : 'amber'} sub="Chiusura < 10s" />
+      </div>
+
+      {/* Funnel visualization */}
+      <Card title="Funnel di conversione">
+        <div className="space-y-2.5">
+          {funnel.map((row) => {
+            const pct = Math.round((row.value / max) * 100);
+            const fromTopPct = funnel[0].value > 0
+              ? Math.round((row.value / funnel[0].value) * 100) : 0;
+            return (
+              <div key={row.label} className="flex items-center gap-3">
+                <span className="text-sm text-gray-700 dark:text-[#a8a8b0] w-44 sm:w-52 flex-shrink-0">
+                  {row.label}
+                </span>
+                <div className="flex-1 h-3 rounded-full bg-gray-100 dark:bg-white/[0.06] overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all"
+                    style={{ width: `${Math.max(pct, row.value > 0 ? 4 : 0)}%`, background: row.color }}
+                  />
+                </div>
+                <span className="text-sm font-semibold text-gray-900 dark:text-white tabular-nums w-12 text-right">
+                  {row.value}
+                </span>
+                <span className="text-[10px] text-gray-400 tabular-nums w-9 text-right">
+                  {fromTopPct}%
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </Card>
+
+      {/* Per-store performance table */}
+      <Card title="Performance per Negozio">
+        <div className="overflow-x-auto -mx-5 sm:mx-0 px-5 sm:px-0">
+          <table className="w-full text-sm" data-testid="landings-store-table">
+            <thead>
+              <tr className="text-left text-[11px] uppercase tracking-wider text-gray-500 dark:text-[#6a6a72] border-b border-gray-100 dark:border-white/5">
+                <th className="py-2 pr-3 font-semibold">Negozio</th>
+                <th className="py-2 px-2 font-semibold text-right">Visite</th>
+                <th className="py-2 px-2 font-semibold text-right">CTA</th>
+                <th className="py-2 px-2 font-semibold text-right">CR%</th>
+                <th className="py-2 px-2 font-semibold text-right">Bounce%</th>
+                <th className="py-2 pl-2 font-semibold hidden sm:table-cell"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.by_store.filter(s => s.enabled || s.views > 0).map((s) => (
+                <tr key={s.id} className="border-b border-gray-50 dark:border-white/[0.04]" data-testid={`landings-row-${s.id}`}>
+                  <td className="py-2.5 pr-3">
+                    <div className="flex flex-col">
+                      <span className="font-medium text-gray-900 dark:text-white truncate max-w-[200px]">{s.name}</span>
+                      <span className="text-[10px] text-gray-400">/s/{s.slug}</span>
+                    </div>
+                  </td>
+                  <td className="py-2.5 px-2 text-right tabular-nums font-semibold">{s.views}</td>
+                  <td className="py-2.5 px-2 text-right tabular-nums">{s.cta_clicks + s.form_views}</td>
+                  <td className="py-2.5 px-2 text-right tabular-nums">
+                    <span className={`px-1.5 py-0.5 rounded text-[11px] font-medium ${
+                      s.conversion_rate >= 5 ? 'bg-emerald-100 text-emerald-700' :
+                      s.conversion_rate > 0 ? 'bg-amber-100 text-amber-700' :
+                      'bg-gray-100 text-gray-500'
+                    }`}>
+                      {s.conversion_rate}%
+                    </span>
+                  </td>
+                  <td className="py-2.5 px-2 text-right tabular-nums text-gray-500">{s.bounce_rate}%</td>
+                  <td className="py-2.5 pl-2 hidden sm:table-cell">
+                    {s.slug && (
+                      <a href={`/s/${s.slug}`} target="_blank" rel="noopener noreferrer"
+                          className="text-xs text-[#D2FA46] hover:underline">Apri ↗</a>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+    </div>
+  );
+};
+
+const LandingKpi = ({ label, value, sub, tone = 'gray' }) => {
+  const toneCls = {
+    gray: 'text-gray-900 dark:text-white',
+    emerald: 'text-emerald-600 dark:text-emerald-400',
+    amber: 'text-amber-600 dark:text-amber-400',
+    red: 'text-red-600 dark:text-red-400',
+  }[tone] || 'text-gray-900 dark:text-white';
+  return (
+    <div className="bg-white dark:bg-[#131316] rounded-2xl border border-gray-200 dark:border-white/10 p-4">
+      <p className="text-[10px] text-gray-500 dark:text-[#6a6a72] uppercase tracking-widest font-semibold">{label}</p>
+      <p className={`text-2xl font-black tracking-tight ${toneCls} mt-1`}>{value}</p>
+      {sub && <p className="text-[10px] text-gray-400 dark:text-[#6a6a72] mt-0.5 truncate">{sub}</p>}
+    </div>
+  );
+};
 
 const KpiCard = ({ icon, ring, iconBg, label, value }) => (
   <div className="relative overflow-hidden bg-white dark:bg-[#131316] rounded-3xl border border-gray-200 dark:border-white/10 p-5 shadow-sm transition-shadow hover:shadow-md">

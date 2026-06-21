@@ -41,6 +41,14 @@ const MediaPicker = ({
   allowDelete = true,
   mineOnly = false,
   manageMode = false,
+  /**
+   * `modal` defaults to true (Radix backdrop + focus trap). Set to false when
+   * the picker is opened from inside another Radix `<Dialog>` (e.g. the
+   * Landings editor), otherwise the outer dialog reacts to the picker's
+   * focus capture by firing its own `onOpenChange(false)` and the editor
+   * unmounts, losing all unsaved form state.
+   */
+  modal = true,
 }) => {
   const [kind, setKind] = useState(kindProp || 'uploads');
   const [items, setItems] = useState([]);
@@ -132,7 +140,7 @@ const MediaPicker = ({
   const canNext = skip + items.length < total;
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose?.(); }}>
+    <Dialog open={open} modal={modal} onOpenChange={(v) => { if (!v) onClose?.(); }}>
       <DialogContent className="max-w-5xl max-h-[90vh] flex flex-col" data-testid="media-picker-dialog">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">

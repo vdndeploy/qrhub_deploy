@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { toast } from 'sonner';
 import {
   Sparkles, Edit, ExternalLink, Eye, MessageCircle, Image as ImageIcon,
-  Search, X, FormInput,
+  Search, X, FormInput, FolderOpen,
 } from 'lucide-react';
 import MediaPicker from '@/components/MediaPicker';
 
@@ -33,6 +33,7 @@ const Landings = () => {
   const [formData, setFormData] = useState(emptyLanding());
   const [saving, setSaving] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => { load(); }, []);
 
@@ -85,6 +86,29 @@ const Landings = () => {
       toast.error(err.response?.data?.detail || 'Errore nel salvataggio');
     } finally {
       setSaving(false);
+    }
+  };
+
+  // Direct file → Cloudinary upload for the hero banner. Mirrors Posts.js
+  // upload path (POST /api/upload with folder=landings). Keeps the
+  // selection inside the form state, so the editor doesn't need to be
+  // closed/reopened to "register" the new image.
+  const handleHeroUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = ''; // allow re-selecting the same file later
+    setUploading(true);
+    const fd = new FormData();
+    fd.append('file', file);
+    fd.append('folder', 'landings');
+    try {
+      const { data } = await axios.post(`${API}/upload`, fd, { withCredentials: true });
+      setFormData((f) => ({ ...f, landing_hero_image: data.url }));
+      toast.success('Banner caricato');
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Errore upload immagine');
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -200,27 +224,47 @@ const Landings = () => {
                           <p className="text-[10px] mt-1">Formato consigliato: 1200×750 (rapporto 16:10)</p>
                         </div>
                       )}
-                      <button
-                        type="button"
-                        onClick={() => setPickerOpen(true)}
-                        className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100"
+                      <label
+                        htmlFor="landing-hero-upload"
+                        className="absolute inset-0 cursor-pointer bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100"
                         data-testid="landing-hero-pick-btn"
                       >
                         <span className="bg-white text-gray-900 px-3 py-1.5 rounded-lg text-xs font-semibold shadow-lg">
-                          {formData.landing_hero_image ? 'Cambia immagine' : 'Carica / Sfoglia'}
+                          {formData.landing_hero_image ? 'Cambia immagine' : 'Clicca per caricare'}
                         </span>
-                      </button>
+                      </label>
                     </div>
                     <div className="flex flex-wrap gap-2">
+                      <label
+                        htmlFor="landing-hero-upload"
+                        className={`inline-flex items-center cursor-pointer text-xs font-semibold px-3 py-2 rounded-lg border ${
+                          uploading
+                            ? 'border-gray-200 bg-gray-100 text-gray-400 cursor-wait'
+                            : 'border-emerald-500 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:border-emerald-500/40'
+                        }`}
+                        data-testid="landing-hero-upload-btn"
+                      >
+                        <ImageIcon className="h-4 w-4 mr-2" />
+                        {uploading ? 'Carico…' : 'Carica nuovo file'}
+                        <input
+                          id="landing-hero-upload"
+                          type="file"
+                          accept="image/*"
+                          className="sr-only"
+                          disabled={uploading}
+                          onChange={handleHeroUpload}
+                        />
+                      </label>
                       <Button type="button" variant="outline" size="sm"
                               onClick={() => setPickerOpen(true)}
                               data-testid="landing-hero-browse-btn">
-                        <ImageIcon className="h-4 w-4 mr-2" />
-                        Carica o sfoglia libreria
+                        <FolderOpen className="h-4 w-4 mr-2" />
+                        Sfoglia libreria
                       </Button>
                       {formData.landing_hero_image && (
                         <Button type="button" variant="outline" size="sm"
-                                onClick={() => setFormData({ ...formData, landing_hero_image: '' })}>
+                                onClick={() => setFormData((f) => ({ ...f, landing_hero_image: '' }))}
+                                data-testid="landing-hero-remove-btn">
                           Rimuovi
                         </Button>
                       )}
@@ -390,8 +434,15 @@ const Landings = () => {
 
       <MediaPicker
         open={pickerOpen}
+        modal={false}
         onClose={() => setPickerOpen(false)}
-        onSelect={(it) => { setFormData((f) => ({ ...f, landing_hero_image: it.url })); setPickerOpen(false); }}
+        onSelect={(it) => {
+          // Defensive: rely on functional setState so we don't drop other
+          // unsaved fields if the picker re-opens before this commits.
+          setFormData((f) => ({ ...f, landing_hero_image: it.url }));
+          setPickerOpen(false);
+          toast.success('Immagine selezionata');
+        }}
         title="Banner landing — Sfoglia o carica"
       />
     </div>

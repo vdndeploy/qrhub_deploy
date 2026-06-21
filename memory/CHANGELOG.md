@@ -4,6 +4,19 @@
 
 ---
 
+## 2026-06-21 — P0 Verifica fix MediaPicker + UI Premium Store Landing
+
+- **Fix MediaPicker dialog stacking verificato e2e** (`Iteration 5` testing report):
+  - Conferma che `modal={true}` sul Radix Dialog interno + guard `if (!o && pickerOpen) return;` sull'`onOpenChange` del parent `Landings.js` + `setTimeout(0)` deferred close del picker risolvono il bug classico Radix focus-trap stacking dove il parent dialog veniva chiuso aprendo/chiudendo il MediaPicker nested.
+  - Test e2e Playwright simula lo scenario di failure: login org_admin → apri editor → click "Sfoglia libreria" → click "Usa" su media item → asserts: picker chiuso ✓, editor ancora aperto ✓, form state retained ✓, hero image preview aggiornata ✓, save PUT 200 ✓.
+- **UI Premium StoreLanding verificata** (`/s/:slug`):
+  - Mobile viewport 414×900: hero image con overlay titolo/sottotitolo, brand badge top-left con backdrop-blur, CTA singolo WhatsApp con gradient verde + shadow halo (no duplicati), card info `Leggi recensioni`/`Vieni a trovarci`/`Orari di apertura` con icone gradient e shadow soft.
+  - Analytics funnel 4/4 eventi verificati (`store_landing_view`, `_review_click`, `_maps_click`, `_whatsapp_click`).
+- **Test infrastructure**: creato QA Test Org dedicato + admin@example.com associato + store seed + 2 media item per validazione MediaPicker. Test credentials aggiornate in `/app/memory/test_credentials.md`.
+- **Conferma**: il container HTML widget WINDTRE è già implementato sia lato admin (`Landings.js` linee 334-387: CTA mode picker + textarea HTML max 20KB con warning script) sia lato pubblico (`StoreLanding.js`: `<HtmlWidgetSection>` con analytics `store_landing_form_view`). Pronto per ricevere il codice WINDTRE quando l'utente lo fornirà.
+
+---
+
 ## 2026-06-01 — Mobile UX restyling + Auto theme + Secondary colors + Brand cleanup
 
 - **Landing Negozi v2 — Tab dedicato + Hero premium + Fix link recensioni**:

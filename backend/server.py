@@ -452,6 +452,11 @@ class StoreCreate(BaseModel):
     landing_show_reviews: Optional[bool] = True
     landing_show_hours: Optional[bool] = True
     landing_show_map: Optional[bool] = True
+    # Link to the Google reviews READ page (visitors browsing reviews) —
+    # distinct from `google_review` which is the "write a review" pre-form.
+    # Optional: when empty the frontend falls back to deriving the read URL
+    # from the write one (strip the trailing `/review`).
+    landing_review_read_url: Optional[str] = Field('', max_length=600)
 
 class StoreResponse(BaseModel):
     id: str
@@ -484,6 +489,7 @@ class StoreResponse(BaseModel):
     landing_show_reviews: bool = True
     landing_show_hours: bool = True
     landing_show_map: bool = True
+    landing_review_read_url: str = ''
     created_at: str
 
 class VendorCredentials(BaseModel):
@@ -982,6 +988,7 @@ async def get_stores(user: dict = Depends(get_current_user)):
         store.setdefault('landing_show_reviews', True)
         store.setdefault('landing_show_hours', True)
         store.setdefault('landing_show_map', True)
+        store.setdefault('landing_review_read_url', '')
     return stores
 
 @api_router.post('/stores', response_model=StoreResponse)
@@ -1030,6 +1037,7 @@ async def create_store(store: StoreCreate, user: dict = Depends(get_current_user
         'landing_show_reviews': True if store.landing_show_reviews is None else bool(store.landing_show_reviews),
         'landing_show_hours': True if store.landing_show_hours is None else bool(store.landing_show_hours),
         'landing_show_map': True if store.landing_show_map is None else bool(store.landing_show_map),
+        'landing_review_read_url': store.landing_review_read_url or '',
         'created_at': datetime.now(timezone.utc).isoformat()
     }
 
@@ -1092,6 +1100,7 @@ async def update_store(store_id: str, store: StoreCreate, user: dict = Depends(g
         'landing_show_reviews': True if store.landing_show_reviews is None else bool(store.landing_show_reviews),
         'landing_show_hours': True if store.landing_show_hours is None else bool(store.landing_show_hours),
         'landing_show_map': True if store.landing_show_map is None else bool(store.landing_show_map),
+        'landing_review_read_url': store.landing_review_read_url or '',
     }
     
     await db.stores.update_one({'id': store_id}, {'$set': update_doc})
@@ -3640,6 +3649,7 @@ async def get_store_landing(slug: str):
         'landing_show_reviews': store.get('landing_show_reviews', True),
         'landing_show_hours': store.get('landing_show_hours', True),
         'landing_show_map': store.get('landing_show_map', True),
+        'landing_review_read_url': store.get('landing_review_read_url', ''),
         'organization': {
             'name': org.get('brand_name') or org.get('name', ''),
             'logo_url': org.get('logo_url', ''),

@@ -184,41 +184,50 @@ const StoreLanding = () => {
           paid traffic is 95% mobile and the funnel reads cleaner this way.
           Pattern used by Linktree / Beacons / Stan etc. */}
       <main className="mx-auto w-full max-w-md min-h-dvh bg-white shadow-sm flex flex-col">
-        {/* Hero */}
-        <section
-          className="relative px-6 pt-12 pb-8 text-white"
-          style={{ background: `linear-gradient(140deg, ${orgColor}, ${shadeColor(orgColor, -15)})` }}
-        >
-          {store.organization?.logo_url && (
-            <img
-              src={store.organization.logo_url}
-              alt={brand}
-              className="h-10 mb-4 brightness-[10] contrast-[20] hidden"
-            />
-          )}
-          {store.landing_hero_image && (
+        {/* ── Hero banner — premium layout: full-width image with title /
+            subtitle overlayed at the BOTTOM (admin can design the promo
+            into the image and we leave the bottom strip semi-transparent
+            for readability). If no image, fallback to brand-color
+            gradient with title centered. */}
+        <section className="relative w-full aspect-[4/5] sm:aspect-[16/12] overflow-hidden">
+          {store.landing_hero_image ? (
             <img
               src={store.landing_hero_image}
-              alt=""
-              className="w-full h-44 object-cover rounded-2xl mb-6 shadow-lg"
+              alt={store.landing_title || store.name}
+              className="absolute inset-0 w-full h-full object-cover"
+              data-testid="store-landing-hero-image"
+            />
+          ) : (
+            <div
+              className="absolute inset-0"
+              style={{ background: `linear-gradient(140deg, ${orgColor}, ${shadeColor(orgColor, -15)})` }}
             />
           )}
-          <h1 className="text-2xl font-bold leading-tight" data-testid="store-landing-title">
-            {store.landing_title || store.name}
-          </h1>
-          {store.landing_subtitle && (
-            <p className="mt-2 text-sm text-white/90 leading-relaxed" data-testid="store-landing-subtitle">
-              {store.landing_subtitle}
-            </p>
+          {/* Bottom overlay gradient — only kicks in for the lower 45% of the
+              image so the focal subject above stays untouched. */}
+          <div className="absolute inset-x-0 bottom-0 h-[55%] bg-gradient-to-t from-black/70 via-black/35 to-transparent" />
+          {/* Brand badge — top-left, subtle */}
+          {brand && (
+            <div className="absolute top-4 left-4 inline-flex items-center gap-1.5 text-[10px] font-medium text-white bg-black/30 backdrop-blur-sm rounded-full px-2.5 py-1">
+              <ShieldCheck className="h-3 w-3" /> {brand}
+            </div>
           )}
-          <div className="mt-4 inline-flex items-center gap-1.5 text-[11px] text-white/80 bg-black/15 rounded-full px-2.5 py-1">
-            <ShieldCheck className="h-3 w-3" /> {brand || 'Sito ufficiale'}
+          {/* Title + subtitle in the bottom overlay */}
+          <div className="absolute inset-x-0 bottom-0 px-6 pb-5 text-white">
+            <h1 className="text-2xl font-bold leading-tight drop-shadow-lg" data-testid="store-landing-title">
+              {store.landing_title || store.name}
+            </h1>
+            {store.landing_subtitle && (
+              <p className="mt-1.5 text-sm text-white/95 leading-relaxed drop-shadow-md" data-testid="store-landing-subtitle">
+                {store.landing_subtitle}
+              </p>
+            )}
           </div>
         </section>
 
-        {/* Primary CTA — appears immediately after hero so even non-scrollers
-            see it. Sticky variant below the fold reinforces it. */}
-        <section className="px-6 -mt-6">
+        {/* ── Neutral CTA strip — sits directly below the image so the
+            admin's design above never gets visually fragmented. */}
+        <section className="px-6 pt-5 pb-2 bg-white">
           {showWhatsapp && (
             <a
               href={buildWaUrl()}
@@ -244,27 +253,39 @@ const StoreLanding = () => {
           )}
         </section>
 
-        {/* Info blocks — collapsible feel via simple sections.
-            Each optional based on landing_show_* flags. */}
-        <div className="px-6 mt-8 space-y-3">
-          {store.landing_show_reviews && store.google_review && (
-            <a
-              href={store.google_review}
-              target="_blank" rel="noopener noreferrer"
-              onClick={() => track('store_landing_review_click')}
-              data-testid="store-landing-review-btn"
-              className="block rounded-2xl bg-yellow-50 border border-yellow-200 p-4 hover:bg-yellow-100 transition-colors"
-            >
-              <div className="flex items-center gap-3">
-                <Star className="h-5 w-5 text-yellow-600 fill-yellow-500" />
-                <div className="flex-1">
-                  <p className="font-semibold text-yellow-900 text-sm">Leggi le recensioni</p>
-                  <p className="text-xs text-yellow-800/80 mt-0.5">Cosa dicono i nostri clienti su Google</p>
+        {/* ── Info blocks — uniform spacing (`space-y-3`) and rounded
+            cards so the page never feels "stacked" / cramped. Each block
+            is independently toggled via landing_show_*. */}
+        <div className="px-6 mt-6 space-y-3">
+          {store.landing_show_reviews && (() => {
+            // The "Read reviews" link must point to the READ page on Google
+            // Maps — distinct from the "write a review" link the org keeps
+            // in `google_review`. We prefer the explicit field set by the
+            // admin; if empty we make a best-effort fallback by stripping
+            // a trailing `/review` segment from the write URL. The admin
+            // can override this any time from the Landings tab.
+            const readUrl = (store.landing_review_read_url || '').trim()
+              || (store.google_review || '').replace(/\/review\/?$/i, '');
+            if (!readUrl) return null;
+            return (
+              <a
+                href={readUrl}
+                target="_blank" rel="noopener noreferrer"
+                onClick={() => track('store_landing_review_click')}
+                data-testid="store-landing-review-btn"
+                className="block rounded-2xl bg-yellow-50 border border-yellow-200 p-4 hover:bg-yellow-100 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <Star className="h-5 w-5 text-yellow-600 fill-yellow-500" />
+                  <div className="flex-1">
+                    <p className="font-semibold text-yellow-900 text-sm">Leggi le recensioni</p>
+                    <p className="text-xs text-yellow-800/80 mt-0.5">Cosa dicono i nostri clienti su Google</p>
+                  </div>
+                  <ExternalLink className="h-4 w-4 text-yellow-700" />
                 </div>
-                <ExternalLink className="h-4 w-4 text-yellow-700" />
-              </div>
-            </a>
-          )}
+              </a>
+            );
+          })()}
 
           {store.landing_show_map && (store.google_maps_url || store.address) && (
             <a

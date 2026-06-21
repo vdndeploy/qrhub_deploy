@@ -2,7 +2,7 @@ import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   BarChart3, Users, Settings as SettingsIcon, Store, FolderOpen,
-  Building2, Sliders, FileText, Shield, Megaphone, Menu, X,
+  Building2, Sliders, FileText, Shield, Megaphone, Sparkles, Menu, X,
 } from 'lucide-react';
 import {
   Sheet, SheetContent, SheetTrigger, SheetTitle,
@@ -24,6 +24,7 @@ const ITEMS_ORG_ADMIN = [
   { path: '/dashboard/stores',         icon: Store,        label: 'Negozi' },
   { path: '/dashboard/vendors',        icon: Users,        label: 'Venditori' },
   { path: '/dashboard/posts',          icon: Megaphone,    label: 'Annunci',  badge: 'NEW' },
+  { path: '/dashboard/landings',       icon: Sparkles,     label: 'Landing',  badge: 'NEW' },
   { path: '/dashboard/media',          icon: FolderOpen,   label: 'Media' },
   { path: '/dashboard/organization',   icon: Sliders,      label: 'Organizzazione' },
 ];

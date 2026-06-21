@@ -15,8 +15,9 @@ import MyAccount from './MyAccount';
 import Dpa from './Dpa';
 import Audit from './Audit';
 import Posts from './Posts';
+import Landings from './Landings';
 import MobileNavDrawer from '../components/MobileNavDrawer';
-import { LogOut, BarChart3, Users, Settings as SettingsIcon, Store, FolderOpen, Building2, Sliders, FileText, UserCircle, AlertTriangle, Sun, Moon, Shield, Megaphone } from 'lucide-react';
+import { LogOut, BarChart3, Users, Settings as SettingsIcon, Store, FolderOpen, Building2, Sliders, FileText, UserCircle, AlertTriangle, Sun, Moon, Shield, Megaphone, Sparkles } from 'lucide-react';
 import { useTheme } from '@/hooks/useTheme';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -161,6 +162,22 @@ const Dashboard = () => {
                   </span>
                 </Button>
               </Link>
+              <Link to="/dashboard/landings" className="flex-shrink-0">
+                <Button
+                  variant={isActive('/dashboard/landings') ? 'default' : 'ghost'}
+                  size="sm"
+                  className={`relative ${isActive('/dashboard/landings') ? 'bg-[#D2FA46] hover:bg-[#bce63d] text-[#0a0a0b]' : ''}`}
+                  data-testid="nav-landings"
+                >
+                  <Sparkles className="h-4 w-4 sm:mr-2" />
+                  <span className="ml-1 sm:ml-0 text-xs sm:text-sm">Landing</span>
+                  <span
+                    className={`ml-1.5 inline-flex items-center rounded-full text-[9px] font-bold leading-none px-1.5 py-0.5 uppercase tracking-wider ${isActive('/dashboard/landings') ? 'bg-[#0a0a0b] text-[#D2FA46]' : 'bg-emerald-500 text-white ring-1 ring-black/10 dark:ring-white/10'}`}
+                  >
+                    New
+                  </span>
+                </Button>
+              </Link>
               <Link to="/dashboard/media" className="flex-shrink-0">
                 <Button
                   variant={isActive('/dashboard/media') || isActive('/dashboard/files') ? 'default' : 'ghost'}
@@ -257,6 +274,7 @@ const Dashboard = () => {
           <Route path="stores" element={<Stores />} />
           <Route path="vendors" element={<Vendors />} />
           <Route path="posts" element={<Posts />} />
+          <Route path="landings" element={<Landings />} />
           <Route path="files" element={<Files />} />
           <Route path="media" element={<Files />} />
           <Route path="organization" element={<OrgSettings />} />

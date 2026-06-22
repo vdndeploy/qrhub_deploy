@@ -4,6 +4,19 @@
 
 ---
 
+## 2026-06-22 — Tap-to-pick su mobile per MediaPicker
+
+- **Bug**: il pulsante "Usa" era visibile solo su hover desktop (`opacity-0 group-hover:opacity-100`). Su mobile/tablet senza hover il tap sulla card non scattava la pick — l'utente vedeva le immagini in galleria ma non riusciva a selezionarle ("ripeschi le vecchie immagini non le carica effettivamente").
+- **Fix** (`components/MediaPicker.js`):
+  - Card immagine ora è `role="button"` + `tabIndex=0` con `onClick={handlePick}` + keyboard handler (`Enter`/`Space`).
+  - Aggiunto `cursor-pointer` + ring giallo `#D2FA46` su hover/focus per affordance visiva.
+  - "Usa" overlay desktop conservato come affordance secondaria.
+  - `onClick` del pulsante "Elimina" con `stopPropagation()` per non triggerare la pick.
+  - Modalità `manageMode` esclusa dal click handler (l'utente non deve selezionare immagini durante l'eliminazione).
+- Verificato e2e via Playwright su mobile viewport 414×900: tap diretto sulla card → editor STAYS OPEN + hero preview aggiornata + toast "Immagine selezionata".
+
+---
+
 ## 2026-06-22 — Bug whitelist folder upload risolto (root cause vera)
 
 - **Root cause definitiva**: `routers/media.py` linea 48 aveva un whitelist `if folder not in ('uploads', 'posts'): folder = 'uploads'`. Anche se Landings.js inviava `folder=landings`, il backend lo coercizzava SILENZIOSAMENTE a `uploads` → l'upload finiva in `org_<id>/uploads` su Cloudinary + DB record con `kind=uploads` → MediaPicker filtrato per `kind=landings` non lo trovava mai. Per questo l'utente vedeva "non carica da Cloudinary, solo da device" — il file ANDAVA su Cloudinary ma in cartella sbagliata, e la galleria landing era vuota.

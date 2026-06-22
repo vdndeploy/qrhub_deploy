@@ -205,7 +205,18 @@ const MediaPicker = ({
               {items.map((item) => (
                 <div
                   key={item.public_id}
-                  className="group relative aspect-square rounded-md overflow-hidden border bg-gray-50 dark:bg-[#0a0a0b]"
+                  className={`group relative aspect-square rounded-md overflow-hidden border bg-gray-50 dark:bg-[#0a0a0b] ${
+                    manageMode ? '' : 'cursor-pointer ring-offset-2 hover:ring-2 hover:ring-[#D2FA46] focus-visible:ring-2 focus-visible:ring-[#D2FA46] outline-none'
+                  }`}
+                  role={manageMode ? undefined : 'button'}
+                  tabIndex={manageMode ? -1 : 0}
+                  onClick={manageMode ? undefined : () => handlePick(item)}
+                  onKeyDown={manageMode ? undefined : (e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      handlePick(item);
+                    }
+                  }}
                   data-testid={`media-item-${item.public_id}`}
                 >
                   {item.resource_type === 'video' ? (
@@ -253,7 +264,7 @@ const MediaPicker = ({
                         type="button"
                         size="sm"
                         variant="outline"
-                        onClick={() => handleDelete(item)}
+                        onClick={(e) => { e.stopPropagation(); handleDelete(item); }}
                         disabled={deletingId === item.public_id || item.in_use}
                         className="h-7 text-xs bg-white/95 hover:bg-red-50 text-red-600 border-red-200"
                         title={item.in_use ? 'In uso, non eliminabile' : 'Elimina'}

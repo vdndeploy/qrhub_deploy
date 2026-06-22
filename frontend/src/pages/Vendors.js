@@ -365,6 +365,15 @@ const Vendors = () => {
                 <div className="flex-1 min-w-0">
                   <h3 className="text-base font-semibold text-gray-900 dark:text-white truncate">
                     {vendor.name}
+                    {(vendor.store_role || '').toLowerCase() === 'manager' && (
+                      <span
+                        className="ml-2 inline-flex items-center align-middle px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700 bg-amber-100 dark:text-amber-200 dark:bg-amber-500/20 rounded-full ring-1 ring-amber-300/60 dark:ring-amber-400/40"
+                        data-testid={`vendor-manager-badge-${vendor.id}`}
+                        title="Questo venditore è Store Manager: vede le analitiche di tutto il negozio."
+                      >
+                        Store Manager
+                      </span>
+                    )}
                   </h3>
                   <p className="text-xs text-gray-500 dark:text-[#8a8a92] truncate mt-0.5">
                     {vendor.bio || (vendor.email ? vendor.email : 'Nessuna bio')}

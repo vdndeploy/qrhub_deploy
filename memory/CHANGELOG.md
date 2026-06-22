@@ -4,6 +4,14 @@
 
 ---
 
+## 2026-06-22 — Badge "Store Manager" visibile sui vendor card
+
+- `Vendors.js`: aggiunto pill badge ambrato "STORE MANAGER" inline col nome quando `vendor.store_role === 'manager'`. Tooltip esplicativo, ring sottile per profondità, dark mode supportata.
+- Specialist NON hanno alcun badge → look pulito, il manager è subito riconoscibile a colpo d'occhio.
+- Verificato via Playwright: 1 badge presente su `QA Manager Test`, 0 badge su `QA Specialist Test` e `QA Specialist Two`.
+
+---
+
 ## 2026-06-22 — RBAC Store Manager / Specialist + team analytics picker
 
 - **Nuovo campo `store_role` sui vendor** (`'specialist'` default per back-compat, `'manager'` per chi guida il negozio). Vendors esistenti NON modificati — fallback runtime `.setdefault('store_role','specialist')`.

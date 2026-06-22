@@ -4,6 +4,14 @@
 
 ---
 
+## 2026-06-22 — Race condition Radix Dialog stacking RISOLTA DEFINITIVAMENTE
+
+- **Root cause vera**: il guard `if (!o && pickerOpenRef.current) return;` falliva perché `handlePick` in MediaPicker chiama `onClose()` **sincronamente** subito dopo `onSelect()`. La parent Landings azzerava `pickerOpenRef.current = false` in onClose → Radix dispatchava il cascade `onOpenChange(false)` al parent dialog → guard leggeva ref=false → editor chiudeva → setFormData veniva committato in un componente già unmounted → hero image persa.
+- **Fix** (`Landings.js`): aggiunto `pickerClosedAtRef` con grace window di 400ms. Il parent dialog ignora ogni `onOpenChange(false)` che arriva entro 400ms dalla chiusura del picker, indipendentemente dal valore della ref. Resettato anche al riapertura del picker per non bloccare apertura/chiusura legittime.
+- **Verificato e2e su preview**: tap card → editor RIMANE APERTO ✓, hero preview aggiornata ✓, PUT 200 con landing_hero_image nel body ✓, toast "Landing salvata" ✓.
+
+---
+
 ## 2026-06-22 — Tap-to-pick su mobile per MediaPicker
 
 - **Bug**: il pulsante "Usa" era visibile solo su hover desktop (`opacity-0 group-hover:opacity-100`). Su mobile/tablet senza hover il tap sulla card non scattava la pick — l'utente vedeva le immagini in galleria ma non riusciva a selezionarle ("ripeschi le vecchie immagini non le carica effettivamente").

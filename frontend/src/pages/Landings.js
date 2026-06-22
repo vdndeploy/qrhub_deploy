@@ -38,6 +38,11 @@ const Landings = () => {
   // reads a SYNC value (state may be stale inside Radix' close cascade,
   // which would let the editor unmount while the picker is closing).
   const pickerOpenRef = useRef(false);
+  // Timestamp of when the picker last closed. Radix dispatches the
+  // `onOpenChange(false)` cascade on the parent within a few ms after
+  // the picker closes — this 400ms grace window keeps the editor open
+  // even after the ref has flipped to false.
+  const pickerClosedAtRef = useRef(0);
 
   useEffect(() => { load(); }, []);
 
@@ -184,10 +189,13 @@ const Landings = () => {
           // Defensive guard: when the MediaPicker (a nested Radix Dialog)
           // opens/closes, Radix dispatches `onOpenChange(false)` on this
           // parent dialog too — the so-called "focus-trap stacking" issue.
-          // Reading from a ref avoids the stale-closure race where
-          // pickerOpen state was already set to false by the time this
-          // cascade fires.
-          if (!o && pickerOpenRef.current) return;
+          // We use a ref AND a recent-close timestamp so a cascade arriving
+          // shortly after the picker close still gets ignored. Without the
+          // timestamp window, `handlePick` (which fires `onClose` SYNC
+          // after `onSelect`) flips the ref to false before the cascade
+          // arrives → guard fails → editor unmounts and the freshly-
+          // picked hero URL is lost on save.
+          if (!o && (pickerOpenRef.current || (Date.now() - pickerClosedAtRef.current) < 400)) return;
           if (!o) closeEditor();
         }}
       >
@@ -272,7 +280,11 @@ const Landings = () => {
                         />
                       </label>
                       <Button type="button" variant="outline" size="sm"
-                              onClick={() => { pickerOpenRef.current = true; setPickerOpen(true); }}
+                              onClick={() => {
+                                pickerOpenRef.current = true;
+                                pickerClosedAtRef.current = 0;
+                                setPickerOpen(true);
+                              }}
                               data-testid="landing-hero-browse-btn">
                         <FolderOpen className="h-4 w-4 mr-2" />
                         Sfoglia libreria
@@ -450,22 +462,23 @@ const Landings = () => {
 
       <MediaPicker
         open={pickerOpen}
-        onClose={() => { pickerOpenRef.current = false; setPickerOpen(false); }}
+        onClose={() => {
+          pickerOpenRef.current = false;
+          pickerClosedAtRef.current = Date.now();
+          setPickerOpen(false);
+        }}
         onSelect={(it) => {
           // Defensive: rely on functional setState so we don't drop other
           // unsaved fields if the picker re-opens before this commits.
           // The parent dialog's onOpenChange is guarded by `pickerOpenRef`
-          // so the editor stays open while we set this.
+          // PLUS a 400ms grace window so the editor stays open while we
+          // set this — protecting against the Radix close cascade firing
+          // after the picker `onClose` synchronously flipped the ref.
           setFormData((f) => ({ ...f, landing_hero_image: it.url }));
           toast.success('Immagine selezionata');
-          // Defer the picker close so React commits formData first, AND
-          // keep the ref true through the Radix close cascade so the
-          // parent editor doesn't get caught in the focus-restoration
-          // unmount path.
-          setTimeout(() => {
-            pickerOpenRef.current = false;
-            setPickerOpen(false);
-          }, 50);
+          // The picker close happens via MediaPicker.handlePick's onClose
+          // call, which fires synchronously right after this onSelect.
+          // Nothing more to schedule here.
         }}
         kind="landings"
         title="Banner landing — Galleria immagini landing"

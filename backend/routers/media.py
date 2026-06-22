@@ -18,23 +18,24 @@ from typing import List, Optional
 import aiofiles
 import cloudinary
 import cloudinary.uploader
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from pydantic import BaseModel
 
 # Late-binding imports from server. Safe because routers/* are imported by
 # server.py AFTER all of the names below are defined.
+import server as _server
 from server import (
     db, logger,
     get_current_user, get_current_user_or_vendor,
     _is_super_admin, _tenant_filter,
-    CLOUDINARY_ENABLED, UPLOAD_DIR,
+    UPLOAD_DIR,
 )
 
 router = APIRouter(tags=['media'])
 
 
 @router.post('/upload')
-async def upload_file(file: UploadFile = File(...), folder: str = Form('uploads'), user: dict = Depends(get_current_user_or_vendor)):
+async def upload_file(request: Request, file: UploadFile = File(...), folder: str = Form('uploads'), user: dict = Depends(get_current_user_or_vendor)):
     allowed_types = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'video/mp4', 'video/webm']
     if file.content_type not in allowed_types:
         raise HTTPException(status_code=400, detail='Tipo file non supportato')
@@ -56,7 +57,7 @@ async def upload_file(file: UploadFile = File(...), folder: str = Form('uploads'
 
     content = await file.read()
 
-    if CLOUDINARY_ENABLED:
+    if _server.CLOUDINARY_ENABLED:
         # Upload to Cloudinary
         is_video = file.content_type.startswith('video/')
         try:
@@ -95,14 +96,20 @@ async def upload_file(file: UploadFile = File(...), folder: str = Form('uploads'
             logger.error(f'Cloudinary upload failed: {e}')
             raise HTTPException(status_code=500, detail=f'Errore Cloudinary: {str(e)}')
     
-    # Fallback: local storage
+    # Fallback: local storage. Derive the public URL from the actual request
+    # (scheme + host) so the frontend can render the image. The previous code
+    # used localhost:8001 when env was missing, producing unreachable URLs.
     ext = file.filename.split('.')[-1] if '.' in file.filename else 'bin'
     filename = f"{uuid.uuid4()}.{ext}"
     file_path = UPLOAD_DIR / filename
     async with aiofiles.open(file_path, 'wb') as f:
         await f.write(content)
-    frontend_url = os.environ.get('FRONTEND_URL', os.environ.get('REACT_APP_BACKEND_URL', 'http://localhost:8001'))
-    file_url = f"{frontend_url}/uploads/{filename}"
+    base = (os.environ.get('FRONTEND_URL') or os.environ.get('REACT_APP_BACKEND_URL') or '').rstrip('/')
+    if not base:
+        # Use the request host (works in preview/dev where no env is set).
+        base = str(request.base_url).rstrip('/')
+    file_url = f"{base}/uploads/{filename}"
+    logger.warning(f'Cloudinary disabled — file saved locally at {file_url}. Configure CLOUDINARY_* env or DB config for prod uploads.')
     return {'url': file_url, 'filename': filename, 'public_id': filename}
 
 

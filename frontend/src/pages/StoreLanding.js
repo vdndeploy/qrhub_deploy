@@ -102,6 +102,21 @@ const StoreLanding = () => {
     axios.post(`${API}/analytics`, {
       vendor_id: '', store_id: storeIdRef.current, event_type: type,
     }).catch(() => {});
+
+    // Ad-platform conversion fan-out — fires Lead/Conversion to Meta and
+    // Google Ads ONLY when the visitor hits the primary CTA (WhatsApp).
+    // Both are no-ops when pixels are not configured or libraries did not
+    // load (e.g. user blocked them via consent / ad-blocker).
+    if (type === 'store_landing_whatsapp_click') {
+      try { window.fbq && window.fbq('track', 'Lead'); } catch { /* */ }
+      try {
+        const adsId = store?.organization?.google_ads_id || '';
+        const label = store?.organization?.google_ads_conversion_label || '';
+        if (window.gtag && adsId && label) {
+          window.gtag('event', 'conversion', { send_to: `${adsId}/${label}` });
+        }
+      } catch { /* */ }
+    }
   };
 
   // Set document title + meta description directly (avoids extra lib).
@@ -121,6 +136,50 @@ const StoreLanding = () => {
     ensureMeta('description', store.landing_subtitle || `Contatta ${store.name} su WhatsApp.`);
     ensureMeta('theme-color', store.organization?.primary_color || '#F96815');
     ensureMeta('robots', 'index, follow');
+  }, [store]);
+
+  // ── Ad-platform pixels — inject ONLY on this funnel page, once the store
+  // payload is in. We skip preview sessions and skip when the IDs are empty
+  // so test traffic and unconfigured orgs don't pollute campaigns.
+  useEffect(() => {
+    if (!store || isPreviewSession()) return;
+    const orgMeta = store.organization || {};
+    const pixelId = (orgMeta.meta_pixel_id || '').trim();
+    const adsId = (orgMeta.google_ads_id || '').trim();
+    const injected = [];
+
+    // Meta Pixel
+    if (pixelId && !window.fbq) {
+      const s = document.createElement('script');
+      s.dataset.qrhubPixel = 'meta';
+      s.innerHTML = `!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');fbq('init','${pixelId}');fbq('track','PageView');`;
+      document.head.appendChild(s);
+      injected.push(s);
+    } else if (pixelId && window.fbq) {
+      try { window.fbq('init', pixelId); window.fbq('track', 'PageView'); } catch { /* */ }
+    }
+
+    // Google Ads gtag — use dataLayer pattern so multiple AW IDs from
+    // different orgs on the same browser session don't trample each other.
+    if (adsId && !window.gtag) {
+      const sLib = document.createElement('script');
+      sLib.async = true;
+      sLib.src = `https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(adsId)}`;
+      sLib.dataset.qrhubPixel = 'google-lib';
+      document.head.appendChild(sLib);
+      const sInit = document.createElement('script');
+      sInit.dataset.qrhubPixel = 'google-init';
+      sInit.innerHTML = `window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}window.gtag=gtag;gtag('js',new Date());gtag('config','${adsId}');`;
+      document.head.appendChild(sInit);
+      injected.push(sLib, sInit);
+    } else if (adsId && window.gtag) {
+      try { window.gtag('config', adsId); } catch { /* */ }
+    }
+
+    return () => {
+      // Remove only the tags we injected so HMR / route changes stay clean.
+      injected.forEach((el) => { try { el.remove(); } catch { /* */ } });
+    };
   }, [store]);
 
   // Derived: themed CSS vars based on the org primary color.
@@ -211,8 +270,10 @@ const StoreLanding = () => {
               <span className="uppercase">{brand}</span>
             </div>
           )}
-          {/* Title + subtitle in the bottom overlay */}
-          <div className="absolute inset-x-0 bottom-0 px-6 pb-6 text-white">
+          {/* Title + subtitle in the bottom overlay. We push them up with
+              extra pb- so the CTA button (which pulls up via -mt-) doesn't
+              crowd the subtitle. */}
+          <div className="absolute inset-x-0 bottom-0 px-6 pb-14 text-white">
             <h1
               className="text-[26px] font-bold leading-[1.15] tracking-tight"
               style={{ textShadow: '0 2px 16px rgba(0,0,0,0.55)' }}
@@ -232,10 +293,11 @@ const StoreLanding = () => {
           </div>
         </section>
 
-        {/* ── Premium CTA strip — pulls up into the image bottom (-mt-7)
+        {/* ── Premium CTA strip — pulls up into the image bottom (-mt-5)
             for a "ticket stub" feel + single primary action with depth
-            and a brand-tinted halo. */}
-        <section className="px-5 -mt-7 relative z-10">
+            and a brand-tinted halo. The extra pb-14 on the hero text
+            block keeps the subtitle clear of the button. */}
+        <section className="px-5 -mt-5 relative z-10">
           {showWhatsapp && (
             <a
               href={buildWaUrl()}

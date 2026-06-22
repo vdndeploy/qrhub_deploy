@@ -547,6 +547,13 @@ class OrganizationUpdate(BaseModel):
     data_profiling_text: Optional[str] = Field(None, max_length=4000)
     # Generic terms-of-use editable by the org; rendered on the public privacy page.
     terms_text: Optional[str] = Field(None, max_length=8000)
+    # ── Ad-platform conversion tracking (Lead-gen landings /s/:slug) ──
+    # Both fields are org-wide so a single setting powers all the org's
+    # store landings. The frontend injects pixel snippets only when these
+    # are non-empty AND the visitor accepted analytics cookies.
+    meta_pixel_id: Optional[str] = Field(None, max_length=40)
+    google_ads_id: Optional[str] = Field(None, max_length=40)  # AW-XXXXXXXXXX
+    google_ads_conversion_label: Optional[str] = Field(None, max_length=80)  # label for WA-click conversion
 
 
 class OrgUserCreate(BaseModel):
@@ -3624,7 +3631,8 @@ async def get_store_landing(slug: str):
             {'id': store['organization_id']},
             {'_id': 0, 'name': 1, 'brand_name': 1, 'primary_color': 1,
              'secondary_color': 1, 'logo_url': 1, 'pwa_icon_url': 1,
-             'cta_arrow_color': 1}
+             'cta_arrow_color': 1,
+             'meta_pixel_id': 1, 'google_ads_id': 1, 'google_ads_conversion_label': 1}
         ) or {}
     return {
         'id': store.get('id', ''),
@@ -3657,6 +3665,12 @@ async def get_store_landing(slug: str):
             'primary_color': org.get('primary_color', '#F96815'),
             'secondary_color': org.get('secondary_color', ''),
             'cta_arrow_color': org.get('cta_arrow_color', ''),
+            # Ad-platform IDs propagated to the public payload so the
+            # frontend can inject the corresponding pixel snippets only
+            # when they are configured.
+            'meta_pixel_id': (org.get('meta_pixel_id') or '').strip(),
+            'google_ads_id': (org.get('google_ads_id') or '').strip(),
+            'google_ads_conversion_label': (org.get('google_ads_conversion_label') or '').strip(),
         }
     }
 
@@ -3807,6 +3821,37 @@ async def _security_headers(request: Request, call_next):
 
 @app.on_event('startup')
 async def seed_admin():
+    # 0. Hydrate Cloudinary from MongoDB `config` if env vars are absent.
+    # The super-admin UI saves Cloudinary creds into the `config` collection,
+    # but `media.py /api/upload` only checked module-load-time env vars and
+    # fell back to localhost static storage in preview/dev environments —
+    # giving a working 200 with an URL the browser can't reach. We resolve
+    # the gap at boot so the same DB-driven config powers both Fly secrets
+    # AND in-process uploads.
+    global CLOUDINARY_ENABLED, CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET
+    if not CLOUDINARY_ENABLED:
+        try:
+            cfg_doc = await db.config.find_one({}) or {}
+            cname = (cfg_doc.get('cloudinary_cloud_name') or '').strip()
+            ckey = (cfg_doc.get('cloudinary_api_key') or '').strip()
+            csecret = (cfg_doc.get('cloudinary_api_secret') or '').strip()
+            curl = (cfg_doc.get('cloudinary_url') or '').strip()
+            if curl.startswith('cloudinary://'):
+                from urllib.parse import urlparse
+                _u = urlparse(curl)
+                cname = _u.hostname or cname
+                ckey = _u.username or ckey
+                csecret = _u.password or csecret
+            if cname and ckey and csecret:
+                cloudinary.config(cloud_name=cname, api_key=ckey, api_secret=csecret, secure=True)
+                CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET = cname, ckey, csecret
+                CLOUDINARY_ENABLED = True
+                logger.info('Cloudinary configured from MongoDB config at startup.')
+            else:
+                logger.warning('Cloudinary NOT configured (env+DB both empty) — uploads will use local fallback.')
+        except Exception as e:
+            logger.error(f'Cloudinary boot hydration failed: {e}')
+
     # 1. Create super_admin if not exists.
     # IMPORTANT: no hardcoded default password — server will skip the seed if
     # SUPERADMIN_PASSWORD is not set in the environment. Forces an explicit

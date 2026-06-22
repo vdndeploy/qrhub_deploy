@@ -4,6 +4,22 @@
 
 ---
 
+## 2026-06-22 — Cloudinary fix + Pixel Meta/Google Ads + Hero spacing
+
+- **Fix critico — Upload Cloudinary in preview env** (`/app/backend/server.py` startup, `/app/backend/routers/media.py`):
+  - Root cause: `CLOUDINARY_*` env vars erano vuoti in preview/dev → fallback locale ritornava URL `http://localhost:8001/uploads/...` irraggiungibile dal browser dell'utente. Da qui il sintomo "l'immagine caricata dalla galleria salvata in cloudinary ancora non si carica né salva".
+  - Fix: hydration automatica della config Cloudinary dal documento `db.config` (dove la salva il pannello Super Admin) al boot del backend. `media.py` ora legge `CLOUDINARY_ENABLED` dinamicamente da `server` (via `import server as _server`) invece che catturarlo all'import. Fallback locale fixato per derivare il base URL da `request.base_url` quando env non è impostato (URL sempre raggiungibile dal browser).
+  - Verificato: `POST /api/upload` ora ritorna `https://res.cloudinary.com/doqp3gr5e/image/upload/.../org_<id>/uploads/file_*.png`.
+- **Hero spacing premium** (`StoreLanding.js`):
+  - Aumentato `pb-14` sul block titolo/sottotitolo overlay (era `pb-6`) e ridotto pull-up CTA da `-mt-7` a `-mt-5`. Gap pulito di ~37px tra fine subtitle e bottone WhatsApp, niente più sovrapposizione visiva.
+- **Pixel Meta + Google Ads** (lead-gen funnel `/s/:slug`):
+  - **Backend**: nuovi campi org-wide su `OrganizationUpdate` model — `meta_pixel_id`, `google_ads_id`, `google_ads_conversion_label`. Esposti nel payload pubblico `/api/store-landing/:slug` sotto `organization.*`.
+  - **Admin UI** (`OrgSettings.js`): nuova sezione viola "Pixel Meta & Google Ads (Lead-gen)" con 3 input (Pixel ID, Ads ID, Conversion Label) e helper testuali su dove trovare gli ID nelle dashboard rispettive. Privacy note: i pixel girano SOLO su `/s/<slug>`, MAI su `/v/<id>`.
+  - **Public** (`StoreLanding.js`): iniezione dinamica degli snippet Meta `fbq init + PageView` e Google `gtag config` solo se gli ID sono presenti + non è una preview session. Sul click WhatsApp si invia `fbq('track', 'Lead')` + `gtag('event', 'conversion', {send_to: AW-X/Y})` — così Meta e Google possono ottimizzare le campagne sulle conversioni reali, non solo sui PageView.
+  - Verificato: con pixel IDs di test, `window.fbq` + `window.gtag` definiti, 1 script Meta + 2 script Google iniettati nel DOM.
+
+---
+
 ## 2026-06-21 — P0 Verifica fix MediaPicker + UI Premium Store Landing
 
 - **Fix MediaPicker dialog stacking verificato e2e** (`Iteration 5` testing report):

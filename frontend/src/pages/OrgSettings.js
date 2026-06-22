@@ -472,6 +472,9 @@ const OrgSettings = () => {
         pwa_icon_public_id: org.pwa_icon_public_id || '',
         data_profiling_text: org.data_profiling_text || '',
         terms_text: org.terms_text || '',
+        meta_pixel_id: org.meta_pixel_id || '',
+        google_ads_id: org.google_ads_id || '',
+        google_ads_conversion_label: org.google_ads_conversion_label || '',
       }, { withCredentials: true });
       toast.success('Impostazioni salvate');
     } catch (e) {
@@ -775,6 +778,72 @@ const OrgSettings = () => {
               Usa testo predefinito
             </button>
           </div>
+        </div>
+      </div>
+
+      {/* Ad-platform tracking pixels (Lead-gen landings) */}
+      <div className="bg-white dark:bg-[#131316] border rounded-lg p-5 space-y-4" data-testid="org-tracking-pixels-section">
+        <h3 className="font-semibold flex items-center gap-2">
+          <span className="inline-block w-5 h-5 rounded bg-violet-100 text-violet-700 text-[11px] font-bold flex items-center justify-center">π</span>
+          Pixel Meta &amp; Google Ads (Lead-gen)
+        </h3>
+        <p className="text-xs text-gray-500 dark:text-[#6a6a72]">
+          Configura una sola volta: i pixel verranno iniettati su <strong>tutte</strong> le tue landing
+          <code className="mx-1 px-1 bg-gray-100 dark:bg-[#1a1a1c] rounded">/s/&lt;slug&gt;</code>.
+          Evento <em>PageView</em> al caricamento, <em>Lead</em> al click sul CTA WhatsApp — così Meta e Google
+          ottimizzano le campagne sulle conversioni reali, non sui semplici view.
+        </p>
+
+        <div>
+          <Label>Meta Pixel ID</Label>
+          <Input
+            value={org.meta_pixel_id || ''}
+            onChange={(e) => updateField('meta_pixel_id', e.target.value.trim())}
+            placeholder="123456789012345"
+            className="font-mono"
+            data-testid="org-meta-pixel-input"
+            maxLength={40}
+          />
+          <p className="text-[11px] text-gray-400 dark:text-[#5a5a62] mt-1">
+            Trovi l&apos;ID in Events Manager → Pixel. Solo numeri, ~15 cifre.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <Label>Google Ads ID</Label>
+            <Input
+              value={org.google_ads_id || ''}
+              onChange={(e) => updateField('google_ads_id', e.target.value.trim())}
+              placeholder="AW-1234567890"
+              className="font-mono"
+              data-testid="org-google-ads-input"
+              maxLength={40}
+            />
+            <p className="text-[11px] text-gray-400 dark:text-[#5a5a62] mt-1">
+              Formato <code>AW-XXXXXXXXXX</code> dalla scheda Conversioni.
+            </p>
+          </div>
+          <div>
+            <Label>Etichetta Conversione</Label>
+            <Input
+              value={org.google_ads_conversion_label || ''}
+              onChange={(e) => updateField('google_ads_conversion_label', e.target.value.trim())}
+              placeholder="abCdEfGhIjK-l_mnOpQ"
+              className="font-mono"
+              data-testid="org-google-label-input"
+              maxLength={80}
+            />
+            <p className="text-[11px] text-gray-400 dark:text-[#5a5a62] mt-1">
+              Stringa dopo <code>send_to: AW-XXX/<strong>QUESTO</strong></code> nel tag.
+            </p>
+          </div>
+        </div>
+
+        <div className="text-xs text-violet-800 dark:text-violet-200 bg-violet-50 dark:bg-violet-500/10 border-l-2 border-violet-400 p-3 rounded-r">
+          <strong>Privacy:</strong> i pixel si caricano <em>solo</em> dopo accettazione cookie analytics + sulle landing
+          pubblicitarie <code>/s/&lt;slug&gt;</code>, mai sui profili vendor <code>/v/&lt;id&gt;</code>. Conversione
+          inviata anche server-side via analytics interna per ridondanza ROI.
         </div>
       </div>
 

@@ -220,22 +220,53 @@ async def _run_fly_deploy(token: str, app_name: str):
             'deployed_at': datetime.now(timezone.utc).isoformat(),
             'deployed_via': 'super-admin-ui',
         }
-        # Try to capture HEAD from the repo root (parent of /app/backend).
-        repo_root = Path(src_dir).resolve().parent  # /app
-        for fmt, key in [('%H', 'commit_sha'), ('%s', 'commit_subject'), ('%cI', 'commit_iso')]:
+        # Try multiple repo-root candidates because the deploy can be triggered
+        # either from the preview pod (repo at /app, src_dir = /app/backend)
+        # or from the live prod machine (no .git anywhere, src_dir = /app).
+        repo_root_candidates = [
+            Path(src_dir).resolve(),
+            Path(src_dir).resolve().parent,
+            Path('/app'),
+        ]
+        git_ok = False
+        for repo_root in repo_root_candidates:
+            if not (repo_root / '.git').exists():
+                continue
             try:
-                p = await asyncio.create_subprocess_exec(
-                    'git', '-C', str(repo_root), 'log', '-1', f'--pretty=format:{fmt}',
-                    stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL,
-                )
-                out, _ = await p.communicate()
-                if p.returncode == 0:
-                    deploy_info[key] = out.decode('utf-8', errors='replace').strip()
+                for fmt, key in [('%H', 'commit_sha'), ('%s', 'commit_subject'), ('%cI', 'commit_iso')]:
+                    p = await asyncio.create_subprocess_exec(
+                        'git', '-C', str(repo_root), 'log', '-1', f'--pretty=format:{fmt}',
+                        stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL,
+                    )
+                    out, _ = await p.communicate()
+                    if p.returncode == 0:
+                        deploy_info[key] = out.decode('utf-8', errors='replace').strip()
+                if deploy_info['commit_sha']:
+                    git_ok = True
+                    _push_log(f'[setup] git head from {repo_root}: {deploy_info["commit_sha"][:8]}')
+                    break
             except Exception:
-                pass
+                continue
+        # Fallback: when triggered from inside the prod fly machine itself
+        # (no git repo packaged), reuse the commit that the PREVIOUS deploy
+        # stamped — otherwise we'd overwrite a known-good commit with an
+        # empty string and the version pill would go blank.
+        if not git_ok:
+            try:
+                existing = Path(src_dir) / '_deploy_info.json'
+                if existing.exists():
+                    prev = json.loads(existing.read_text(encoding='utf-8'))
+                    for k in ('commit_sha', 'commit_subject', 'commit_iso'):
+                        if prev.get(k):
+                            deploy_info[k] = prev[k]
+                    deploy_info['deployed_via'] = 'super-admin-ui (no-git-rebuild)'
+                    _push_log(f'[setup] no .git in build context — re-stamping prev commit {deploy_info["commit_sha"][:8]}')
+                else:
+                    _push_log('[warn] no .git found and no previous _deploy_info.json — commit info will be empty in the deployed image')
+            except Exception as e:
+                _push_log(f'[warn] could not read previous _deploy_info.json: {e}')
         info_path = Path(src_dir) / '_deploy_info.json'
         info_path.write_text(json.dumps(deploy_info, ensure_ascii=False, indent=2), encoding='utf-8')
-        _push_log(f'[setup] stamped {info_path.name} commit={deploy_info.get("commit_sha","?")[:8]}')
     except Exception as e:
         _push_log(f'[warn] could not stamp deploy info: {e}')
 

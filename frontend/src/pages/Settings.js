@@ -267,6 +267,15 @@ const Settings = () => {
   // ── Deploy NEW backend code (build + push fresh image to Fly registry)
   // Polls status every 2s while running to stream logs to the UI.
   const [deployRun, setDeployRun] = useState(null);
+  // ── Currently-live deploy version (commit baked into the running image).
+  const [deployVersion, setDeployVersion] = useState(null);
+  const fetchDeployVersion = async () => {
+    try {
+      const { data } = await axios.get(`${API}/deploy/version`, { withCredentials: true });
+      setDeployVersion(data);
+    } catch { /* non-blocking */ }
+  };
+  useEffect(() => { fetchDeployVersion(); }, []);
   const pollDeploy = async () => {
     try {
       const { data } = await axios.get(`${API}/deploy/fly/deploy-code/status`, { withCredentials: true });
@@ -279,7 +288,13 @@ const Settings = () => {
     if (!deployRun?.running) return;
     const t = setInterval(async () => {
       const d = await pollDeploy();
-      if (d && !d.running) clearInterval(t);
+      if (d && !d.running) {
+        clearInterval(t);
+        // Deploy finished — pull the new version metadata so the UI badge
+        // reflects the just-deployed commit instead of the previous one.
+        // Give fly a few seconds to swap the machine before refetching.
+        setTimeout(fetchDeployVersion, 6000);
+      }
     }, 2000);
     return () => clearInterval(t);
   }, [deployRun?.running]);
@@ -446,6 +461,44 @@ const Settings = () => {
           <Section icon={Zap} title="Esegui ora dal pannello"
                     desc="Tutte le operazioni Fly.io direttamente da qui — niente terminale."
                     accent="#10B981">
+            {/* Currently-live deploy version pill. Pulls from /api/deploy/version
+                which reads the `_deploy_info.json` baked into the running image
+                at deploy time. Empty/dev fallback is shown when running locally
+                in preview. */}
+            {deployVersion && (
+              <div
+                className="mb-3 flex flex-wrap items-center gap-2 text-xs px-3 py-2 rounded-md bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/30"
+                data-testid="deploy-version-badge"
+              >
+                <span className="font-semibold text-emerald-800 dark:text-emerald-300">
+                  Versione attiva:
+                </span>
+                {deployVersion.commit_sha ? (
+                  <>
+                    <code className="font-mono text-emerald-900 dark:text-emerald-100 bg-white/60 dark:bg-black/30 px-1.5 py-0.5 rounded">
+                      {deployVersion.commit_sha.slice(0, 8)}
+                    </code>
+                    {deployVersion.commit_subject && (
+                      <span className="text-emerald-800/80 dark:text-emerald-200/80 truncate max-w-md" title={deployVersion.commit_subject}>
+                        {`"${deployVersion.commit_subject}"`}
+                      </span>
+                    )}
+                    {deployVersion.deployed_at && (
+                      <span className="text-emerald-700/70 dark:text-emerald-300/70 text-[11px]">
+                        deployato {new Date(deployVersion.deployed_at).toLocaleString('it-IT', { dateStyle: 'short', timeStyle: 'short' })}
+                      </span>
+                    )}
+                    <span className="text-emerald-600/60 dark:text-emerald-300/50 text-[10px] uppercase tracking-wider ml-auto">
+                      src: {deployVersion.source}
+                    </span>
+                  </>
+                ) : (
+                  <span className="text-emerald-800/80 dark:text-emerald-200/80">
+                    Commit non disponibile (build precedente al tracking — un nuovo deploy popolerà il dato).
+                  </span>
+                )}
+              </div>
+            )}
             <div className="flex flex-wrap gap-2">
               <Button onClick={deployCode} disabled={opsLoading['deploy-code'] || deployRun?.running}
                       className="bg-[#0a0a0b] hover:bg-[#1a1a1c] text-[#D2FA46] border border-[#D2FA46]/40"

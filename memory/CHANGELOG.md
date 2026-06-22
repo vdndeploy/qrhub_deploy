@@ -4,6 +4,20 @@
 
 ---
 
+## 2026-06-22 — Version pill in Super Admin: "Quale codice è davvero LIVE su prod"
+
+- **Backend** (`routers/deploy.py`):
+  - Prima di invocare `flyctl deploy`, il job scrive `/app/backend/_deploy_info.json` con `commit_sha`, `commit_subject`, `commit_iso` (da `git log -1`), `deployed_at`, `deployed_via`. Il file viene packagato dentro l'image fly → ogni release porta DENTRO la propria firma.
+  - Modulo `deploy.py` legge il file una sola volta al boot (`_CACHED_DEPLOY_INFO`). Fallback per preview/dev: legge git direttamente; se nemmeno quello funziona ritorna `source='missing'`.
+  - Nuovo endpoint `GET /api/deploy/version` (super_admin only) restituisce il dict.
+- **Frontend** (`Settings.js`):
+  - Pill verde "Versione attiva: `abc1234` 'commit subject' deployato 22/06/2026 18:30 — src: stamped" sopra i bottoni deploy.
+  - Refetch automatico 6 secondi dopo il completamento di un deploy → la pillola si aggiorna senza reload manuale.
+- **.gitignore**: aggiunto `backend/_deploy_info.json` per non sporcare i commit con il timestamp di ogni deploy.
+- **Verificato**: endpoint risponde 401 senza auth, 200 con super_admin. Sul preview il source è `git` (legge il working tree); in prod sarà `stamped` (legge il file packed).
+
+---
+
 ## 2026-06-22 — Badge "Store Manager" visibile sui vendor card
 
 - `Vendors.js`: aggiunto pill badge ambrato "STORE MANAGER" inline col nome quando `vendor.store_role === 'manager'`. Tooltip esplicativo, ring sottile per profondità, dark mode supportata.

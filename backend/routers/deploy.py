@@ -35,11 +35,70 @@ from server import (
 )
 # Standard lib needed in handler bodies
 import asyncio
+import json
 import os
+from pathlib import Path
 import httpx
 from datetime import datetime, timezone, timedelta
 
 router = APIRouter(tags=['deploy'])
+
+
+# ── In-process cache of the deploy info bundled with this image. We read
+# `_deploy_info.json` (stamped by the deploy job before flyctl packages
+# the source) once at module import and serve it cached. On the preview
+# pod the file simply doesn't exist → we fall back to a "dev" record.
+def _read_deploy_info():
+    candidates = [
+        Path('/app/backend/_deploy_info.json'),
+        Path(__file__).resolve().parent.parent / '_deploy_info.json',
+    ]
+    for p in candidates:
+        try:
+            if p.exists():
+                data = json.loads(p.read_text(encoding='utf-8'))
+                data['source'] = 'stamped'
+                return data
+        except Exception:
+            continue
+    # Fallback: in dev / preview, try to read git directly.
+    try:
+        import subprocess
+        out = subprocess.check_output(['git', '-C', '/app', 'log', '-1',
+                                       '--pretty=format:%H|%s|%cI'],
+                                      stderr=subprocess.DEVNULL, timeout=2)
+        sha, subj, iso = out.decode('utf-8').split('|', 2)
+        return {
+            'commit_sha': sha,
+            'commit_subject': subj,
+            'commit_iso': iso,
+            'deployed_at': '',
+            'deployed_via': 'preview-runtime',
+            'source': 'git',
+        }
+    except Exception:
+        return {
+            'commit_sha': '',
+            'commit_subject': '',
+            'commit_iso': '',
+            'deployed_at': '',
+            'deployed_via': 'unknown',
+            'source': 'missing',
+        }
+
+
+_CACHED_DEPLOY_INFO = _read_deploy_info()
+
+
+@router.get('/deploy/version')
+async def get_deploy_version(user: dict = Depends(require_super_admin)):
+    """Returns the commit metadata baked into THIS running image.
+
+    Use this to verify (from the Super Admin UI) that the prod machine
+    has actually picked up the latest code after a deploy. The data is
+    cached at module load — no fs reads per request.
+    """
+    return _CACHED_DEPLOY_INFO
 
 @router.post('/deploy/fly/apply-secrets')
 async def fly_apply_secrets(user: dict = Depends(require_super_admin)):
@@ -147,6 +206,39 @@ async def _run_fly_deploy(token: str, app_name: str):
         return
 
     _push_log(f'[setup] using {flyctl_bin}')
+
+    # ── Stamp deploy info INTO the source dir BEFORE invoking flyctl, so the
+    # packaged image carries an _deploy_info.json that the running backend
+    # can read back at startup. This is the only reliable way to know
+    # "what commit is actually live in production" since fly machines have
+    # no git inside them.
+    try:
+        deploy_info = {
+            'commit_sha': '',
+            'commit_subject': '',
+            'commit_iso': '',
+            'deployed_at': datetime.now(timezone.utc).isoformat(),
+            'deployed_via': 'super-admin-ui',
+        }
+        # Try to capture HEAD from the repo root (parent of /app/backend).
+        repo_root = Path(src_dir).resolve().parent  # /app
+        for fmt, key in [('%H', 'commit_sha'), ('%s', 'commit_subject'), ('%cI', 'commit_iso')]:
+            try:
+                p = await asyncio.create_subprocess_exec(
+                    'git', '-C', str(repo_root), 'log', '-1', f'--pretty=format:{fmt}',
+                    stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL,
+                )
+                out, _ = await p.communicate()
+                if p.returncode == 0:
+                    deploy_info[key] = out.decode('utf-8', errors='replace').strip()
+            except Exception:
+                pass
+        info_path = Path(src_dir) / '_deploy_info.json'
+        info_path.write_text(json.dumps(deploy_info, ensure_ascii=False, indent=2), encoding='utf-8')
+        _push_log(f'[setup] stamped {info_path.name} commit={deploy_info.get("commit_sha","?")[:8]}')
+    except Exception as e:
+        _push_log(f'[warn] could not stamp deploy info: {e}')
+
     env = {**os.environ, 'FLY_API_TOKEN': token}
     # flyctl needs $HOME for its config cache. Provide a writable fallback
     # if the running process inherited a stripped environment (e.g. when

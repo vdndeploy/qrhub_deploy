@@ -14,17 +14,27 @@ const Block = ({ title, children, accent = '#F96815' }) => (
 );
 
 const VendorPrivacy = () => {
-  const { vendorId } = useParams();
+  const params = useParams();
+  // Supports BOTH /v/:vendorId/privacy and /s/:slug/privacy — same legal
+  // page UI, two different public funnels. We resolve the API endpoint
+  // and the back-link target from whichever param the router matched.
+  const vendorId = params.vendorId || '';
+  const storeSlug = params.slug || '';
+  const isStore = !vendorId && !!storeSlug;
+  const apiPath = isStore
+    ? `${API}/store-landing/${storeSlug}/privacy-info`
+    : `${API}/vendors/${vendorId}/privacy-info`;
+  const backHref = isStore ? `/s/${storeSlug}` : `/v/${vendorId}`;
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
 
   useEffect(() => {
     let cancel = false;
-    axios.get(`${API}/vendors/${vendorId}/privacy-info`)
+    axios.get(apiPath)
       .then(r => { if (!cancel) setData(r.data); })
       .catch(e => { if (!cancel) setError(e?.response?.data?.detail || 'Informativa non disponibile'); });
     return () => { cancel = true; };
-  }, [vendorId]);
+  }, [apiPath]);
 
   // React Router doesn't auto-scroll to hash anchors. Once the data is loaded
   // (so the #terms section exists in the DOM) check the URL hash and jump.
@@ -45,7 +55,7 @@ const VendorPrivacy = () => {
         <div className="privacy-container">
           <h1>Informativa non disponibile</h1>
           <p>{error}</p>
-          <Link to={`/v/${vendorId}`} className="privacy-back-link">← Torna alla pagina</Link>
+          <Link to={backHref} className="privacy-back-link">← Torna alla pagina</Link>
         </div>
       </div>
     );
@@ -92,7 +102,7 @@ const VendorPrivacy = () => {
               {data.gdpr_status.completeness === 'complete' && <span className="privacy-trust-plus">+</span>}
             </span>
           )}
-          <Link to={`/v/${vendorId}`} className="privacy-back-link" data-testid="privacy-back">← Torna alla pagina</Link>
+          <Link to={backHref} className="privacy-back-link" data-testid="privacy-back">← Torna alla pagina</Link>
         </header>
 
         <Block title="Titolare del trattamento" accent={accent}>

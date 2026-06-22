@@ -4,6 +4,22 @@
 
 ---
 
+## 2026-06-22 — Footer GDPR su Store Landing + privacy page dedicata
+
+- **Footer Store Landing** (`StoreLanding.js`): aggiunto blocco GDPR identico a quello di VendorLanding:
+  - Badge "Titolare verificato" (visibile solo quando `gdpr_status.controller_verified=true`)
+  - Blocco legale: denominazione, sede, P.IVA, email privacy (`legal_name` / `legal_address` / `vat_number` / `privacy_contact_email`)
+  - Link footer: Informativa privacy · Termini & condizioni · Privacy policy estesa · Powered by QRHub
+- **Privacy page per store** (`/s/:slug/privacy`):
+  - Nuovo endpoint backend `GET /api/store-landing/{slug}/privacy-info` paralello a quello vendor, risolve org via slug landing
+  - Estratto `_build_privacy_payload(org_id, subject_label)` come helper condiviso → lock-step legale tra vendor + store
+  - `VendorPrivacy.js` parametrizzato per gestire sia `/v/:vendorId/privacy` che `/s/:slug/privacy` (auto-detect via `useParams`, endpoint + back-link condizionali)
+  - Route aggiunta in `App.js`
+- **Backend payload `/store-landing/:slug`** esteso con: `legal_name`, `vat_number`, `legal_address`, `privacy_contact_email`, `privacy_policy_url`, `gdpr_status` (controller_verified + completeness)
+- Verificato e2e: footer renderizza con tutti i campi, badge clicca → `/s/qa-demo-store/privacy` → privacy page completa con titolare verificato + tutte le sezioni (titolare, processor, sub-processor, GDPR rights).
+
+---
+
 ## 2026-06-22 — Hero responsive + banda titolo dinamica colore-immagine
 
 - **Cosa cambia** (`StoreLanding.js`):

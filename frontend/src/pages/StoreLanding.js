@@ -500,8 +500,82 @@ const StoreLanding = () => {
         )}
 
         <div className="flex-1" />
-        <footer className="px-6 py-6 text-center text-[10px] text-gray-400">
-          Powered by <span className="font-semibold">QRHub</span>
+        {/* GDPR-grade footer — mirrors the vendor pages so visitors see the
+            same legal controller block + "Titolare verificato" trust badge
+            + privacy/terms links. Keeps the lead-gen funnel transparent and
+            compliant with art. 13 GDPR before they tap the WhatsApp CTA. */}
+        <footer className="px-5 pt-6 pb-5 mt-6 border-t border-gray-100 bg-gray-50/60 text-center text-[11px] text-gray-500 leading-relaxed">
+          {store.organization?.gdpr_status?.controller_verified && (
+            <a
+              href={`/s/${slug}/privacy`}
+              className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200 font-medium text-[10px] uppercase tracking-wider mb-2"
+              data-testid="store-landing-trust-badge"
+              title="Il titolare del trattamento ha completato l'identificazione richiesta dall'art. 13 GDPR."
+            >
+              <ShieldCheck className="h-3 w-3" />
+              Titolare verificato
+            </a>
+          )}
+          {(store.organization?.legal_name
+            || store.organization?.vat_number
+            || store.organization?.legal_address
+            || store.organization?.privacy_contact_email) && (
+            <div className="mb-3" data-testid="store-landing-footer-org">
+              {store.organization.legal_name && (
+                <div className="font-semibold text-gray-700 text-[12px]">
+                  {store.organization.legal_name}
+                </div>
+              )}
+              <div className="text-[11px] text-gray-500 space-y-0.5 mt-1">
+                {store.organization.legal_address && (
+                  <div>{store.organization.legal_address}</div>
+                )}
+                {store.organization.vat_number && (
+                  <div>P.IVA {store.organization.vat_number}</div>
+                )}
+                {store.organization.privacy_contact_email && (
+                  <a
+                    href={`mailto:${store.organization.privacy_contact_email}`}
+                    className="text-gray-600 hover:text-gray-900 underline-offset-2 hover:underline"
+                  >
+                    {store.organization.privacy_contact_email}
+                  </a>
+                )}
+              </div>
+            </div>
+          )}
+          <p className="text-[10.5px] text-gray-500">
+            <a
+              href={`/s/${slug}/privacy`}
+              className="text-gray-600 hover:text-gray-900 underline-offset-2 hover:underline"
+              data-testid="store-landing-privacy-link"
+            >
+              Informativa privacy
+            </a>
+            <span aria-hidden="true"> · </span>
+            <a
+              href={`/s/${slug}/privacy#terms`}
+              className="text-gray-600 hover:text-gray-900 underline-offset-2 hover:underline"
+              data-testid="store-landing-terms-link"
+            >
+              Termini &amp; condizioni
+            </a>
+            {store.organization?.privacy_policy_url && (
+              <>
+                <span aria-hidden="true"> · </span>
+                <a
+                  href={store.organization.privacy_policy_url}
+                  target="_blank" rel="noopener noreferrer"
+                  className="text-gray-600 hover:text-gray-900 underline-offset-2 hover:underline"
+                  data-testid="store-landing-policy-link"
+                >
+                  Privacy policy estesa
+                </a>
+              </>
+            )}
+            <span aria-hidden="true"> · </span>
+            Powered by <span className="font-semibold text-gray-700">QRHub</span>
+          </p>
         </footer>
       </main>
     </div>

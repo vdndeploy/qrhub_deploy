@@ -2423,8 +2423,32 @@ async def get_vendor_privacy_info(vendor_id: str):
     vendor = await db.vendors.find_one({'id': vendor_id}, {'_id': 0, 'id': 1, 'name': 1, 'organization_id': 1})
     if not vendor:
         raise HTTPException(status_code=404, detail='Vendor not found')
+    payload = await _build_privacy_payload(vendor.get('organization_id'), subject_label=vendor.get('name', ''))
+    # Preserve the vendor id for the original VendorPrivacy UI (back-link, etc.)
+    payload['vendor'] = {'id': vendor['id'], 'name': vendor.get('name', '')}
+    return payload
+
+
+@api_router.get('/store-landing/{slug}/privacy-info')
+async def get_store_landing_privacy_info(slug: str):
+    """Mirror of the vendor privacy endpoint but resolved by store landing slug.
+    Used by /s/{slug}/privacy so the same legal page UI works for both vendor
+    and store funnels."""
+    slug = (slug or '').strip().lower()
+    store = await db.stores.find_one(
+        {'landing_slug': slug, 'landing_enabled': True},
+        {'_id': 0, 'id': 1, 'name': 1, 'organization_id': 1, 'landing_slug': 1}
+    )
+    if not store:
+        raise HTTPException(status_code=404, detail='Landing non disponibile')
+    return await _build_privacy_payload(store.get('organization_id'), subject_label=store.get('name', ''))
+
+
+async def _build_privacy_payload(org_id: str, subject_label: str = ''):
+    """Shared body for vendor + store privacy endpoints. Keeps the legal block,
+    sub-processors list and GDPR rights in lock-step across the two surfaces."""
     org = await db.organizations.find_one(
-        {'id': vendor.get('organization_id')},
+        {'id': org_id},
         {'_id': 0, 'name': 1, 'brand_name': 1, 'primary_color': 1, 'logo_url': 1,
          'legal_name': 1, 'vat_number': 1, 'legal_address': 1,
          'privacy_contact_email': 1, 'privacy_policy_url': 1,
@@ -2441,7 +2465,7 @@ async def get_vendor_privacy_info(vendor_id: str):
     profiling_text = (org.get('data_profiling_text') or '').strip()
     terms_text = (org.get('terms_text') or '').strip()
     return {
-        'vendor': {'id': vendor['id'], 'name': vendor.get('name', '')},
+        'vendor': {'id': '', 'name': subject_label or ''},  # legacy key kept for compat with VendorPrivacy UI
         'organization': {
             'brand_name': org.get('brand_name', '') or org.get('name', ''),
             'primary_color': org.get('primary_color', '#F96815'),
@@ -3632,8 +3656,19 @@ async def get_store_landing(slug: str):
             {'_id': 0, 'name': 1, 'brand_name': 1, 'primary_color': 1,
              'secondary_color': 1, 'logo_url': 1, 'pwa_icon_url': 1,
              'cta_arrow_color': 1,
-             'meta_pixel_id': 1, 'google_ads_id': 1, 'google_ads_conversion_label': 1}
+             'meta_pixel_id': 1, 'google_ads_id': 1, 'google_ads_conversion_label': 1,
+             # GDPR identity / trust-badge fields — mirrors the public
+             # /v/<id> endpoint so the landing footer can display the
+             # same legal controller block.
+             'legal_name': 1, 'vat_number': 1, 'legal_address': 1,
+             'privacy_contact_email': 1, 'privacy_policy_url': 1,
+             'cookie_banner_enabled': 1, 'cookie_banner': 1}
         ) or {}
+    # GDPR completeness — mirrors the logic of /api/vendors/{id} so the
+    # "Titolare verificato" badge logic stays in lock-step.
+    _required = ('legal_name', 'vat_number', 'legal_address', 'privacy_contact_email')
+    _has_required = all((org.get(k) or '').strip() for k in _required)
+    _has_optional = bool((org.get('privacy_policy_url') or '').strip())
     return {
         'id': store.get('id', ''),
         'name': store.get('name', ''),
@@ -3671,6 +3706,21 @@ async def get_store_landing(slug: str):
             'meta_pixel_id': (org.get('meta_pixel_id') or '').strip(),
             'google_ads_id': (org.get('google_ads_id') or '').strip(),
             'google_ads_conversion_label': (org.get('google_ads_conversion_label') or '').strip(),
+            # Legal controller block (GDPR art. 13) shown in the footer.
+            'legal_name': org.get('legal_name', ''),
+            'vat_number': org.get('vat_number', ''),
+            'legal_address': org.get('legal_address', ''),
+            'privacy_contact_email': org.get('privacy_contact_email', ''),
+            'privacy_policy_url': org.get('privacy_policy_url', ''),
+            'gdpr_status': {
+                'controller_verified': _has_required,
+                'completeness': 'complete' if _has_required and _has_optional
+                                else ('verified' if _has_required else 'incomplete'),
+            },
+            # Cookie banner config propagated so the public landing can
+            # render the same consent UI as the /v/<id> vendor pages.
+            'cookie_banner_enabled': bool(org.get('cookie_banner_enabled', False)),
+            'cookie_banner': org.get('cookie_banner') or None,
         }
     }
 

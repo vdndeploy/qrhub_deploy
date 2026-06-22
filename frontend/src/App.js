@@ -31,6 +31,9 @@ function App() {
               <Route path="/v/:vendorId/privacy" element={<VendorPrivacy />} />
               {/* Store lead-gen landing page (Meta/Google Ads funnel). */}
               <Route path="/s/:slug" element={<StoreLanding />} />
+              {/* Legal page for store landings — reuses VendorPrivacy UI;
+                  the component picks the right API endpoint from useParams. */}
+              <Route path="/s/:slug/privacy" element={<VendorPrivacy />} />
               <Route
                 path="/dashboard/*"
                 element={

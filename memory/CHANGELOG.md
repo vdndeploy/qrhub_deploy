@@ -4,6 +4,17 @@
 
 ---
 
+## 2026-06-22 — Landings folder isolata + Race condition picker definitivamente risolta
+
+- **Categoria "landings" dedicata** (backend + frontend):
+  - Aggiunto `'landings'` ai `kind` validi su `GET /api/media` e `GET /api/files` (`routers/media.py`).
+  - `MediaPicker` aperto da `Landings.js` ora passa `kind="landings"` → tab "Foto profilo" **completamente nascosto** + galleria filtra solo i file caricati come hero landing. I file uploadati da Landings con `folder=landings` finiscono naturalmente in `kind=landings`, separati dalle foto profilo vendor.
+- **Race condition Radix Dialog stacking — fix definitivo**:
+  - Sostituito il guard `if (!o && pickerOpen) return;` (state, soggetto a stale closure durante il close-cascade Radix) con `pickerOpenRef.current` (ref sync). Picker apertura/chiusura ora aggiorna sia state che ref. Setpicker close differito a 50ms per garantire che React commit `setFormData` prima che la chiusura propaghi.
+  - Risultato verificato e2e: click "Usa" su immagine galleria → editor RIMANE APERTO, title preservato, hero preview aggiornato con URL Cloudinary, toast "Immagine selezionata" mostrato.
+
+---
+
 ## 2026-06-22 — Cloudinary fix + Pixel Meta/Google Ads + Hero spacing
 
 - **Fix critico — Upload Cloudinary in preview env** (`/app/backend/server.py` startup, `/app/backend/routers/media.py`):

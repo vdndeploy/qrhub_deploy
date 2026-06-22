@@ -120,7 +120,7 @@ async def list_files(skip: int = 0, limit: int = 24, folder: Optional[str] = Non
     by a vendor profile image, or by an organization logo. The `folder` filter matches the
     short `kind` (uploads|posts) — the stored `folder` value is composite (org_<id>/<kind>)."""
     q = _tenant_filter(user)
-    if folder in ('uploads', 'posts'):
+    if folder in ('uploads', 'posts', 'landings'):
         q['kind'] = folder
     elif folder:
         q['folder'] = folder
@@ -276,7 +276,7 @@ async def list_media(
 
     if is_vendor:
         q['kind'] = 'uploads'
-    elif kind in ('uploads', 'posts'):
+    elif kind in ('uploads', 'posts', 'landings'):
         q['kind'] = kind
 
     if mine_only:

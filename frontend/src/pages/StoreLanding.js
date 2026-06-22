@@ -45,6 +45,52 @@ const StoreLanding = () => {
   const sessionStartRef = useRef(Date.now());
   const storeIdRef = useRef('');
 
+  // ── Dynamic hero color band ───────────────────────────────────────────
+  // We sample the bottom ~80px strip of the hero image to derive a base
+  // colour for the title band underneath the picture. This way the band
+  // visually continues the image instead of being a hard cut, AND the
+  // hero image itself is shown at its natural aspect ratio (square,
+  // 4:5 post, 9:16 story…) — no more crop violence on user-supplied
+  // promo creatives.
+  const [bandColor, setBandColor] = useState({ r: 17, g: 24, b: 39 }); // gray-900 fallback
+  const sampleHeroColor = (img) => {
+    try {
+      if (!img || !img.naturalWidth) return;
+      const canvas = document.createElement('canvas');
+      const stripH = Math.max(8, Math.floor(img.naturalHeight * 0.12));
+      canvas.width = 40;
+      canvas.height = 12;
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+      // Draw the bottom strip of the image scaled into a tiny 40×12 buffer.
+      ctx.drawImage(
+        img,
+        0, img.naturalHeight - stripH, img.naturalWidth, stripH,
+        0, 0, 40, 12
+      );
+      const { data } = ctx.getImageData(0, 0, 40, 12);
+      let r = 0, g = 0, b = 0, n = 0;
+      for (let i = 0; i < data.length; i += 4) {
+        const a = data[i + 3];
+        if (a < 200) continue; // skip transparent samples
+        r += data[i]; g += data[i + 1]; b += data[i + 2]; n++;
+      }
+      if (!n) return;
+      setBandColor({ r: Math.round(r / n), g: Math.round(g / n), b: Math.round(b / n) });
+    } catch {
+      // Canvas may throw on cross-origin without proper CORS headers.
+      // Silently keep the fallback (gray-900) — never break the page.
+    }
+  };
+  // Title text colour: pick white on dark band, near-black on light band.
+  // Uses relative luminance per WCAG (sRGB lin coefficients).
+  const bandIsDark = useMemo(() => {
+    const { r, g, b } = bandColor;
+    const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    return lum < 150;
+  }, [bandColor]);
+  const bandRgb = `rgb(${bandColor.r}, ${bandColor.g}, ${bandColor.b})`;
+  const bandRgbDark = `rgb(${Math.max(0, bandColor.r - 25)}, ${Math.max(0, bandColor.g - 25)}, ${Math.max(0, bandColor.b - 25)})`;
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -243,54 +289,74 @@ const StoreLanding = () => {
           paid traffic is 95% mobile and the funnel reads cleaner this way.
           Pattern used by Linktree / Beacons / Stan etc. */}
       <main className="mx-auto w-full max-w-md min-h-dvh bg-white shadow-[0_0_80px_-20px_rgba(0,0,0,0.08)] flex flex-col">
-        {/* ── Hero banner — premium layout: full-width image with title /
-            subtitle overlayed at the BOTTOM (admin can design the promo
-            into the image and we leave the bottom strip semi-transparent
-            for readability). If no image, fallback to brand-color
-            gradient with title centered. */}
-        <section className="relative w-full aspect-[4/5] sm:aspect-[16/12] overflow-hidden bg-gray-100">
+        {/* ── Hero banner — RESPONSIVE to image aspect ratio.
+            The image renders at its natural ratio (1:1 square post,
+            4:5 portrait post, 9:16 story…) so admin's promo creative
+            isn't crop-mutilated. Below the image sits a smooth gradient
+            band whose base colour is sampled from the image's bottom
+            strip — the title overlay lives ON the band, never on the
+            image. No more text-on-image readability issues. */}
+        <section
+          className="relative w-full overflow-hidden bg-gray-100"
+          data-testid="store-landing-hero"
+        >
           {store.landing_hero_image ? (
             <img
               src={store.landing_hero_image}
               alt={store.landing_title || store.name}
-              className="absolute inset-0 w-full h-full object-cover"
+              className="block w-full h-auto"
+              crossOrigin="anonymous"
+              onLoad={(e) => sampleHeroColor(e.currentTarget)}
               data-testid="store-landing-hero-image"
             />
           ) : (
             <div
-              className="absolute inset-0"
+              className="w-full aspect-[16/9]"
               style={{ background: `linear-gradient(140deg, ${orgColor}, ${shadeColor(orgColor, -15)})` }}
             />
           )}
-          <div className="absolute inset-x-0 bottom-0 h-[60%] bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
           {/* Brand badge — top-left, subtle glassmorphism */}
           {brand && (
-            <div className="absolute top-4 left-4 inline-flex items-center gap-1.5 text-[10px] font-medium tracking-wide text-white bg-white/15 backdrop-blur-md ring-1 ring-white/20 rounded-full px-2.5 py-1">
+            <div className="absolute top-4 left-4 inline-flex items-center gap-1.5 text-[10px] font-medium tracking-wide text-white bg-black/35 backdrop-blur-md ring-1 ring-white/15 rounded-full px-2.5 py-1">
               <ShieldCheck className="h-3 w-3" />
               <span className="uppercase">{brand}</span>
             </div>
           )}
-          {/* Title + subtitle in the bottom overlay. We push them up with
-              extra pb- so the CTA button (which pulls up via -mt-) doesn't
-              crowd the subtitle. */}
-          <div className="absolute inset-x-0 bottom-0 px-6 pb-14 text-white">
-            <h1
-              className="text-[26px] font-bold leading-[1.15] tracking-tight"
-              style={{ textShadow: '0 2px 16px rgba(0,0,0,0.55)' }}
-              data-testid="store-landing-title"
+        </section>
+
+        {/* ── Title band — dynamic gradient sampled from the image bottom.
+            Sits directly under the picture so the title is on a solid
+            (gradient) surface, never overlapped on the photo. */}
+        <section
+          className="relative px-6 pt-7 pb-12 transition-[background] duration-500 ease-out"
+          style={{
+            background: `linear-gradient(180deg, ${bandRgb} 0%, ${bandRgbDark} 100%)`,
+            color: bandIsDark ? '#ffffff' : '#0f172a',
+          }}
+          data-testid="store-landing-titleband"
+        >
+          {/* Soft top blend so the photo "melts" into the band */}
+          <div
+            aria-hidden
+            className="absolute -top-8 inset-x-0 h-8 pointer-events-none"
+            style={{
+              background: `linear-gradient(180deg, rgba(0,0,0,0) 0%, ${bandRgb} 100%)`,
+            }}
+          />
+          <h1
+            className="text-[26px] font-bold leading-[1.15] tracking-tight"
+            data-testid="store-landing-title"
+          >
+            {store.landing_title || store.name}
+          </h1>
+          {store.landing_subtitle && (
+            <p
+              className={`mt-2 text-[14px] leading-relaxed font-medium ${bandIsDark ? 'text-white/90' : 'text-slate-700'}`}
+              data-testid="store-landing-subtitle"
             >
-              {store.landing_title || store.name}
-            </h1>
-            {store.landing_subtitle && (
-              <p
-                className="mt-2 text-[14px] text-white/95 leading-relaxed font-medium"
-                style={{ textShadow: '0 1px 8px rgba(0,0,0,0.5)' }}
-                data-testid="store-landing-subtitle"
-              >
-                {store.landing_subtitle}
-              </p>
-            )}
-          </div>
+              {store.landing_subtitle}
+            </p>
+          )}
         </section>
 
         {/* ── Premium CTA strip — pulls up into the image bottom (-mt-5)

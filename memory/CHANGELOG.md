@@ -4,6 +4,19 @@
 
 ---
 
+## 2026-06-22 — Hero responsive + banda titolo dinamica colore-immagine
+
+- **Cosa cambia** (`StoreLanding.js`):
+  - Hero image ora rendere al **rapporto naturale** dell'immagine (1:1, 4:5, 9:16…). Nessun crop forzato: i creativi Instagram/Stories restano integri come l'admin li ha designati.
+  - Sotto l'immagine, una nuova **banda gradient** in cui vive titolo + sottotitolo. **Niente più testo sovrapposto all'immagine** — leggibilità perfetta indipendentemente dal contenuto della foto.
+  - **Colore della banda estratto dinamicamente** dal bordo inferiore dell'immagine via Canvas API (sample 40×12 dello strip basso 12%, media RGB). Cloudinary fornisce CORS aperto → `crossOrigin="anonymous"` funziona out-of-the-box. Calcolo luminance WCAG decide testo bianco vs near-black.
+  - Top-blend gradient (-8px) per fondere visivamente foto → banda senza taglio netto.
+  - Transition CSS 500ms sul gradient → smooth se l'immagine carica in ritardo.
+  - Fallback robusto: in caso di errore canvas (CORS / 404), default `rgb(17,24,39)` (gray-900) → testo bianco. Pagina non si rompe mai.
+- Verificato e2e con 3 formati immagine (1:1 verdure, 4:5 pizza, 9:16 burger): tutti renderizzano al ratio naturale, banda colore matcha bordo basso, titolo perfettamente leggibile.
+
+---
+
 ## 2026-06-22 — Race condition Radix Dialog stacking RISOLTA DEFINITIVAMENTE
 
 - **Root cause vera**: il guard `if (!o && pickerOpenRef.current) return;` falliva perché `handlePick` in MediaPicker chiama `onClose()` **sincronamente** subito dopo `onSelect()`. La parent Landings azzerava `pickerOpenRef.current = false` in onClose → Radix dispatchava il cascade `onOpenChange(false)` al parent dialog → guard leggeva ref=false → editor chiudeva → setFormData veniva committato in un componente già unmounted → hero image persa.

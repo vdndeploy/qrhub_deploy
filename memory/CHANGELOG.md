@@ -4,6 +4,13 @@
 
 ---
 
+## 2026-06-22 — Bug whitelist folder upload risolto (root cause vera)
+
+- **Root cause definitiva**: `routers/media.py` linea 48 aveva un whitelist `if folder not in ('uploads', 'posts'): folder = 'uploads'`. Anche se Landings.js inviava `folder=landings`, il backend lo coercizzava SILENZIOSAMENTE a `uploads` → l'upload finiva in `org_<id>/uploads` su Cloudinary + DB record con `kind=uploads` → MediaPicker filtrato per `kind=landings` non lo trovava mai. Per questo l'utente vedeva "non carica da Cloudinary, solo da device" — il file ANDAVA su Cloudinary ma in cartella sbagliata, e la galleria landing era vuota.
+- **Fix**: aggiunto `'landings'` al whitelist + commento esplicativo. Verificato e2e via Playwright: upload da device → URL `res.cloudinary.com/.../landings/...`, galleria mostra subito il nuovo file (4 file totali: 2 seed + 2 appena uploadati), tab "Foto profilo" e "Post" assenti.
+
+---
+
 ## 2026-06-22 — Landings folder isolata + Race condition picker definitivamente risolta
 
 - **Categoria "landings" dedicata** (backend + frontend):

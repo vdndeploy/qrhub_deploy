@@ -45,7 +45,11 @@ async def upload_file(request: Request, file: UploadFile = File(...), folder: st
     # so they can't write to /posts or other admin areas.
     if is_vendor:
         folder = 'uploads'
-    elif folder not in ('uploads', 'posts'):
+    elif folder not in ('uploads', 'posts', 'landings'):
+        # Whitelist — admins can upload to vendor-profile, posts or landing-hero buckets.
+        # Anything else collapses to 'uploads' as a safety fallback. Landings must be
+        # explicitly listed otherwise hero-image uploads (folder=landings sent by
+        # Landings.js editor) would silently pollute the vendor "Foto profilo" gallery.
         folder = 'uploads'
 
     # GDPR M1 — tenant isolation: prefix Cloudinary folder with org id so different
@@ -79,7 +83,7 @@ async def upload_file(request: Request, file: UploadFile = File(...), folder: st
                 'height': result.get('height'),
                 'bytes': result.get('bytes', 0),
                 'folder': cl_folder,
-                'kind': folder,  # 'uploads' (vendor photos) | 'posts' (post media)
+                'kind': folder,  # 'uploads' (vendor photos) | 'posts' (post media) | 'landings' (landing hero)
                 'organization_id': user.get('organization_id'),
                 'original_filename': file.filename,
                 'created_at': datetime.now(timezone.utc).isoformat(),

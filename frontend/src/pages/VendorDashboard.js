@@ -30,6 +30,17 @@ const VendorDashboard = () => {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerMode, setPickerMode] = useState('select'); // 'select' | 'manage'
 
+  // ── Store Manager team picker ────────────────────────────────────────
+  // When the logged-in vendor has store_role === 'manager' we let them
+  // pick which teammate's analytics to view. `team` is fetched once and
+  // `viewVendorId` swaps the analytics scope without touching the rest
+  // of the dashboard (profile editing stays scoped to "me").
+  const [team, setTeam] = useState({ is_manager: false, members: [] });
+  const [viewVendorId, setViewVendorId] = useState('');
+  const isManager = !!team.is_manager;
+  // ID currently used for analytics queries (empty string = self).
+  const analyticsTargetId = viewVendorId && viewVendorId !== vendor?.id ? viewVendorId : '';
+
   useEffect(() => {
     if (vendor) {
       setFormData({
@@ -38,14 +49,25 @@ const VendorDashboard = () => {
         profile_image_url: vendor.profile_image_url || '',
         profile_image_enabled: !!vendor.profile_image_enabled,
       });
-      fetchStats(clickPeriod);
+      setViewVendorId(vendor.id);
+      // Manager-only: fetch the team list. Specialists get a single-item
+      // payload back (themselves) — we just don't surface the picker UI.
+      axios.get(`${API}/vendor/team`, { withCredentials: true })
+        .then(({ data }) => setTeam(data))
+        .catch(() => setTeam({ is_manager: false, members: [] }));
     }
-  }, [vendor, clickPeriod]);
+  }, [vendor]);
 
-  const fetchStats = async (period = 'all') => {
+  useEffect(() => {
+    if (vendor) fetchStats(clickPeriod, analyticsTargetId);
+  }, [vendor, clickPeriod, analyticsTargetId]);
+
+  const fetchStats = async (period = 'all', targetVendorId = '') => {
     try {
+      const params = { period };
+      if (targetVendorId) params.vendor_id = targetVendorId;
       const { data } = await axios.get(`${API}/vendor/stats`, {
-        params: { period },
+        params,
         withCredentials: true,
       });
       setStats(data);
@@ -255,7 +277,42 @@ const VendorDashboard = () => {
           </div>
 
           <div className="border-t border-gray-200 dark:border-white/10 pt-6">
-            <AnalyticsDetailed mode="vendor" />
+            {/* Store Manager team picker — only rendered when the logged-in
+                vendor has role 'manager'. Specialists see the regular
+                self-only analytics block. */}
+            {isManager && team.members.length > 1 && (
+              <div className="mb-5 rounded-lg border border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/10 p-4">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+                  <div className="flex-1">
+                    <div className="text-sm font-semibold text-amber-900 dark:text-amber-100">
+                      Vista Store Manager
+                    </div>
+                    <div className="text-xs text-amber-800/80 dark:text-amber-200/80 mt-0.5">
+                      Sei un manager: puoi visualizzare le analitiche di ogni venditore assegnato al tuo negozio.
+                    </div>
+                  </div>
+                  <div className="sm:w-72">
+                    <Label htmlFor="manager-team-select" className="text-xs text-amber-900 dark:text-amber-100 mb-1 block">
+                      Visualizza analytics di:
+                    </Label>
+                    <select
+                      id="manager-team-select"
+                      data-testid="manager-team-select"
+                      value={viewVendorId}
+                      onChange={(e) => setViewVendorId(e.target.value)}
+                      className="w-full h-9 px-2 rounded-md border border-amber-300 dark:border-amber-500/50 bg-white dark:bg-[#1a1a1c] text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-400"
+                    >
+                      {team.members.map((m) => (
+                        <option key={m.id} value={m.id} data-testid={`manager-team-opt-${m.id}`}>
+                          {m.name}{m.id === vendor?.id ? ' (io)' : ''} — {m.store_role === 'manager' ? 'Manager' : 'Specialist'}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+            )}
+            <AnalyticsDetailed mode="vendor" targetVendorId={analyticsTargetId} />
           </div>
 
           <div className="bg-white dark:bg-[#131316] rounded-lg border border-gray-200 dark:border-white/10 p-6">

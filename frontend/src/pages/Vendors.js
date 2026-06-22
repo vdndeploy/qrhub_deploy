@@ -56,6 +56,7 @@ const Vendors = () => {
     name: '',
     bio: '',
     store_id: '',
+    store_role: 'specialist',
   });
 
   useEffect(() => {
@@ -102,6 +103,7 @@ const Vendors = () => {
         bio: vendor.bio,
         store_id: vendor.store_id || '',
         slug: vendor.slug || '',
+        store_role: vendor.store_role || 'specialist',
       });
     } else {
       setEditingVendor(null);
@@ -110,6 +112,7 @@ const Vendors = () => {
         bio: '',
         store_id: '',
         slug: '',
+        store_role: 'specialist',
       });
     }
     setIsDialogOpen(true);
@@ -478,6 +481,35 @@ const Vendors = () => {
               </Select>
               <p className="text-sm text-gray-500 dark:text-[#6a6a72] mt-1">
                 I link social verranno presi dal negozio selezionato
+              </p>
+            </div>
+
+            {/* RBAC role inside the store. Managers will see the team
+                analytics-picker in their /vendor-dashboard. Existing
+                vendors default to 'specialist' if the field is missing. */}
+            <div>
+              <Label htmlFor="store_role">Ruolo nel negozio</Label>
+              <Select
+                value={formData.store_role || 'specialist'}
+                onValueChange={(value) =>
+                  setFormData({ ...formData, store_role: value })
+                }
+              >
+                <SelectTrigger data-testid="vendor-role-select">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="specialist" data-testid="vendor-role-opt-specialist">
+                    Store Specialist (vede solo i propri dati)
+                  </SelectItem>
+                  <SelectItem value="manager" data-testid="vendor-role-opt-manager">
+                    Store Manager (vede tutti gli specialist del negozio)
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-sm text-gray-500 dark:text-[#6a6a72] mt-1">
+                Il Store Manager potrà filtrare le analitiche di ogni venditore assegnato allo stesso negozio.
+                Il ruolo viene stampato anche sul cartellino QR.
               </p>
             </div>
 

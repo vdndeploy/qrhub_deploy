@@ -346,12 +346,18 @@ class VendorCreate(BaseModel):
     store_id: str = Field(..., max_length=64)
     slug: Optional[str] = Field('', max_length=64,
                                 description='URL-friendly slug; falls back to the vendor id when empty')
+    # RBAC role within the store. 'specialist' (default) sees only their own
+    # stats. 'manager' sees a dropdown to switch between any vendor in the
+    # same store. Free-form strings are accepted to keep flexibility for the
+    # printed badge label (e.g. "Senior consultant").
+    store_role: Optional[str] = Field('specialist', max_length=40)
 
 class VendorUpdate(BaseModel):
     name: str = Field(..., min_length=1, max_length=200)
     bio: Optional[str] = Field('', max_length=2000)
     store_id: str = Field(..., max_length=64)
     slug: Optional[str] = Field(None, max_length=64)
+    store_role: Optional[str] = Field(None, max_length=40)
 
 
 _SLUG_RE = re.compile(r'^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$')
@@ -580,6 +586,7 @@ class VendorResponse(BaseModel):
     total_views: int = 0
     email: Optional[str] = ''
     has_credentials: bool = False
+    store_role: Optional[str] = 'specialist'
 
 class AnalyticsEvent(BaseModel):
     vendor_id: str
@@ -2405,7 +2412,10 @@ async def create_vendor(vendor: VendorCreate, user: dict = Depends(get_current_u
         'post_whatsapp_message': store.get('post_whatsapp_message', ''),
         'qr_url': qr_url,
         'created_at': datetime.now(timezone.utc).isoformat(),
-        'total_views': 0
+        'total_views': 0,
+        # Store-scoped RBAC role. Defaults to 'specialist' for back-compat
+        # with vendors created before this field existed.
+        'store_role': (vendor.store_role or 'specialist').strip() or 'specialist',
     }
     
     await db.vendors.insert_one(vendor_doc)
@@ -2717,6 +2727,13 @@ async def update_vendor(vendor_id: str, vendor: VendorUpdate, user: dict = Depen
         'post_whatsapp_message': store.get('post_whatsapp_message', '')
     }
 
+    # Optional role update. Pass through only when explicitly provided so the
+    # endpoint stays backwards-compatible with admin UIs that don't yet know
+    # about this field.
+    if vendor.store_role is not None:
+        new_role = (vendor.store_role or '').strip() or 'specialist'
+        update_doc['store_role'] = new_role
+
     # Slug change is optional. Empty string explicitly clears it (back to UUID-only URL).
     if vendor.slug is not None:
         new_slug = _normalize_vendor_slug(vendor.slug or '')
@@ -2919,16 +2936,88 @@ async def vendor_logout(response: Response):
 @api_router.get('/vendor-auth/me')
 async def get_vendor_me(vendor: dict = Depends(get_current_vendor)):
     vendor['landing_url'] = await _effective_landing_url(vendor)
+    # Back-compat: vendors created before the RBAC feature default to specialist.
+    vendor.setdefault('store_role', 'specialist')
     return vendor
 
+
+async def _resolve_vendor_scope(query_vendor_id: Optional[str], me: dict) -> dict:
+    """Authorisation helper for vendor-admin analytics endpoints.
+
+    If `query_vendor_id` is None or matches the logged-in vendor → no escalation,
+    scope to self. If it differs, the logged-in vendor MUST be a manager AND the
+    target vendor MUST be in the SAME store (rigid scope per user choice b.i).
+
+    Returns the target vendor doc on success. Raises 403/404 otherwise.
+    """
+    target_id = (query_vendor_id or '').strip()
+    if not target_id or target_id == me['id']:
+        return me
+    if (me.get('store_role') or 'specialist') != 'manager':
+        raise HTTPException(status_code=403, detail='Solo i manager possono visualizzare le statistiche di altri venditori')
+    target = await db.vendors.find_one({'id': target_id}, {'_id': 0})
+    if not target:
+        raise HTTPException(status_code=404, detail='Venditore non trovato')
+    if target.get('store_id') != me.get('store_id'):
+        raise HTTPException(status_code=403, detail='Il venditore non appartiene al tuo negozio')
+    if target.get('organization_id') != me.get('organization_id'):
+        raise HTTPException(status_code=403, detail='Cross-tenant non permesso')
+    return target
+
+
+@api_router.get('/vendor/team')
+async def get_vendor_team(vendor: dict = Depends(get_current_vendor)):
+    """List of vendors in the same store, returned only when the caller is a
+    Store Manager. Specialists get back just themselves so the dashboard can
+    render a single-option dropdown without errors.
+    """
+    role = (vendor.get('store_role') or 'specialist').lower()
+    store_id = vendor.get('store_id') or ''
+    if role != 'manager' or not store_id:
+        # Specialist (or manager without a store somehow): only their own card.
+        return {
+            'is_manager': role == 'manager',
+            'store_id': store_id,
+            'members': [{
+                'id': vendor['id'],
+                'name': vendor.get('name', ''),
+                'slug': vendor.get('slug') or '',
+                'store_role': role or 'specialist',
+            }]
+        }
+    cursor = db.vendors.find(
+        {'store_id': store_id, 'organization_id': vendor.get('organization_id')},
+        {'_id': 0, 'id': 1, 'name': 1, 'slug': 1, 'store_role': 1}
+    )
+    members = []
+    async for v in cursor:
+        members.append({
+            'id': v['id'],
+            'name': v.get('name', ''),
+            'slug': v.get('slug') or '',
+            'store_role': v.get('store_role') or 'specialist',
+        })
+    # Manager themselves always first in the list for a friendlier dropdown.
+    members.sort(key=lambda m: (m['id'] != vendor['id'], (m['name'] or '').lower()))
+    return {
+        'is_manager': True,
+        'store_id': store_id,
+        'members': members,
+    }
+
+
 @api_router.get('/vendor/stats')
-async def get_vendor_stats(period: str = 'all', vendor: dict = Depends(get_current_vendor)):
-    """Vendor self-stats. `period`:
+async def get_vendor_stats(period: str = 'all', vendor_id: Optional[str] = None,
+                            vendor: dict = Depends(get_current_vendor)):
+    """Vendor self-stats — OR a managed teammate's stats if the caller is a
+    Store Manager and `vendor_id` targets a vendor in the same store.
+    `period`:
       - 'all' (default, no filter — historic counters)
       - 'today' / 'yesterday' — Europe/Rome calendar day
       - '7d' / 'month' — last 7 days / current calendar month
     """
-    vendor_id = vendor['id']
+    target = await _resolve_vendor_scope(vendor_id, vendor)
+    vendor_id = target['id']
 
     # Build the timestamp filter for the requested period. The Europe/Rome
     # calendar day is what the in-store admin expects (a 23:30 italian scan

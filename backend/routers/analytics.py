@@ -36,7 +36,7 @@ from server import (
     db, logger,
     get_current_user, get_current_vendor,
     _is_super_admin, _tenant_filter,
-    _resolve_vendor_doc,
+    _resolve_vendor_doc, _resolve_vendor_scope,
     AnalyticsEvent,
     CLICK_TYPES,
 )
@@ -302,8 +302,10 @@ async def get_detailed_analytics(period: str = '30d', vendor_id: Optional[str] =
 
 
 @router.get('/vendor/analytics/detailed')
-async def get_vendor_detailed_analytics(period: str = '30d', vendor: dict = Depends(get_current_vendor)):
-    return await _build_detailed_analytics({'vendor_id': vendor['id']}, period)
+async def get_vendor_detailed_analytics(period: str = '30d', vendor_id: Optional[str] = None,
+                                          vendor: dict = Depends(get_current_vendor)):
+    target = await _resolve_vendor_scope(vendor_id, vendor)
+    return await _build_detailed_analytics({'vendor_id': target['id']}, period)
 
 
 def _click_label(et: str) -> str:
@@ -478,10 +480,12 @@ async def export_analytics_pdf(period: str = '30d', vendor_id: Optional[str] = N
 
 
 @router.get('/vendor/analytics/export/pdf')
-async def export_vendor_analytics_pdf(period: str = '30d', vendor: dict = Depends(get_current_vendor)):
-    data = await _build_detailed_analytics({'vendor_id': vendor['id']}, period)
-    title = f"Report Analytics - {vendor['name']}"
-    pdf_bytes = _generate_pdf_report(data, title, f"Venditore: {vendor['name']}")
+async def export_vendor_analytics_pdf(period: str = '30d', vendor_id: Optional[str] = None,
+                                        vendor: dict = Depends(get_current_vendor)):
+    target = await _resolve_vendor_scope(vendor_id, vendor)
+    data = await _build_detailed_analytics({'vendor_id': target['id']}, period)
+    title = f"Report Analytics - {target['name']}"
+    pdf_bytes = _generate_pdf_report(data, title, f"Venditore: {target['name']}")
     fname = f"analytics_{period}_{datetime.now(timezone.utc).strftime('%Y%m%d')}.pdf"
     return FastAPIResponse(content=pdf_bytes, media_type='application/pdf',
                               headers={'Content-Disposition': f'attachment; filename={fname}'})

@@ -4,6 +4,28 @@
 
 ---
 
+## 2026-06-22 — RBAC Store Manager / Specialist + team analytics picker
+
+- **Nuovo campo `store_role` sui vendor** (`'specialist'` default per back-compat, `'manager'` per chi guida il negozio). Vendors esistenti NON modificati — fallback runtime `.setdefault('store_role','specialist')`.
+- **Backend** (`server.py` + `routers/analytics.py`):
+  - `VendorCreate`/`VendorUpdate`/`VendorResponse` estesi con `store_role`.
+  - Nuovo helper `_resolve_vendor_scope(query_vendor_id, me)` — checks: specialist non può scope su altri (403), manager solo dentro lo stesso store (403 cross-store) + stesso tenant (403 cross-tenant).
+  - Nuovo endpoint `GET /api/vendor/team` → restituisce membri dello store quando il caller è manager, altrimenti solo se stesso.
+  - `GET /api/vendor/stats`, `GET /api/vendor/analytics/detailed`, `GET /api/vendor/analytics/export/pdf` accettano `?vendor_id=` opzionale + auth via `_resolve_vendor_scope`.
+- **Frontend**:
+  - `Vendors.js`: nuovo Select "Ruolo nel negozio" (Specialist / Manager) in dialog create/edit. Pre-fills da vendor esistente. Inviato in payload PUT/POST.
+  - `VendorDashboard.js`: se manager con team ≥ 2, mostra banner ambra "Vista Store Manager" con dropdown `manager-team-select`. Switch → analytics rifetched. Specialist non vede il banner. Profilo restano sempre scoped a se stesso.
+  - `AnalyticsDetailed.js`: nuovo prop `targetVendorId` che, in vendor mode, propaga `vendor_id` query param sia per le metric che per il PDF export.
+  - `BadgePrintDialog.js`: pre-select Radio role da `vendor.store_role` (manager → "Store Manager", default Specialist, free-form → custom).
+- **Sicurezza testata via curl**:
+  - Manager → stats teammate stesso store: 200 ✓
+  - Specialist → stats di un altro: 403 "Solo i manager possono…" ✓
+  - Manager → stats cross-store (vendor di altro org): 403 "Il venditore non appartiene al tuo negozio" ✓
+- **E2E** verificato via Playwright: login manager → dashboard → banner manager visibile → dropdown con 3 opzioni (manager + 2 specialist) → switch ad uno specialist → analytics refetched per quel vendor.
+- **Zero data loss** — nessun delete su `users`/`vendors`/`analytics`, solo additive fields.
+
+---
+
 ## 2026-06-22 — Footer GDPR su Store Landing + privacy page dedicata
 
 - **Footer Store Landing** (`StoreLanding.js`): aggiunto blocco GDPR identico a quello di VendorLanding:

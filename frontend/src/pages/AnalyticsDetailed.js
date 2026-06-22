@@ -95,8 +95,10 @@ const SoftTooltip = ({ active, payload, label }) => {
  *  - mode: 'admin' | 'vendor'
  *  - vendors: list of {id,name} for admin filter (admin mode only)
  *  - defaultVendorId: optional preselected vendor (admin mode)
+ *  - targetVendorId: vendor-mode only — when set, scope analytics queries
+ *    to that vendor (used by Store Manager dashboard to view teammate stats).
  */
-export default function AnalyticsDetailed({ mode = 'admin', vendors = [], defaultVendorId = '' }) {
+export default function AnalyticsDetailed({ mode = 'admin', vendors = [], defaultVendorId = '', targetVendorId = '' }) {
   const [period, setPeriod] = useState('30d');
   const [vendorId, setVendorId] = useState(defaultVendorId);
   const [data, setData] = useState(null);
@@ -115,6 +117,7 @@ export default function AnalyticsDetailed({ mode = 'admin', vendors = [], defaul
     try {
       const params = { period };
       if (mode === 'admin' && vendorId) params.vendor_id = vendorId;
+      if (mode === 'vendor' && targetVendorId) params.vendor_id = targetVendorId;
       const { data } = await axios.get(`${API}${endpoint}`, { params, withCredentials: true });
       setData(data);
     } catch (e) {
@@ -130,7 +133,7 @@ export default function AnalyticsDetailed({ mode = 'admin', vendors = [], defaul
         setLandingsData(ld);
       } catch { /* non-blocking — sezione opzionale */ }
     }
-  }, [period, vendorId, mode, endpoint]);
+  }, [period, vendorId, mode, endpoint, targetVendorId]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -139,6 +142,7 @@ export default function AnalyticsDetailed({ mode = 'admin', vendors = [], defaul
     try {
       const params = { period };
       if (mode === 'admin' && vendorId) params.vendor_id = vendorId;
+      if (mode === 'vendor' && targetVendorId) params.vendor_id = targetVendorId;
       const res = await axios.get(`${API}${pdfEndpoint}`, { params, withCredentials: true, responseType: 'blob' });
       const url = window.URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }));
       const a = document.createElement('a');

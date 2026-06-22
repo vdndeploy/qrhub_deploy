@@ -38,8 +38,18 @@ const BADGE = {
 };
 
 const BadgePrintDialog = ({ open, onClose, vendor, organization, landingUrl }) => {
-  const [rolePreset, setRolePreset] = useState('Store Specialist');
-  const [customRole, setCustomRole] = useState('');
+  // Pre-select preset from the vendor's saved store_role. Falls back to
+  // 'Store Specialist' for legacy vendors without the field.
+  const initialPreset = (() => {
+    const r = (vendor?.store_role || '').toLowerCase();
+    if (r === 'manager') return 'Store Manager';
+    if (r === 'specialist' || !r) return 'Store Specialist';
+    // Free-form custom role → use the custom branch.
+    return '__custom__';
+  })();
+  const initialCustom = initialPreset === '__custom__' ? (vendor?.store_role || '') : '';
+  const [rolePreset, setRolePreset] = useState(initialPreset);
+  const [customRole, setCustomRole] = useState(initialCustom);
   const [bannerDataUrl, setBannerDataUrl] = useState('');
   const [pickerOpen, setPickerOpen] = useState(false);
   const [generating, setGenerating] = useState(false);

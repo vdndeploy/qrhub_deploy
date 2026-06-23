@@ -67,7 +67,8 @@ body.qrhub-pwa-standalone #install-banner{padding-top:calc(16px + env(safe-area-
 .posts-content{padding:18px 20px}
 .posts-title{font-size:18px;font-weight:900;color:var(--brand-color);margin-bottom:8px;line-height:1.25}
 .posts-text{font-size:14.5px;line-height:1.55;color:#333;margin-bottom:14px;white-space:pre-wrap}
-.posts-cta{display:inline-flex;align-items:center;justify-content:center;padding:14px 24px;background:linear-gradient(135deg,var(--brand-color) 0%,var(--brand-color-soft) 100%);color:white;font-size:15px;font-weight:700;border-radius:12px;text-decoration:none;width:100%;text-align:center;box-shadow:0 4px 12px rgba(0,0,0,.12);transition:transform .15s}
+.posts-cta{display:inline-flex;align-items:center;justify-content:center;padding:18px 24px;background:linear-gradient(135deg,var(--brand-color) 0%,var(--brand-color-soft) 100%);color:white;font-size:14px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;border-radius:9999px;text-decoration:none;width:100%;text-align:center;box-shadow:0 18px 38px -14px rgba(0,0,0,.35);transition:transform .18s,filter .18s}
+.posts-cta:hover{filter:brightness(1.08)}
 .posts-cta:active{transform:scale(.97)}
 .posts-dots{display:flex;justify-content:center;gap:7px;margin-top:14px;padding:0 20px}
 .posts-dot{width:7px;height:7px;border-radius:50%;border:none;background:#E0E0E0;padding:0;cursor:pointer;transition:all .2s}

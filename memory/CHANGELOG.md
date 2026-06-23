@@ -4,6 +4,19 @@
 
 ---
 
+## 2026-06-23 — Posts CTA: pill rounded come Store Landing (colore invariato)
+
+- `.posts-cta` in `VendorLanding.css`:
+  - `border-radius: 12px` → `9999px` (pill full).
+  - `padding: 14px 24px` → `18px 24px` (match StoreLanding).
+  - Aggiunto `text-transform: uppercase` + `letter-spacing: 0.06em` per coerenza tipografica con la CTA Store.
+  - `box-shadow` più morbido e brand-tinted (`0 18px 38px -14px rgba(0,0,0,.35)`).
+  - Aggiunto hover `filter: brightness(1.08)` (oltre all'active scale già presente).
+- Gradient brand-color INVARIATO come richiesto dall'utente.
+- Verificato live su `/v/6a0c73f2fbb39d92c9f5edd6` → "SCOPRI DI PIÙ" pill arancione WindTre coerente con stile Store Landing ✅.
+
+---
+
 ## 2026-06-23 — BrandSocialIcon: aggiunti Google Maps + Hours per coerenza totale
 
 - `BrandSocialIcon` ora supporta:

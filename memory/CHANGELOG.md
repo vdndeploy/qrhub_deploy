@@ -4,6 +4,16 @@
 
 ---
 
+## 2026-06-23 — BrandSocialIcon esteso: WhatsApp + Google brand-accurate
+
+- `BrandSocialIcon` ora supporta `platform="whatsapp"` (gradient verde ufficiale `#25D366 → #128C7E` + chat-bubble glyph Meta) e `platform="google"` (chip bianco + logo G 4-colori 2023).
+- `glyphOnly` esteso anche a Google (oltre TikTok) per supportare callsite che vogliono il glifo monocromatico in `currentColor`.
+- **VendorLanding.js**: le card "Scrivici su WhatsApp" e "Lascia una recensione" ora usano i nuovi chip premium invece dei vecchi dischi monocromatici brand-color (verde WA al posto dell'arancione brand, G multicolor al posto del viola secondary).
+- **StoreLanding.js**: la card "Leggi le recensioni" ora usa il chip Google brand al posto della stella ambrata. Rimosso import `Star` da lucide.
+- Verificato live su Store + Vendor landing — coerenza totale brand-icon su WhatsApp / Google / Instagram / Facebook / TikTok ✅. Lint pulito.
+
+---
+
 ## 2026-06-23 — Reusable BrandSocialIcon component + applicato a tutte le landing
 
 - Nuovo componente `/app/frontend/src/components/BrandSocialIcon.js`:

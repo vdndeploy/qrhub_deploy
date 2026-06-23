@@ -69,6 +69,36 @@ const TikTokGlyph = ({ className = '', style, monochrome = false }) => {
   );
 };
 
+const WhatsAppGlyph = ({ className = '', style }) => (
+  // Official WhatsApp chat-bubble glyph (Meta brand guidelines 2023).
+  <svg viewBox="0 0 24 24" fill="currentColor" className={className} style={style} aria-hidden="true">
+    <path d="M19.05 4.91A9.82 9.82 0 0 0 12.04 2c-5.46 0-9.91 4.45-9.91 9.91 0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38a9.86 9.86 0 0 0 4.74 1.21h.01c5.46 0 9.91-4.45 9.91-9.91a9.86 9.86 0 0 0-2.91-7.01zM12.04 20.15c-1.48 0-2.93-.4-4.2-1.15l-.3-.18-3.12.82.83-3.04-.2-.31a8.18 8.18 0 0 1-1.26-4.38c0-4.54 3.7-8.23 8.24-8.23 2.2 0 4.27.86 5.83 2.42a8.18 8.18 0 0 1 2.41 5.82c0 4.54-3.7 8.23-8.23 8.23zm4.52-6.16c-.25-.12-1.46-.72-1.69-.8-.23-.08-.39-.12-.56.12-.17.25-.64.8-.79.97-.14.17-.29.19-.54.06-.25-.12-1.05-.39-2-1.23a7.6 7.6 0 0 1-1.4-1.74c-.14-.25-.02-.38.11-.51.11-.11.25-.29.37-.43.12-.14.17-.25.25-.41.08-.17.04-.31-.02-.43-.06-.12-.56-1.34-.76-1.84-.2-.48-.4-.42-.56-.42l-.48-.01c-.17 0-.43.06-.66.31-.23.25-.86.85-.86 2.07 0 1.22.89 2.4 1.01 2.57.12.17 1.75 2.67 4.23 3.74.59.25 1.05.4 1.41.52.59.19 1.13.16 1.56.1.48-.07 1.46-.6 1.67-1.18.21-.58.21-1.08.14-1.18-.06-.1-.23-.16-.48-.28z"/>
+  </svg>
+);
+
+const GoogleGlyph = ({ className = '', style, monochrome = false }) => {
+  // Official Google "G" logo (4-colour brand mark). Monochrome variant for
+  // when the caller provides its own chip background.
+  if (monochrome) {
+    return (
+      <svg viewBox="0 0 24 24" className={className} style={style} aria-hidden="true">
+        <path fill="currentColor" d="M12.24 10.4v3.32h4.7a4.66 4.66 0 0 1-1.97 2.99v2.5h3.18c1.86-1.72 2.93-4.25 2.93-7.26 0-.65-.06-1.27-.16-1.86h-8.68z"/>
+        <path fill="currentColor" d="M12.24 21.5c2.66 0 4.89-.88 6.52-2.39l-3.18-2.5c-.88.6-2.02.96-3.34.96-2.57 0-4.75-1.74-5.53-4.07H3.43v2.56A9.5 9.5 0 0 0 12.24 21.5z"/>
+        <path fill="currentColor" d="M6.7 13.5a5.7 5.7 0 0 1 0-3.64V7.3H3.43a9.5 9.5 0 0 0 0 8.76L6.7 13.5z"/>
+        <path fill="currentColor" d="M12.24 5.79c1.45 0 2.74.5 3.77 1.48l2.81-2.81C17.13 2.87 14.9 2 12.24 2A9.5 9.5 0 0 0 3.43 7.3l3.27 2.56c.78-2.33 2.96-4.07 5.54-4.07z"/>
+      </svg>
+    );
+  }
+  return (
+    <svg viewBox="0 0 24 24" className={className} style={style} aria-hidden="true">
+      <path fill="#4285F4" d="M12.24 10.4v3.32h4.7a4.66 4.66 0 0 1-1.97 2.99v2.5h3.18c1.86-1.72 2.93-4.25 2.93-7.26 0-.65-.06-1.27-.16-1.86h-8.68z"/>
+      <path fill="#34A853" d="M12.24 21.5c2.66 0 4.89-.88 6.52-2.39l-3.18-2.5c-.88.6-2.02.96-3.34.96-2.57 0-4.75-1.74-5.53-4.07H3.43v2.56A9.5 9.5 0 0 0 12.24 21.5z"/>
+      <path fill="#FBBC05" d="M6.7 13.5a5.7 5.7 0 0 1 0-3.64V7.3H3.43a9.5 9.5 0 0 0 0 8.76L6.7 13.5z"/>
+      <path fill="#EA4335" d="M12.24 5.79c1.45 0 2.74.5 3.77 1.48l2.81-2.81C17.13 2.87 14.9 2 12.24 2A9.5 9.5 0 0 0 3.43 7.3l3.27 2.56c.78-2.33 2.96-4.07 5.54-4.07z"/>
+    </svg>
+  );
+};
+
 // ── Per-platform chip presentation (background, shadow, glyph colour)
 const CHIPS = {
   instagram: {
@@ -96,6 +126,22 @@ const CHIPS = {
     Glyph: TikTokGlyph,
     glyphClassName: '',  // colours baked into the glyph
   },
+  whatsapp: {
+    label: 'WhatsApp',
+    // Official WhatsApp green gradient (Meta brand guidelines 2023).
+    style: { background: 'linear-gradient(155deg, #25D366 0%, #128C7E 100%)' },
+    shadow: 'shadow-[0_8px_24px_-8px_rgba(37,211,102,0.55)]',
+    Glyph: WhatsAppGlyph,
+    glyphClassName: 'text-white',
+  },
+  google: {
+    label: 'Google',
+    // White chip with brand-tinted ring → lets the 4-colour G logo shine.
+    style: { background: '#fff' },
+    shadow: 'shadow-[0_8px_24px_-8px_rgba(66,133,244,0.35)]',
+    Glyph: GoogleGlyph,
+    glyphClassName: '',  // colours baked into the glyph
+  },
 };
 
 export const BrandSocialIcon = ({
@@ -115,9 +161,11 @@ export const BrandSocialIcon = ({
   const glyphPx = Math.round(size * 0.46);
 
   if (glyphOnly) {
-    // TikTok needs `monochrome` to drop its triple-tone overlay so the
-    // caller's colour (via currentColor / className) takes effect cleanly.
-    const extraProps = platform === 'tiktok' ? { monochrome: true } : {};
+    // TikTok + Google need `monochrome` to drop their multi-tone overlay so
+    // the caller's colour (via currentColor / className) takes effect cleanly.
+    const extraProps = (platform === 'tiktok' || platform === 'google')
+      ? { monochrome: true }
+      : {};
     return (
       <Glyph
         className={className || `h-[${glyphPx}px] w-[${glyphPx}px]`}

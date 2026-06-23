@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import axios from 'axios';
 import {
-  MessageCircle, Star, MapPin, Clock, ArrowRight,
+  MessageCircle, MapPin, Clock, ArrowRight,
   ShieldCheck,
 } from 'lucide-react';
 import BrandSocialIcon from '../components/BrandSocialIcon';
@@ -440,12 +440,7 @@ const StoreLanding = () => {
                 onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'rgb(229 231 235)'; }}
               >
                 <div className="flex items-center gap-4 min-w-0 flex-1">
-                  <div
-                    className="flex-shrink-0 w-14 h-14 rounded-2xl flex items-center justify-center text-white"
-                    style={{ backgroundColor: 'var(--cta)' }}
-                  >
-                    <Star className="h-7 w-7" strokeWidth={2.2} fill="currentColor" />
-                  </div>
+                  <BrandSocialIcon platform="google" size={56} className="!rounded-2xl flex-shrink-0" />
                   <div className="min-w-0">
                     <p className="font-bold text-gray-900 text-[15px] leading-tight">Leggi le recensioni</p>
                     <p className="text-[12px] text-gray-500 mt-1">Cosa dicono i clienti su Google</p>

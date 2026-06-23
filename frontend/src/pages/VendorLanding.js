@@ -758,13 +758,19 @@ const VendorLanding = () => {
       <div className="cards">
         {vendor.whatsapp && (
           <a className="card" href={`${vendor.whatsapp}${vendor.whatsapp_message ? `?text=${encodeURIComponent(vendor.whatsapp_message)}` : ''}`} target="_blank" rel="noopener noreferrer" onClick={() => trackClick('whatsapp')}>
-            <div className="card-main"><div className="card-icon" style={{ background: 'var(--brand-color)' }}><svg viewBox="0 0 56 56" fill="none"><rect x="4" y="4" width="48" height="48" rx="12" stroke="currentColor" strokeWidth="2.2" fill="none"/><path d="M28 14C20.268 14 14 20.268 14 28C14 30.524 14.688 32.892 15.892 34.92L14 42L21.352 40.144C23.316 41.224 25.584 41.84 28 41.84C35.732 41.84 42 35.572 42 27.84C42 20.108 35.732 14 28 14Z" stroke="currentColor" strokeWidth="2" fill="none" strokeLinejoin="round"/><path d="M23 24.5C23 24.5 23.5 23 25 23C26.5 23 27 24 27.5 25.5C28 27 27 28 26.5 28.5C26 29 25.5 29.5 26.5 31C27.5 32.5 29.5 34 31 34.5C32.5 35 33 34 33.5 33.5C34 33 34.5 32 34.5 32" stroke="currentColor" strokeWidth="2" strokeLinecap="round" fill="none"/></svg></div><div><div className="card-label">Scrivici su WhatsApp</div><div className="card-sublabel">Risposta in pochi minuti</div></div></div>
+            <div className="card-main">
+              <BrandSocialIcon platform="whatsapp" size={56} className="!rounded-[14px] flex-shrink-0" />
+              <div><div className="card-label">Scrivici su WhatsApp</div><div className="card-sublabel">Risposta in pochi minuti</div></div>
+            </div>
             <div className="card-chevron"><svg viewBox="0 0 24 24" fill="none" stroke="var(--cta-arrow-color)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></div>
           </a>
         )}
         {vendor.google_review && (
           <a className="card" href={vendor.google_review} target="_blank" rel="noopener noreferrer" onClick={() => trackClick('review')}>
-            <div className="card-main"><div className="card-icon" style={{ background: 'var(--brand-secondary)' }}><svg viewBox="0 0 56 56" fill="none"><rect x="4" y="4" width="48" height="48" rx="12" stroke="currentColor" strokeWidth="2.2" fill="none"/><path d="M28 14L31.09 22.26H40L33.45 27.14L36.55 35.4L28 30 19.45 35.4 22.55 27.14 16 22.26H24.91L28 14Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" fill="none"/><path d="M22 42H34" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg></div><div><div className="card-label">Lascia una recensione</div><div className="card-sublabel">Aiutaci su Google</div></div></div>
+            <div className="card-main">
+              <BrandSocialIcon platform="google" size={56} className="!rounded-[14px] flex-shrink-0" />
+              <div><div className="card-label">Lascia una recensione</div><div className="card-sublabel">Aiutaci su Google</div></div>
+            </div>
             <div className="card-chevron"><svg viewBox="0 0 24 24" fill="none" stroke="var(--cta-arrow-color)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></div>
           </a>
         )}

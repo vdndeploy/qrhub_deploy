@@ -405,3 +405,4 @@ frontend/node_modules/.cache/default-development/10.pack
 # Auto-generated deploy stamp written by routers/deploy.py
 # before invoking flyctl. Should NOT be tracked.
 backend/_deploy_info.json
+frontend/node_modules/.cache/default-development/28.pack

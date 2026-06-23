@@ -408,7 +408,7 @@ const Vendors = () => {
       </div>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-2xl w-[95vw] max-h-[90vh] overflow-y-auto overflow-x-hidden p-4 sm:p-6" data-testid="vendor-dialog">
+        <DialogContent className="max-w-2xl w-[calc(100vw-1rem)] max-h-[88dvh] overflow-y-auto overflow-x-hidden" data-testid="vendor-dialog">
           <DialogHeader>
             <DialogTitle>
               {editingVendor ? 'Modifica Venditore' : 'Nuovo Venditore'}
@@ -447,9 +447,9 @@ const Vendors = () => {
               <Label htmlFor="vendor-slug">
                 Link personalizzato <span className="text-gray-500 dark:text-[#6a6a72] font-normal">(opzionale)</span>
               </Label>
-              <div className="flex items-center gap-2 rounded-md border bg-white dark:bg-[#131316] pl-2 focus-within:ring-2 focus-within:ring-[#D2FA46]/30">
-                <span className="text-xs text-gray-500 dark:text-[#6a6a72] font-mono truncate hidden sm:inline">{`${window.location.origin}/v/`}</span>
-                <span className="text-xs text-gray-500 dark:text-[#6a6a72] font-mono sm:hidden">/v/</span>
+              <div className="flex items-center gap-2 rounded-md border bg-white dark:bg-[#131316] pl-2 focus-within:ring-2 focus-within:ring-[#D2FA46]/30 min-w-0">
+                <span className="text-xs text-gray-500 dark:text-[#6a6a72] font-mono truncate hidden sm:inline flex-shrink-0">{`${window.location.origin}/v/`}</span>
+                <span className="text-xs text-gray-500 dark:text-[#6a6a72] font-mono sm:hidden flex-shrink-0">/v/</span>
                 <Input
                   id="vendor-slug"
                   value={formData.slug || ''}
@@ -458,7 +458,7 @@ const Vendors = () => {
                   }
                   placeholder={editingVendor ? '(lascia vuoto per usare il codice automatico)' : 'es. mario-rossi'}
                   maxLength={64}
-                  className="border-0 focus-visible:ring-0 focus-visible:ring-offset-0 font-mono text-sm"
+                  className="border-0 focus-visible:ring-0 focus-visible:ring-offset-0 font-mono text-sm min-w-0 flex-1"
                   data-testid="vendor-slug-input"
                 />
               </div>

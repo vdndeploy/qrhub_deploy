@@ -239,7 +239,7 @@ const Stores = () => {
       </div>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-2xl w-[95vw] max-h-[90vh] overflow-y-auto overflow-x-hidden p-4 sm:p-6">
+        <DialogContent className="max-w-2xl w-[calc(100vw-1rem)] max-h-[88dvh] overflow-y-auto overflow-x-hidden">
           <DialogHeader>
             <DialogTitle>{editingStore ? 'Modifica' : 'Nuovo'} Negozio</DialogTitle>
             <DialogDescription>Configura i social e i contatti del negozio. Gli annunci si gestiscono dal pulsante "Annunci" sulla card del negozio.</DialogDescription>

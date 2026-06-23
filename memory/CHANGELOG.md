@@ -4,7 +4,24 @@
 
 ---
 
-## 2026-06-23 — Store Landing UI/UX: stile WindTre + privacy notice + colore CTA + copia link
+## 2026-06-23 — Mobile UX: dialog modali responsive + footer sticky + HoursEditor fit
+
+- **`Dialog primitive`** (`components/ui/dialog.jsx`):
+  - `DialogContent`: `grid` → `flex flex-col`, width `w-[calc(100vw-1rem)]` (era `w-full max-w-lg` ambiguo su mobile), padding default `p-4 sm:p-6`, height `max-h-[calc(100dvh-2rem)]` con `100dvh` (gestisce correttamente la URL bar di iOS Safari). Selector `[&>form]:min-w-0` forza i form figli a non espandere il container. Risolve overflow horizontal causato da `<form>` block che ignorava il padding del genitore (bug: form width=359, dialog width=374 → form usciva dal dialog).
+  - `DialogHeader`: aggiunto `min-w-0 [&>*]:break-words` → titoli e descrizioni lunghe vanno a capo invece di overflow.
+  - `DialogFooter`: **STICKY BOTTOM** con `sticky bottom-0 -mx-4 sm:-mx-6 px-4 sm:px-6 pt-3 pb-2 bg-background border-t`. I pulsanti Salva/Annulla sono sempre raggiungibili senza scrollare l'intero form. Critical UX fix.
+  - `DialogClose` (X): icona più grande su mobile (`h-5 w-5 sm:h-4 sm:w-4`), hit target più toccabile.
+- **`HoursEditor.js`**: 
+  - `DayCard` padding `p-3 sm:p-4` → `p-2.5 sm:p-4`. Aggiunto `min-w-0` sui flex/grid container per evitare time-input overflow.
+  - Time `Input` con `w-full min-w-0 px-2 text-center` → si restringe correttamente nei card stretti.
+  - Grid gap mobile `gap-2 sm:gap-3` su outer grid, `gap-1.5 sm:gap-3` su inner inputs.
+  - Switch giorno con `flex-shrink-0` → label "Aperto"/"Chiuso" non spinge fuori il toggle.
+- **Vendors.js** + **Stores.js** + **Landings.js**: rimossi i `w-[95vw] p-4 sm:p-6` ridondanti (ora vengono dal base) e adottati `w-[calc(100vw-1rem)] max-h-[88dvh] overflow-y-auto overflow-x-hidden`.
+- **Vendors.js slug input**: aggiunti `min-w-0` su flex container e `flex-1 min-w-0` su Input + `flex-shrink-0` sui label `/v/` → il placeholder lungo non spinge il container fuori dal dialog.
+- **Smoke test live**: dialog dimensioni misurate via DOM → dialog=374×?, form=340×? su viewport=390. Tutto contenuto. Pulsanti sticky verificati su 3 dialog (Vendor, Store, Landing). ✅
+
+---
+
 
 - **CTA WindTre-style** in `StoreLanding.js`: pill arrotondato (`rounded-full`), background solido configurabile via nuovo campo `landing_cta_color` (default = `org.primary_color`), uppercase con letter-spacing, no più gradient verde WhatsApp.
 - **Privacy notice GDPR-compliant** sotto il pulsante CTA: linka l'`informativa privacy` dell'org (fallback `/s/<slug>/privacy`), cita esplicitamente il `legal_name` come titolare, dichiara la finalità del contatto. Conforme art. 13 GDPR ("informato prima del processing").

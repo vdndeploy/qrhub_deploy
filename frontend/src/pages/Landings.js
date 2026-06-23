@@ -206,7 +206,7 @@ const Landings = () => {
           if (!o) closeEditor();
         }}
       >
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[88dvh] overflow-y-auto overflow-x-hidden">
           {editing && (
             <form onSubmit={handleSave} className="space-y-5">
               <DialogHeader>

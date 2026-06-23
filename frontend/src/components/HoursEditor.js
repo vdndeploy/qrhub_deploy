@@ -191,10 +191,10 @@ const DayCard = ({ day, value, onChange }) => {
     }
   };
   return (
-    <div className="rounded-2xl border border-gray-200 dark:border-white/10 p-3 sm:p-4 bg-gray-50/50 dark:bg-white/[0.02]">
-      <div className="flex items-center justify-between mb-3">
-        <div className="font-semibold text-sm text-gray-900 dark:text-white">{day.label}</div>
-        <label className="flex items-center gap-2 cursor-pointer">
+    <div className="rounded-2xl border border-gray-200 dark:border-white/10 p-2.5 sm:p-4 bg-gray-50/50 dark:bg-white/[0.02] min-w-0">
+      <div className="flex items-center justify-between mb-3 gap-2">
+        <div className="font-semibold text-sm text-gray-900 dark:text-white truncate">{day.label}</div>
+        <label className="flex items-center gap-2 cursor-pointer flex-shrink-0">
           <span className={`text-xs ${disabled ? 'text-gray-900 dark:text-white font-medium' : 'text-gray-500 dark:text-[#6a6a72]'}`}>
             {disabled ? 'Chiuso' : 'Aperto'}
           </span>
@@ -219,48 +219,48 @@ const DayCard = ({ day, value, onChange }) => {
         </label>
       </div>
       {!disabled && (
-        <div className="space-y-2">
-          <div className="grid grid-cols-2 gap-2 sm:gap-3">
-            <div>
+        <div className="space-y-2 min-w-0">
+          <div className="grid grid-cols-2 gap-1.5 sm:gap-3 min-w-0">
+            <div className="min-w-0">
               <label className="text-[10px] uppercase tracking-wide text-gray-500 dark:text-[#6a6a72] font-semibold block mb-1">Apertura</label>
               <Input
                 type="time"
                 value={value.open}
                 onChange={(e) => onChange({ ...value, open: e.target.value })}
-                className="h-10"
+                className="h-10 w-full min-w-0 px-2 text-center"
                 data-testid={`hours-open-${day.key}`}
               />
             </div>
-            <div>
+            <div className="min-w-0">
               <label className="text-[10px] uppercase tracking-wide text-gray-500 dark:text-[#6a6a72] font-semibold block mb-1">Chiusura</label>
               <Input
                 type="time"
                 value={value.close}
                 onChange={(e) => onChange({ ...value, close: e.target.value })}
-                className="h-10"
+                className="h-10 w-full min-w-0 px-2 text-center"
                 data-testid={`hours-close-${day.key}`}
               />
             </div>
           </div>
           {showBreak ? (
-            <div className="grid grid-cols-2 gap-2 sm:gap-3 pt-1">
-              <div>
+            <div className="grid grid-cols-2 gap-1.5 sm:gap-3 pt-1 min-w-0">
+              <div className="min-w-0">
                 <label className="text-[10px] uppercase tracking-wide text-gray-500 dark:text-[#6a6a72] font-semibold block mb-1">Pausa inizio</label>
                 <Input
                   type="time"
                   value={value.break_start}
                   onChange={(e) => onChange({ ...value, break_start: e.target.value })}
-                  className="h-10"
+                  className="h-10 w-full min-w-0 px-2 text-center"
                   data-testid={`hours-break-start-${day.key}`}
                 />
               </div>
-              <div>
+              <div className="min-w-0">
                 <label className="text-[10px] uppercase tracking-wide text-gray-500 dark:text-[#6a6a72] font-semibold block mb-1">Pausa fine</label>
                 <Input
                   type="time"
                   value={value.break_end}
                   onChange={(e) => onChange({ ...value, break_end: e.target.value })}
-                  className="h-10"
+                  className="h-10 w-full min-w-0 px-2 text-center"
                   data-testid={`hours-break-end-${day.key}`}
                 />
               </div>
@@ -324,7 +324,7 @@ const HoursEditor = ({ value, onChange }) => {
           Tutti chiusi
         </button>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3" data-testid="hours-editor">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 min-w-0" data-testid="hours-editor">
         {DAYS.map((d) => (
           <DayCard
             key={d.key}

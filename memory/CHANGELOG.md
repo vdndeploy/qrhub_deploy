@@ -4,6 +4,18 @@
 
 ---
 
+## 2026-06-23 — Social buttons premium (Instagram/Facebook/TikTok)
+
+- Sostituiti i pulsanti lucide-react flat con SVG brand-accurati inline (no deps aggiuntive):
+  - **Instagram**: gradient ufficiale corner-burst (yellow→red→magenta→blue), squircle 48×48 `rounded-2xl`, brand-tinted shadow rossa, glifo inline SVG (rect+cerchio+dot).
+  - **Facebook**: linear gradient Meta 2023 refresh (`#1877F2 → #0a5fd1`), shadow blu, glifo "f" pieno.
+  - **TikTok**: glifo triplo-layer (cyan + magenta offset + bianco top) → "double exposure" look ufficiale, sostituisce il vecchio testo "TT".
+- Aggiunte micro-interaction: `hover:scale-[1.06]`, `active:scale-95`, `ring-1 ring-black/5` per profondità.
+- Rimossi import `Instagram, Facebook` da lucide-react (non più usati).
+- Verificato live: render brand-accurate su `/s/windtre-castelnuovo-del-garda` ✅.
+
+---
+
 ## 2026-06-23 — Dirty-state indicator esteso ai Posts (Annunci)
 
 - Stessa logica applicata a `Posts.js`: import `useDirtyForm` + `DirtyDot`, hook attivo su `!!editing` (modal open).

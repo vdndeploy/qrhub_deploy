@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import axios from 'axios';
 import {
-  MessageCircle, Star, MapPin, Clock, Instagram, Facebook, ArrowRight,
+  MessageCircle, Star, MapPin, Clock, ArrowRight,
   ShieldCheck,
 } from 'lucide-react';
 
@@ -508,9 +508,11 @@ const StoreLanding = () => {
           )}
         </div>
 
-        {/* Socials — small inline strip at the bottom */}
+        {/* Socials — premium brand-accurate buttons. Each pill carries the
+            platform's official glyph (inline SVG, no external deps) and
+            uses the brand gradient/colour from each company's design system. */}
         {(store.instagram || store.facebook || store.tiktok) && (
-          <div className="px-6 mt-6 flex items-center justify-center gap-3">
+          <div className="px-6 mt-7 flex items-center justify-center gap-3">
             {store.instagram && (
               <a
                 href={store.instagram}
@@ -518,9 +520,18 @@ const StoreLanding = () => {
                 onClick={() => track('store_landing_social_click')}
                 data-testid="store-landing-instagram-btn"
                 aria-label="Instagram"
-                className="w-11 h-11 rounded-full bg-gradient-to-br from-pink-500 to-yellow-500 text-white flex items-center justify-center"
+                className="group relative w-12 h-12 rounded-2xl flex items-center justify-center text-white shadow-[0_8px_24px_-8px_rgba(220,39,67,0.55)] ring-1 ring-black/5 transition-all duration-200 hover:scale-[1.06] active:scale-95"
+                style={{
+                  // Official Instagram corner-burst gradient (Pantone-aligned)
+                  background:
+                    'radial-gradient(circle at 30% 107%, #fdf497 0%, #fdf497 5%, #fd5949 45%, #d6249f 60%, #285AEB 90%)',
+                }}
               >
-                <Instagram className="h-5 w-5" />
+                <svg viewBox="0 0 24 24" fill="none" className="h-[22px] w-[22px]" aria-hidden="true">
+                  <rect x="3.2" y="3.2" width="17.6" height="17.6" rx="5" stroke="currentColor" strokeWidth="1.8" />
+                  <circle cx="12" cy="12" r="4" stroke="currentColor" strokeWidth="1.8" />
+                  <circle cx="17.4" cy="6.6" r="1.1" fill="currentColor" />
+                </svg>
               </a>
             )}
             {store.facebook && (
@@ -530,9 +541,15 @@ const StoreLanding = () => {
                 onClick={() => track('store_landing_social_click')}
                 data-testid="store-landing-facebook-btn"
                 aria-label="Facebook"
-                className="w-11 h-11 rounded-full bg-[#1877F2] text-white flex items-center justify-center"
+                className="group relative w-12 h-12 rounded-2xl flex items-center justify-center text-white shadow-[0_8px_24px_-8px_rgba(24,119,242,0.55)] ring-1 ring-black/5 transition-all duration-200 hover:scale-[1.06] active:scale-95"
+                style={{
+                  // Meta's 2023 brand-refresh blue with a subtle sheen
+                  background: 'linear-gradient(155deg, #1877F2 0%, #0a5fd1 100%)',
+                }}
               >
-                <Facebook className="h-5 w-5" />
+                <svg viewBox="0 0 24 24" fill="currentColor" className="h-[22px] w-[22px]" aria-hidden="true">
+                  <path d="M22 12.07C22 6.51 17.52 2 12 2S2 6.51 2 12.07c0 5.02 3.66 9.18 8.44 9.93v-7.02H7.9v-2.91h2.54V9.84c0-2.52 1.49-3.91 3.78-3.91 1.1 0 2.24.2 2.24.2v2.47h-1.26c-1.24 0-1.63.78-1.63 1.57v1.89h2.77l-.44 2.91h-2.33V22c4.78-.75 8.43-4.91 8.43-9.93z" />
+                </svg>
               </a>
             )}
             {store.tiktok && (
@@ -542,9 +559,23 @@ const StoreLanding = () => {
                 onClick={() => track('store_landing_social_click')}
                 data-testid="store-landing-tiktok-btn"
                 aria-label="TikTok"
-                className="w-11 h-11 rounded-full bg-black text-white flex items-center justify-center text-xs font-bold"
+                className="group relative w-12 h-12 rounded-2xl flex items-center justify-center text-white shadow-[0_8px_24px_-8px_rgba(0,0,0,0.55)] ring-1 ring-white/10 transition-all duration-200 hover:scale-[1.06] active:scale-95 bg-black"
               >
-                TT
+                {/* Layered TikTok glyph: cyan offset, magenta offset, white top — the official triple-tone signature */}
+                <svg viewBox="0 0 24 24" className="h-[22px] w-[22px]" aria-hidden="true">
+                  <path
+                    d="M16.5 5.4c.95 1.1 2.27 1.78 3.75 1.86v3.16c-1.5-.04-2.93-.46-4.22-1.16v6.62c0 3.2-2.6 5.78-5.78 5.78a5.78 5.78 0 0 1-5.78-5.78c0-3.2 2.6-5.78 5.78-5.78.32 0 .63.03.94.08v3.27c-.3-.1-.61-.16-.94-.16a2.6 2.6 0 1 0 0 5.2 2.6 2.6 0 0 0 2.6-2.6V3h2.85c.13.85.43 1.66.8 2.4z"
+                    fill="#25F4EE" transform="translate(-1.2,1)"
+                  />
+                  <path
+                    d="M16.5 5.4c.95 1.1 2.27 1.78 3.75 1.86v3.16c-1.5-.04-2.93-.46-4.22-1.16v6.62c0 3.2-2.6 5.78-5.78 5.78a5.78 5.78 0 0 1-5.78-5.78c0-3.2 2.6-5.78 5.78-5.78.32 0 .63.03.94.08v3.27c-.3-.1-.61-.16-.94-.16a2.6 2.6 0 1 0 0 5.2 2.6 2.6 0 0 0 2.6-2.6V3h2.85c.13.85.43 1.66.8 2.4z"
+                    fill="#FE2C55" transform="translate(1.2,-1)"
+                  />
+                  <path
+                    d="M16.5 5.4c.95 1.1 2.27 1.78 3.75 1.86v3.16c-1.5-.04-2.93-.46-4.22-1.16v6.62c0 3.2-2.6 5.78-5.78 5.78a5.78 5.78 0 0 1-5.78-5.78c0-3.2 2.6-5.78 5.78-5.78.32 0 .63.03.94.08v3.27c-.3-.1-.61-.16-.94-.16a2.6 2.6 0 1 0 0 5.2 2.6 2.6 0 0 0 2.6-2.6V3h2.85c.13.85.43 1.66.8 2.4z"
+                    fill="#fff"
+                  />
+                </svg>
               </a>
             )}
           </div>

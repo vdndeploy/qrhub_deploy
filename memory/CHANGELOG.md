@@ -4,6 +4,25 @@
 
 ---
 
+## 2026-06-23 — Store Landings su Custom Domain Org (parity con Vendor QR)
+
+- **Backend** (`server.py`):
+  - Nuovo helper `_effective_store_landing_url(store)` mirror di `_effective_landing_url` ma per stores: cerca il primo `vercel_domains` verificato dell'org (oldest first) e restituisce `https://<custom-domain>/s/<landing_slug>`. Fallback a `FRONTEND_URL/s/<slug>` o path relativo.
+  - `StoreResponse`: aggiunto campo `landing_url` (read-only, computato).
+  - Popolato in `GET /api/stores`, `POST /api/stores`, `PUT /api/stores/{id}` e nel payload pubblico `GET /api/store-landing/{slug}`.
+  - `og_store_landing_preview` ora usa l'URL canonico per `og:url` e JSON-LD → crawler social vedono il dominio brand.
+- **Frontend**:
+  - `DomainGuard.js`: aggiunto `/s/` a `PUBLIC_PATH_PREFIXES`. Senza questo i custom domain (es. `app.vdn.srl/s/<slug>`) mostravano la courtesy page "Pagina non disponibile".
+  - `Landings.js`: il pulsante "Apri landing pubblica" (occhio) e il link "Anteprima /s/<slug>" nell'editor ora usano `store.landing_url || /s/<slug>`.
+- **Smoke test backend**:
+  - `app.vdn.srl` org (verified) + store `windtre-castelnuovo-del-garda` → `landing_url = https://app.vdn.srl/s/windtre-castelnuovo-del-garda` ✅
+  - Org senza custom domain → fallback `/s/<slug>` ✅
+  - Vendor `_effective_landing_url` continua a funzionare (regressione zero) ✅
+- **Rimosso badge "WINDTRE" overlay** dall'angolo top-left dell'immagine hero in `StoreLanding.js` su richiesta utente.
+
+---
+
+
 ## 2026-06-22 — Version pill in Super Admin: "Quale codice è davvero LIVE su prod"
 
 - **Backend** (`routers/deploy.py`):

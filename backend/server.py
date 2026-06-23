@@ -496,6 +496,11 @@ class StoreResponse(BaseModel):
     landing_show_hours: bool = True
     landing_show_map: bool = True
     landing_review_read_url: str = ''
+    # Effective public URL — prefers the org's verified custom domain
+    # (so Meta/Google Ads always link to the brand-aligned hostname).
+    # Falls back to FRONTEND_URL when no custom domain is verified, or to
+    # the relative `/s/<slug>` when neither is configured.
+    landing_url: str = ''
     created_at: str
 
 class VendorCredentials(BaseModel):
@@ -1003,6 +1008,7 @@ async def get_stores(user: dict = Depends(get_current_user)):
         store.setdefault('landing_show_hours', True)
         store.setdefault('landing_show_map', True)
         store.setdefault('landing_review_read_url', '')
+        store['landing_url'] = await _effective_store_landing_url(store)
     return stores
 
 @api_router.post('/stores', response_model=StoreResponse)
@@ -1058,6 +1064,10 @@ async def create_store(store: StoreCreate, user: dict = Depends(get_current_user
     await db.stores.insert_one(store_doc)
     store_doc.pop('_id', None)
     store_doc.pop('organization_id', None)
+    store_doc['landing_url'] = await _effective_store_landing_url({
+        'landing_slug': store_doc.get('landing_slug', ''),
+        'organization_id': user.get('organization_id'),
+    })
     return StoreResponse(**store_doc)
 
 @api_router.put('/stores/{store_id}', response_model=StoreResponse)
@@ -1140,6 +1150,7 @@ async def update_store(store_id: str, store: StoreCreate, user: dict = Depends(g
     )
     
     updated = await db.stores.find_one({'id': store_id}, {'_id': 0})
+    updated['landing_url'] = await _effective_store_landing_url(updated)
     return StoreResponse(**updated)
 
 @api_router.delete('/stores/{store_id}')
@@ -2576,6 +2587,30 @@ async def _effective_landing_url(vendor: dict) -> str:
     return vendor.get('qr_url') or ''
 
 
+async def _effective_store_landing_url(store: dict) -> str:
+    """Return the canonical public URL for a store's lead-gen landing.
+    Mirrors `_effective_landing_url` for vendors: prefers the org's verified
+    custom domain (so Meta/Google Ads creatives stay aligned with the brand
+    domain) and falls back to the platform FRONTEND_URL. Returns an empty
+    string if the store has no slug yet (landing not configured)."""
+    slug = (store.get('landing_slug') or '').strip()
+    if not slug:
+        return ''
+    org_id = store.get('organization_id')
+    if org_id:
+        cd = await db.vercel_domains.find_one(
+            {'organization_id': org_id, 'verified': True},
+            {'_id': 0, 'domain': 1},
+            sort=[('created_at_local', 1)]  # oldest first → most stable
+        )
+        if cd and cd.get('domain'):
+            return f"https://{cd['domain']}/s/{slug}"
+    frontend_url = (os.environ.get('FRONTEND_URL') or '').rstrip('/')
+    if frontend_url:
+        return f"{frontend_url}/s/{slug}"
+    return f"/s/{slug}"
+
+
 @api_router.get('/vendors/{vendor_id}')
 async def get_vendor_public(vendor_id: str):
     # vendor_id can be either the canonical UUID or a custom slug like "gizwindtre"
@@ -3772,6 +3807,10 @@ async def get_store_landing(slug: str):
         'hours_text': store.get('hours_text', ''),
         'hours': store.get('hours') or None,
         'landing_slug': store.get('landing_slug', ''),
+        # Canonical public URL — prefers the org's verified custom domain.
+        # Surfaced so the SPA can use it for Share / "Copy link" actions
+        # without re-deriving the hostname client-side.
+        'landing_url': await _effective_store_landing_url(store),
         'landing_title': store.get('landing_title', '') or store.get('name', ''),
         'landing_subtitle': store.get('landing_subtitle', ''),
         'landing_hero_image': store.get('landing_hero_image', ''),
@@ -3845,7 +3884,7 @@ async def og_store_landing_preview(slug: str, request: Request):
     title = (store.get('landing_title') or store.get('name') or brand).strip()
     description = (store.get('landing_subtitle') or '').strip() \
         or f"Contatta {store.get('name', brand)} su WhatsApp. Risposta in pochi minuti."
-    spa_url = f"{frontend_url}/s/{slug}"
+    spa_url = await _effective_store_landing_url(store) or f"{frontend_url}/s/{slug}"
     image_url = (store.get('landing_hero_image') or '').strip() or org.get('logo_url', '')
     if image_url and 'res.cloudinary.com' in image_url and '/upload/' in image_url and '/upload/w_' not in image_url:
         # Cloudinary on-the-fly resize for a 1200×630 OG card. We pick a

@@ -73,6 +73,9 @@ const Landings = () => {
       landing_show_hours: store.landing_show_hours !== false,
       landing_show_map: store.landing_show_map !== false,
       landing_review_read_url: store.landing_review_read_url || '',
+      // Read-only canonical URL surfaced by the backend so the "Anteprima"
+      // link opens on the org's custom domain when configured.
+      landing_url: store.landing_url || '',
     });
   };
 
@@ -339,7 +342,7 @@ const Landings = () => {
                       />
                     </div>
                     {formData.landing_slug && (
-                      <a href={`/s/${formData.landing_slug}`} target="_blank" rel="noopener noreferrer"
+                      <a href={formData.landing_url || `/s/${formData.landing_slug}`} target="_blank" rel="noopener noreferrer"
                           className="inline-flex items-center gap-1.5 text-xs text-emerald-600 hover:underline font-medium"
                           data-testid="landing-preview-link">
                         <ExternalLink className="h-3 w-3" />
@@ -564,7 +567,7 @@ const LandingCard = ({ store, onEdit }) => {
             Configura
           </Button>
           {active && store.landing_slug && (
-            <a href={`/s/${store.landing_slug}`} target="_blank" rel="noopener noreferrer"
+            <a href={store.landing_url || `/s/${store.landing_slug}`} target="_blank" rel="noopener noreferrer"
                 className="inline-flex items-center justify-center px-3 rounded-md border border-gray-200 dark:border-white/10 text-gray-700 dark:text-[#a8a8b0] hover:bg-gray-50 dark:hover:bg-white/5"
                 title="Apri landing pubblica"
                 data-testid={`landing-open-${store.id}`}>

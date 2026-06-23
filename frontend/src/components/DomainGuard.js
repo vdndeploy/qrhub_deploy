@@ -14,7 +14,8 @@ const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
  *   - Hostname == platform primary domain (e.g. qrhub.it)             → render anything
  *   - Hostname in admin_hosts_allowlist / admin_host_suffixes          → render anything
  *   - Otherwise (custom tenant domain like app.tenant-example.com):
- *       /v/:vendorId[...]   → render the public landing
+ *       /v/:vendorId[...]   → render the public vendor landing
+ *       /s/:slug[...]       → render the public store lead-gen landing
  *       Any other path      → render a neutral courtesy page.
  *
  * Earlier versions used to 302-redirect "non-landing" paths to the platform
@@ -27,7 +28,7 @@ const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
  *
  * This component is rendered INSIDE BrowserRouter so it can use useLocation().
  */
-const PUBLIC_PATH_PREFIXES = ['/v/'];
+const PUBLIC_PATH_PREFIXES = ['/v/', '/s/'];
 
 function isPublicPath(pathname) {
   return PUBLIC_PATH_PREFIXES.some((p) => pathname.startsWith(p));

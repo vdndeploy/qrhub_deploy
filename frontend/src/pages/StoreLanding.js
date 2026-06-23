@@ -276,8 +276,6 @@ const StoreLanding = () => {
     return url;
   };
 
-  const brand = store.organization?.name || '';
-
   return (
     <div
       className="min-h-dvh bg-gradient-to-b from-gray-50 to-white text-gray-900"
@@ -314,13 +312,6 @@ const StoreLanding = () => {
               className="w-full aspect-[16/9]"
               style={{ background: `linear-gradient(140deg, ${orgColor}, ${shadeColor(orgColor, -15)})` }}
             />
-          )}
-          {/* Brand badge — top-left, subtle glassmorphism */}
-          {brand && (
-            <div className="absolute top-4 left-4 inline-flex items-center gap-1.5 text-[10px] font-medium tracking-wide text-white bg-black/35 backdrop-blur-md ring-1 ring-white/15 rounded-full px-2.5 py-1">
-              <ShieldCheck className="h-3 w-3" />
-              <span className="uppercase">{brand}</span>
-            </div>
           )}
         </section>
 

@@ -15,6 +15,7 @@ import { Switch } from '@/components/ui/switch';
 import MediaPicker from '@/components/MediaPicker';
 import AnnouncementPreview from '@/components/AnnouncementPreview';
 import MobileActionBtn from '../components/MobileActionBtn';
+import { useDirtyForm, DirtyDot } from '../hooks/useDirtyForm';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -143,6 +144,10 @@ const Posts = () => {
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
+
+  // Dirty-state tracking → amber dot on Save when the form has unsaved
+  // changes. `editing` is non-null whenever the post editor modal is open.
+  const { isDirty } = useDirtyForm(form, !!editing);
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
@@ -694,6 +699,7 @@ const Posts = () => {
               className="bg-[#D2FA46] hover:bg-[#bce63d] text-[#0a0a0b] h-11 sm:h-10 font-semibold"
               data-testid="post-save-button"
             >
+              {isDirty && !saving && <DirtyDot />}
               {saving
                 ? 'Salvataggio…'
                 : (editing === 'new'

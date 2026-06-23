@@ -4,6 +4,14 @@
 
 ---
 
+## 2026-06-23 — Dirty-state indicator esteso ai Posts (Annunci)
+
+- Stessa logica applicata a `Posts.js`: import `useDirtyForm` + `DirtyDot`, hook attivo su `!!editing` (modal open).
+- Pulsante "Salva" / "Pubblica su N negozi" mostra `● ` prefisso ambrato quando il form ha modifiche non salvate.
+- Verificato live: 0 dot all'apertura, 1 dot dopo modifica titolo ✅.
+
+---
+
 ## 2026-06-23 — Dirty-state indicator sui pulsanti Salva (UX retention)
 
 - Nuovo hook condiviso `frontend/src/hooks/useDirtyForm.js`:

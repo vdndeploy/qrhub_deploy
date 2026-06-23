@@ -7,6 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
 import { LogOut, Eye, MousePointerClick, ExternalLink, Save, Upload, X, Image as ImageIcon, FolderOpen, Sun, Moon, Trash2 } from 'lucide-react';
+import ConsultantAvatar from '@/components/ConsultantAvatar';
 import axios from 'axios';
 import AnalyticsDetailed from './AnalyticsDetailed';
 import MediaPicker from '@/components/MediaPicker';
@@ -388,9 +389,13 @@ const VendorDashboard = () => {
                           data-testid="vendor-profile-image-preview"
                         />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center bg-gray-100 dark:bg-[#1a1a1c] text-gray-400 dark:text-[#5a5a62]">
-                          <ImageIcon className="h-8 w-8" />
-                        </div>
+                        // Default vector mascot — brand-tinted, replaces the
+                        // empty placeholder so the avatar slot is never blank.
+                        <ConsultantAvatar
+                          brandColor={vendor?.organization?.primary_color || '#F96815'}
+                          className="w-full h-full"
+                          testId="vendor-profile-image-default"
+                        />
                       )}
                     </div>
                     {formData.profile_image_url && (

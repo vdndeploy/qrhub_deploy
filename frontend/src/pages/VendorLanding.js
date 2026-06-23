@@ -6,6 +6,7 @@ import AddToHomeDialog from '@/components/AddToHomeDialog';
 import PostsCarousel from '../components/PostsCarousel';
 import { computeOpenStatus } from '../components/HoursEditor';
 import BrandSocialIcon from '../components/BrandSocialIcon';
+import ConsultantAvatar from '../components/ConsultantAvatar';
 import './VendorLanding.css';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -743,10 +744,22 @@ const VendorLanding = () => {
 
       <div className="hero">
         <div className="hero-eyebrow">{(vendor.organization?.landing_headline || '').trim() || 'Il tuo consulente di fiducia'}</div>
-        {vendor.profile_image_url && (
+        {vendor.profile_image_url ? (
           <div className="hero-avatar" data-testid="vendor-hero-avatar">
             <div className="hero-avatar-ring">
               <img src={vendor.profile_image_url} alt={vendor.name} loading="lazy" />
+            </div>
+          </div>
+        ) : (
+          // Fallback: brand-tinted vector mascot — friendly, unisex, unique to
+          // QRHub (NOT a Will clone). Keeps the hero composition consistent
+          // for consultants who haven't uploaded a profile photo yet.
+          <div className="hero-avatar" data-testid="vendor-hero-avatar-default">
+            <div className="hero-avatar-ring">
+              <ConsultantAvatar
+                brandColor={vendor.organization?.primary_color || '#F96815'}
+                className="w-full h-full"
+              />
             </div>
           </div>
         )}

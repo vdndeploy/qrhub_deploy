@@ -4,6 +4,20 @@
 
 ---
 
+## 2026-06-23 — Default ConsultantAvatar vector mascot (brand-tinted, unisex)
+
+- Nuovo componente `/app/frontend/src/components/ConsultantAvatar.js`:
+  - SVG inline 220×220 viewBox, vettoriale puro, no deps.
+  - Volto unisex + headset + mic + emblem speech-bubble con mini-QR sul tee (firma QRHub, NON un clone di Will).
+  - Prop `brandColor`: tee + capelli + headset shift sul colore primario dell'org (helper `shadeHex` per derivare dark/light tones). Ogni tenant ha un look leggermente diverso.
+  - Prop `size`/`className` per render flessibile dentro qualsiasi cerchio o container.
+- Fallback automatico in:
+  - **`VendorLanding.js`** — hero avatar mostra il mascot quando `vendor.profile_image_url` è vuoto (prima la sezione era completamente nascosta).
+  - **`VendorDashboard.js`** — preview "Foto profilo" mostra il mascot al posto dell'icona ImageIcon grigia placeholder.
+- Verificato live su `/v/6a0c73f8fbb39d92c9f5edd8` (vendor "Danu" senza foto) → mascot arancione WindTre brand-coerente nell'hero ✅. Lint pulito.
+
+---
+
 ## 2026-06-23 — Posts CTA: pill rounded come Store Landing (colore invariato)
 
 - `.posts-cta` in `VendorLanding.css`:

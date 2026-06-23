@@ -4,6 +4,17 @@
 
 ---
 
+## 2026-06-23 — BrandSocialIcon: aggiunti Google Maps + Hours per coerenza totale
+
+- `BrandSocialIcon` ora supporta:
+  - `platform="googlemaps"` → chip bianco + pin Google Maps rosso ufficiale (2020 refresh) con shadow rossa tenue.
+  - `platform="hours"` → chip dark slate gradient (`#1f2937 → #0f172a`) con clock glyph bianco. Non un brand, ma stilizzato come premium chip per mantenere il ritmo visivo con gli altri.
+- **StoreLanding.js**: card "Vieni a trovarci" usa il chip Google Maps brand (al posto del disco purple `--cta` con MapPin lucide). Card "Orari di apertura" usa il chip dark premium (al posto del disco purple con Clock).
+- Rimossi import `MapPin, Clock` da lucide-react (non più usati).
+- Verificato live: TUTTE le card (Recensioni / Mappe / Orari / Social) ora condividono la stessa estetica chip premium 56×56 ✅. Lint pulito.
+
+---
+
 ## 2026-06-23 — BrandSocialIcon esteso: WhatsApp + Google brand-accurate
 
 - `BrandSocialIcon` ora supporta `platform="whatsapp"` (gradient verde ufficiale `#25D366 → #128C7E` + chat-bubble glyph Meta) e `platform="google"` (chip bianco + logo G 4-colori 2023).

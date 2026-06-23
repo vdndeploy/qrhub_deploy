@@ -99,6 +99,23 @@ const GoogleGlyph = ({ className = '', style, monochrome = false }) => {
   );
 };
 
+const GoogleMapsGlyph = ({ className = '', style }) => (
+  // Google Maps brand pin — red drop with white inner circle (2020 refresh).
+  <svg viewBox="0 0 24 24" fill="none" className={className} style={style} aria-hidden="true">
+    <path d="M12 2C7.86 2 4.5 5.36 4.5 9.5c0 5.62 7.5 12.5 7.5 12.5s7.5-6.88 7.5-12.5C19.5 5.36 16.14 2 12 2z" fill="#EA4335"/>
+    <circle cx="12" cy="9.5" r="3.2" fill="#fff"/>
+  </svg>
+);
+
+const ClockGlyph = ({ className = '', style }) => (
+  // Premium clock glyph for "Orari di apertura" — not a brand, sits inside a
+  // neutral dark slate chip to keep visual rhythm with the other chips.
+  <svg viewBox="0 0 24 24" fill="none" className={className} style={style} aria-hidden="true">
+    <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.9" />
+    <path d="M12 7.2v5.1l3.1 1.8" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+);
+
 // ── Per-platform chip presentation (background, shadow, glyph colour)
 const CHIPS = {
   instagram: {
@@ -141,6 +158,23 @@ const CHIPS = {
     shadow: 'shadow-[0_8px_24px_-8px_rgba(66,133,244,0.35)]',
     Glyph: GoogleGlyph,
     glyphClassName: '',  // colours baked into the glyph
+  },
+  googlemaps: {
+    label: 'Google Maps',
+    // White chip with a subtle red glow → the red pin stays the focal point.
+    style: { background: '#fff' },
+    shadow: 'shadow-[0_8px_24px_-8px_rgba(234,67,53,0.45)]',
+    Glyph: GoogleMapsGlyph,
+    glyphClassName: '',
+  },
+  hours: {
+    label: 'Orari',
+    // Premium dark slate chip — not a brand, but visually consistent with
+    // the other chips. Subtle gradient + soft shadow keep the rhythm.
+    style: { background: 'linear-gradient(155deg, #1f2937 0%, #0f172a 100%)' },
+    shadow: 'shadow-[0_8px_24px_-8px_rgba(15,23,42,0.55)]',
+    Glyph: ClockGlyph,
+    glyphClassName: 'text-white',
   },
 };
 

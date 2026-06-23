@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import axios from 'axios';
 import {
-  MessageCircle, MapPin, Clock, ArrowRight,
+  MessageCircle, ArrowRight,
   ShieldCheck,
 } from 'lucide-react';
 import BrandSocialIcon from '../components/BrandSocialIcon';
@@ -462,12 +462,7 @@ const StoreLanding = () => {
               onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'rgb(229 231 235)'; }}
             >
               <div className="flex items-center gap-4 min-w-0 flex-1">
-                <div
-                  className="flex-shrink-0 w-14 h-14 rounded-2xl flex items-center justify-center text-white"
-                  style={{ backgroundColor: 'var(--cta)' }}
-                >
-                  <MapPin className="h-7 w-7" strokeWidth={2.2} />
-                </div>
+                <BrandSocialIcon platform="googlemaps" size={56} className="!rounded-2xl flex-shrink-0" />
                 <div className="min-w-0">
                   <p className="font-bold text-gray-900 text-[15px] leading-tight">Vieni a trovarci</p>
                   {store.address && (
@@ -485,12 +480,7 @@ const StoreLanding = () => {
               data-testid="store-landing-hours"
             >
               <div className="flex items-start gap-4">
-                <div
-                  className="flex-shrink-0 w-14 h-14 rounded-2xl flex items-center justify-center text-white"
-                  style={{ backgroundColor: 'var(--cta)' }}
-                >
-                  <Clock className="h-7 w-7" strokeWidth={2.2} />
-                </div>
+                <BrandSocialIcon platform="hours" size={56} className="!rounded-2xl flex-shrink-0" />
                 <div className="flex-1 min-w-0">
                   <p className="font-bold text-gray-900 text-[15px] leading-tight">Orari di apertura</p>
                   {store.hours_text && (

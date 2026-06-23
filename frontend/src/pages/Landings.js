@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { toast } from 'sonner';
 import {
   Sparkles, Edit, ExternalLink, Eye, MessageCircle, Image as ImageIcon,
-  Search, X, FormInput, FolderOpen,
+  Search, X, FormInput, FolderOpen, Copy, Check,
 } from 'lucide-react';
 import MediaPicker from '@/components/MediaPicker';
 
@@ -73,6 +73,7 @@ const Landings = () => {
       landing_show_hours: store.landing_show_hours !== false,
       landing_show_map: store.landing_show_map !== false,
       landing_review_read_url: store.landing_review_read_url || '',
+      landing_cta_color: store.landing_cta_color || '',
       // Read-only canonical URL surfaced by the backend so the "Anteprima"
       // link opens on the org's custom domain when configured.
       landing_url: store.landing_url || '',
@@ -90,6 +91,9 @@ const Landings = () => {
       // the store's identity fields untouched to avoid clearing them.
       const payload = { ...editing, ...formData };
       delete payload.id; delete payload.created_at;
+      // landing_url is computed read-only by the backend (custom domain
+      // resolution) — never send it back as input or pydantic will reject.
+      delete payload.landing_url;
       await axios.put(`${API}/stores/${editing.id}`, payload, { withCredentials: true });
       toast.success('Landing salvata');
       closeEditor();
@@ -387,6 +391,44 @@ const Landings = () => {
                       </div>
                     )}
 
+                    {/* ── CTA button colour override ────────────────────
+                         When empty we fall back to the org's primary colour
+                         on the public landing — same look as the brand. */}
+                    <div>
+                      <Label>Colore pulsante CTA (opzionale)</Label>
+                      <div className="flex items-center gap-2 mt-1">
+                        <input
+                          type="color"
+                          value={formData.landing_cta_color || '#6E2DE5'}
+                          onChange={(e) => setFormData({ ...formData, landing_cta_color: e.target.value })}
+                          className="h-9 w-12 rounded cursor-pointer border border-gray-300 dark:border-white/10 bg-transparent"
+                          data-testid="landing-cta-color-picker"
+                          aria-label="Colore CTA"
+                        />
+                        <Input
+                          placeholder="#6E2DE5"
+                          value={formData.landing_cta_color}
+                          onChange={(e) => setFormData({ ...formData, landing_cta_color: e.target.value })}
+                          className="flex-1 font-mono text-xs"
+                          data-testid="landing-cta-color-hex"
+                          maxLength={24}
+                        />
+                        {formData.landing_cta_color && (
+                          <button
+                            type="button"
+                            onClick={() => setFormData({ ...formData, landing_cta_color: '' })}
+                            className="text-[11px] text-gray-500 hover:text-gray-900 dark:hover:text-white"
+                            data-testid="landing-cta-color-clear"
+                          >
+                            Reset
+                          </button>
+                        )}
+                      </div>
+                      <p className="text-[10px] text-gray-500 mt-1">
+                        Lascia vuoto per usare il colore primario dell&apos;organizzazione. Suggerito per WindTre: viola <code className="font-mono">#6E2DE5</code>.
+                      </p>
+                    </div>
+
                     {formData.landing_cta_mode === 'html_widget' && (
                       <div>
                         <Label>HTML del widget</Label>
@@ -525,6 +567,27 @@ const CardGrid = ({ items, onEdit }) => (
 const LandingCard = ({ store, onEdit }) => {
   const active = !!store.landing_enabled;
   const hasImage = !!store.landing_hero_image;
+  const [copied, setCopied] = useState(false);
+
+  // Always build an ABSOLUTE URL for the campaign copy — paid traffic lives
+  // outside the SPA so a relative path would break in WhatsApp/Email/Ads.
+  // Backend's `landing_url` already prefers the org's verified custom domain.
+  const fullUrl = store.landing_url
+    || (typeof window !== 'undefined' ? `${window.location.origin}/s/${store.landing_slug}` : `/s/${store.landing_slug}`);
+
+  const handleCopy = async (e) => {
+    e?.preventDefault?.();
+    e?.stopPropagation?.();
+    try {
+      await navigator.clipboard.writeText(fullUrl);
+      setCopied(true);
+      toast.success('Link copiato', { description: fullUrl });
+      setTimeout(() => setCopied(false), 1800);
+    } catch {
+      toast.error('Copia non riuscita — copia manuale: ' + fullUrl);
+    }
+  };
+
   return (
     <div
       className={`relative rounded-2xl border overflow-hidden shadow-sm transition-shadow hover:shadow-md ${
@@ -566,6 +629,21 @@ const LandingCard = ({ store, onEdit }) => {
             <Edit className="h-3.5 w-3.5 mr-1" />
             Configura
           </Button>
+          {active && store.landing_slug && (
+            <button
+              type="button"
+              onClick={handleCopy}
+              className={`inline-flex items-center justify-center px-3 rounded-md border transition-colors ${
+                copied
+                  ? 'border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-300'
+                  : 'border-gray-200 text-gray-700 hover:bg-gray-50 dark:border-white/10 dark:text-[#a8a8b0] dark:hover:bg-white/5'
+              }`}
+              title={`Copia link per campagne (${fullUrl})`}
+              data-testid={`landing-copy-${store.id}`}
+            >
+              {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+            </button>
+          )}
           {active && store.landing_slug && (
             <a href={store.landing_url || `/s/${store.landing_slug}`} target="_blank" rel="noopener noreferrer"
                 className="inline-flex items-center justify-center px-3 rounded-md border border-gray-200 dark:border-white/10 text-gray-700 dark:text-[#a8a8b0] hover:bg-gray-50 dark:hover:bg-white/5"
@@ -637,6 +715,8 @@ const emptyLanding = () => ({
   landing_show_hours: true,
   landing_show_map: true,
   landing_review_read_url: '',
+  landing_cta_color: '',
+  landing_url: '',
 });
 
 export default Landings;

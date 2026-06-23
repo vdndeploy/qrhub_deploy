@@ -463,6 +463,10 @@ class StoreCreate(BaseModel):
     # Optional: when empty the frontend falls back to deriving the read URL
     # from the write one (strip the trailing `/review`).
     landing_review_read_url: Optional[str] = Field('', max_length=600)
+    # Per-store override for the primary CTA (WhatsApp) button colour. Empty
+    # falls back to the org's `primary_color`. Accepts any CSS-parseable colour
+    # (we just echo it back to the frontend; validation is best-effort).
+    landing_cta_color: Optional[str] = Field('', max_length=24)
 
 class StoreResponse(BaseModel):
     id: str
@@ -496,6 +500,7 @@ class StoreResponse(BaseModel):
     landing_show_hours: bool = True
     landing_show_map: bool = True
     landing_review_read_url: str = ''
+    landing_cta_color: str = ''
     # Effective public URL — prefers the org's verified custom domain
     # (so Meta/Google Ads always link to the brand-aligned hostname).
     # Falls back to FRONTEND_URL when no custom domain is verified, or to
@@ -1008,6 +1013,7 @@ async def get_stores(user: dict = Depends(get_current_user)):
         store.setdefault('landing_show_hours', True)
         store.setdefault('landing_show_map', True)
         store.setdefault('landing_review_read_url', '')
+        store.setdefault('landing_cta_color', '')
         store['landing_url'] = await _effective_store_landing_url(store)
     return stores
 
@@ -1058,6 +1064,7 @@ async def create_store(store: StoreCreate, user: dict = Depends(get_current_user
         'landing_show_hours': True if store.landing_show_hours is None else bool(store.landing_show_hours),
         'landing_show_map': True if store.landing_show_map is None else bool(store.landing_show_map),
         'landing_review_read_url': store.landing_review_read_url or '',
+        'landing_cta_color': (store.landing_cta_color or '').strip(),
         'created_at': datetime.now(timezone.utc).isoformat()
     }
 
@@ -1125,6 +1132,7 @@ async def update_store(store_id: str, store: StoreCreate, user: dict = Depends(g
         'landing_show_hours': True if store.landing_show_hours is None else bool(store.landing_show_hours),
         'landing_show_map': True if store.landing_show_map is None else bool(store.landing_show_map),
         'landing_review_read_url': store.landing_review_read_url or '',
+        'landing_cta_color': (store.landing_cta_color or '').strip(),
     }
     
     await db.stores.update_one({'id': store_id}, {'$set': update_doc})
@@ -3821,6 +3829,7 @@ async def get_store_landing(slug: str):
         'landing_show_hours': store.get('landing_show_hours', True),
         'landing_show_map': store.get('landing_show_map', True),
         'landing_review_read_url': store.get('landing_review_read_url', ''),
+        'landing_cta_color': (store.get('landing_cta_color') or '').strip(),
         'organization': {
             'name': org.get('brand_name') or org.get('name', ''),
             'logo_url': org.get('logo_url', ''),

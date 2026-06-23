@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import axios from 'axios';
 import {
-  MessageCircle, Star, MapPin, Clock, Instagram, Facebook, ExternalLink,
+  MessageCircle, Star, MapPin, Clock, Instagram, Facebook, ArrowRight,
   ShieldCheck,
 } from 'lucide-react';
 
@@ -233,7 +233,11 @@ const StoreLanding = () => {
   const themeVars = useMemo(() => ({
     '--brand': orgColor,
     '--brand-soft': hexWithAlpha(orgColor, 0.08),
-  }), [orgColor]);
+    // Per-store CTA override (Landings editor → "Colore pulsante CTA").
+    // Falls back to the org's primary so the button is brand-aligned out of
+    // the box. Used by both the WhatsApp pill and the active card borders.
+    '--cta': (store?.landing_cta_color || '').trim() || orgColor,
+  }), [orgColor, store]);
 
   if (loading) {
     return (
@@ -350,10 +354,11 @@ const StoreLanding = () => {
           )}
         </section>
 
-        {/* ── Premium CTA strip — pulls up into the image bottom (-mt-5)
-            for a "ticket stub" feel + single primary action with depth
-            and a brand-tinted halo. The extra pb-14 on the hero text
-            block keeps the subtitle clear of the button. */}
+        {/* ── Premium CTA strip — WindTre-style pill button with the org's
+            brand colour (or the per-store `landing_cta_color` override).
+            A short legal notice sits directly under the button so the
+            consent context for tapping the CTA is explicit (GDPR art. 13
+            "informed" before processing). */}
         <section className="px-5 -mt-5 relative z-10">
           {showWhatsapp && (
             <a
@@ -361,14 +366,46 @@ const StoreLanding = () => {
               target="_blank" rel="noopener noreferrer"
               onClick={() => track('store_landing_whatsapp_click')}
               data-testid="store-landing-whatsapp-btn"
-              className="relative flex items-center justify-center gap-3 w-full bg-gradient-to-b from-[#25D366] to-[#1eba56] hover:from-[#28dc6c] hover:to-[#1eb957] text-white font-bold rounded-2xl py-[18px] shadow-[0_20px_40px_-12px_rgba(37,211,102,0.45)] ring-1 ring-emerald-700/10 active:scale-[0.97] transition-all duration-200"
+              className="relative flex items-center justify-center gap-2.5 w-full text-white font-bold rounded-full py-[18px] px-6 shadow-[0_18px_38px_-14px_rgba(0,0,0,0.45)] ring-1 ring-black/5 active:scale-[0.97] transition-all duration-200 hover:brightness-110"
+              style={{ backgroundColor: 'var(--cta)' }}
             >
               <MessageCircle className="h-5 w-5" strokeWidth={2.5} />
-              <span className="text-[15px] tracking-tight">Scrivici su WhatsApp</span>
+              <span className="text-[14px] tracking-[0.08em] uppercase">Scrivici su WhatsApp</span>
             </a>
           )}
           {showWhatsapp && (
-            <p className="text-center text-[11px] text-gray-500 mt-3 font-medium flex items-center justify-center gap-1.5">
+            <p
+              className="text-center text-[11.5px] text-gray-600 mt-3 leading-relaxed px-1"
+              data-testid="store-landing-consent-notice"
+            >
+              Inviando il messaggio WhatsApp dichiari di aver preso visione dell&apos;
+              {store.organization?.privacy_policy_url ? (
+                <a
+                  href={store.organization.privacy_policy_url}
+                  target="_blank" rel="noopener noreferrer"
+                  className="font-semibold underline underline-offset-2 hover:opacity-80"
+                  style={{ color: 'var(--cta)' }}
+                  data-testid="store-landing-privacy-link"
+                >
+                  informativa privacy
+                </a>
+              ) : (
+                <a
+                  href={`/s/${slug}/privacy`}
+                  className="font-semibold underline underline-offset-2 hover:opacity-80"
+                  style={{ color: 'var(--cta)' }}
+                  data-testid="store-landing-privacy-link"
+                >
+                  informativa privacy
+                </a>
+              )}{' '}
+              e autorizzi {store.organization?.legal_name || store.organization?.name || store.name} a contattarti per
+              rispondere alla tua richiesta. Il numero non verrà utilizzato
+              per altre finalità senza un&apos;ulteriore autorizzazione.
+            </p>
+          )}
+          {showWhatsapp && (
+            <p className="text-center text-[11px] text-gray-500 mt-2 font-medium flex items-center justify-center gap-1.5">
               <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
               Risposta in pochi minuti negli orari di apertura
             </p>
@@ -381,9 +418,11 @@ const StoreLanding = () => {
           )}
         </section>
 
-        {/* ── Info blocks — unified card design with subtle borders,
-            consistent rounded-2xl, hover lift, generous padding. */}
-        <div className="px-5 mt-8 space-y-2.5">
+        {/* ── Info blocks — Vendor-Landing-style cards. White surface, large
+            brand-coloured icon disc on the left, label/sublabel, arrow on
+            the right. Mirrors `.card` in VendorLanding.css for visual
+            consistency across the two public funnels. */}
+        <div className="px-5 mt-8 space-y-3">
           {store.landing_show_reviews && (() => {
             const readUrl = (store.landing_review_read_url || '').trim()
               || (store.google_review || '').replace(/\/review\/?$/i, '');
@@ -394,16 +433,24 @@ const StoreLanding = () => {
                 target="_blank" rel="noopener noreferrer"
                 onClick={() => track('store_landing_review_click')}
                 data-testid="store-landing-review-btn"
-                className="group flex items-center gap-3 rounded-2xl bg-white border border-gray-200 hover:border-amber-300 p-4 shadow-sm hover:shadow-md transition-all active:scale-[0.99]"
+                className="group flex items-center justify-between gap-4 rounded-2xl bg-white border-[1.5px] border-gray-200 p-5 shadow-sm hover:shadow-md transition-all active:scale-[0.98]"
+                style={{ borderColor: 'rgb(229 231 235)' }}
+                onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--cta)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'rgb(229 231 235)'; }}
               >
-                <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-gradient-to-br from-amber-400 to-yellow-500 flex items-center justify-center shadow-sm shadow-amber-500/30">
-                  <Star className="h-5 w-5 text-white fill-white" strokeWidth={2.5} />
+                <div className="flex items-center gap-4 min-w-0 flex-1">
+                  <div
+                    className="flex-shrink-0 w-14 h-14 rounded-2xl flex items-center justify-center text-white"
+                    style={{ backgroundColor: 'var(--cta)' }}
+                  >
+                    <Star className="h-7 w-7" strokeWidth={2.2} fill="currentColor" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-bold text-gray-900 text-[15px] leading-tight">Leggi le recensioni</p>
+                    <p className="text-[12px] text-gray-500 mt-1">Cosa dicono i clienti su Google</p>
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-gray-900 text-[14px] leading-tight">Leggi le recensioni</p>
-                  <p className="text-[11px] text-gray-500 mt-0.5">Cosa dicono i clienti su Google</p>
-                </div>
-                <ExternalLink className="h-4 w-4 text-gray-400 group-hover:text-amber-600 transition-colors" />
+                <ArrowRight className="h-5 w-5 text-gray-400 flex-shrink-0" strokeWidth={2.5} />
               </a>
             );
           })()}
@@ -414,31 +461,44 @@ const StoreLanding = () => {
               target="_blank" rel="noopener noreferrer"
               onClick={() => track('store_landing_maps_click')}
               data-testid="store-landing-maps-btn"
-              className="group flex items-center gap-3 rounded-2xl bg-white border border-gray-200 hover:border-blue-300 p-4 shadow-sm hover:shadow-md transition-all active:scale-[0.99]"
+              className="group flex items-center justify-between gap-4 rounded-2xl bg-white border-[1.5px] border-gray-200 p-5 shadow-sm hover:shadow-md transition-all active:scale-[0.98]"
+              onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--cta)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'rgb(229 231 235)'; }}
             >
-              <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-sm shadow-blue-500/30">
-                <MapPin className="h-5 w-5 text-white" strokeWidth={2.5} />
+              <div className="flex items-center gap-4 min-w-0 flex-1">
+                <div
+                  className="flex-shrink-0 w-14 h-14 rounded-2xl flex items-center justify-center text-white"
+                  style={{ backgroundColor: 'var(--cta)' }}
+                >
+                  <MapPin className="h-7 w-7" strokeWidth={2.2} />
+                </div>
+                <div className="min-w-0">
+                  <p className="font-bold text-gray-900 text-[15px] leading-tight">Vieni a trovarci</p>
+                  {store.address && (
+                    <p className="text-[12px] text-gray-500 mt-1 truncate">{store.address}</p>
+                  )}
+                </div>
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-semibold text-gray-900 text-[14px] leading-tight">Vieni a trovarci</p>
-                {store.address && (
-                  <p className="text-[11px] text-gray-500 mt-0.5 truncate">{store.address}</p>
-                )}
-              </div>
-              <ExternalLink className="h-4 w-4 text-gray-400 group-hover:text-blue-600 transition-colors" />
+              <ArrowRight className="h-5 w-5 text-gray-400 flex-shrink-0" strokeWidth={2.5} />
             </a>
           )}
 
           {store.landing_show_hours && (store.hours_text || store.hours) && (
-            <div className="rounded-2xl bg-white border border-gray-200 p-4 shadow-sm" data-testid="store-landing-hours">
-              <div className="flex items-start gap-3">
-                <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-gradient-to-br from-gray-700 to-gray-900 flex items-center justify-center shadow-sm">
-                  <Clock className="h-5 w-5 text-white" strokeWidth={2.5} />
+            <div
+              className="rounded-2xl bg-white border-[1.5px] border-gray-200 p-5 shadow-sm"
+              data-testid="store-landing-hours"
+            >
+              <div className="flex items-start gap-4">
+                <div
+                  className="flex-shrink-0 w-14 h-14 rounded-2xl flex items-center justify-center text-white"
+                  style={{ backgroundColor: 'var(--cta)' }}
+                >
+                  <Clock className="h-7 w-7" strokeWidth={2.2} />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-gray-900 text-[14px] leading-tight">Orari di apertura</p>
+                  <p className="font-bold text-gray-900 text-[15px] leading-tight">Orari di apertura</p>
                   {store.hours_text && (
-                    <p className="text-[11px] text-gray-600 mt-1 whitespace-pre-line leading-relaxed">
+                    <p className="text-[12px] text-gray-600 mt-1.5 whitespace-pre-line leading-relaxed">
                       {store.hours_text}
                     </p>
                   )}

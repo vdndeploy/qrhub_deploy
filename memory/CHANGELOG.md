@@ -4,6 +4,18 @@
 
 ---
 
+## 2026-06-23 — Store Landing UI/UX: stile WindTre + privacy notice + colore CTA + copia link
+
+- **CTA WindTre-style** in `StoreLanding.js`: pill arrotondato (`rounded-full`), background solido configurabile via nuovo campo `landing_cta_color` (default = `org.primary_color`), uppercase con letter-spacing, no più gradient verde WhatsApp.
+- **Privacy notice GDPR-compliant** sotto il pulsante CTA: linka l'`informativa privacy` dell'org (fallback `/s/<slug>/privacy`), cita esplicitamente il `legal_name` come titolare, dichiara la finalità del contatto. Conforme art. 13 GDPR ("informato prima del processing").
+- **Cards info ridisegnate** (recensioni, mappa, orari): mirror del `.card` style di `VendorLanding.css` — disco icona 56×56 brand color, `text-[15px] font-bold` label, sublabel grigia, freccia `→` lucide. Hover effect → bordo colorato con `--cta`.
+- **Backend** (`server.py`): aggiunto campo `landing_cta_color` su `StoreCreate` + `StoreResponse` (max 24 char). Persistito in create/update + propagato nel payload pubblico `/api/store-landing/{slug}`.
+- **Editor admin** (`Landings.js`): color picker nativo + input hex + bottone Reset nella `FormSection "Pulsante CTA principale"`. Hint: "Suggerito per WindTre: viola `#6E2DE5`".
+- **Pulsante "Copia link campagne"** sulle card store del pannello admin: icona Copy → toast con preview URL, feedback Check ✓ per 1.8 s, usa `store.landing_url` (custom domain quando disponibile) altrimenti `${origin}/s/<slug>`.
+- **Smoke test live**: WINDTRE Castelnuovo del Garda con `landing_cta_color='#6E2DE5'` → screenshot conferma pulsante viola, notice, cards style, link a privacy `https://app.vdn.srl/v/.../privacy`. ✅
+
+---
+
 ## 2026-06-23 — Store Landings su Custom Domain Org (parity con Vendor QR)
 
 - **Backend** (`server.py`):

@@ -4,6 +4,25 @@
 
 ---
 
+## 2026-06-23 — ConsultantAvatar: variant femminile + selector per-vendor
+
+- `ConsultantAvatar.js` accetta nuovo prop `gender="neutral"|"m"|"f"`:
+  - `m/neutral` → capelli corti wavy (look originale)
+  - `f` → capelli lunghi ondulati che cadono sulle spalle, parting highlight, side-wave detail. Tutto brand-tinted.
+- Backend `server.py` (deploy fly **v71**):
+  - `VendorCreate`, `VendorUpdate`, `VendorProfileUpdate`, `VendorResponse` → nuovo campo `default_avatar_gender: str` (max 10 char).
+  - Helper `_normalize_avatar_gender(raw)` valida contro set `{'neutral','m','f'}`, default fallback `'neutral'`.
+  - `create_vendor`, `update_vendor`, `update_vendor_profile` persistono il campo.
+  - `get_vendors`, `get_vendor_public`, `get_vendor_me` hydratano con default `'neutral'` per back-compat.
+- Frontend `VendorDashboard.js`:
+  - `formData` include `default_avatar_gender`.
+  - Sotto la preview foto, quando NO `profile_image_url`, render picker pill (Neutro / Maschile / Femminile) con `data-testid="vendor-avatar-gender-{v}"`.
+  - Preview mascot usa il valore corrente per cambio live al click.
+- Frontend `VendorLanding.js`: passa `vendor.default_avatar_gender` al `<ConsultantAvatar />`.
+- Verificato live prod su `/api/vendors/...` → `default_avatar_gender: "f"` esposto. Screenshot preview con variant femminile + capelli lunghi brand-arancione ✅.
+
+---
+
 ## 2026-06-23 — Default ConsultantAvatar vector mascot (brand-tinted, unisex)
 
 - Nuovo componente `/app/frontend/src/components/ConsultantAvatar.js`:

@@ -351,6 +351,10 @@ class VendorCreate(BaseModel):
     # same store. Free-form strings are accepted to keep flexibility for the
     # printed badge label (e.g. "Senior consultant").
     store_role: Optional[str] = Field('specialist', max_length=40)
+    # Gender hint used by the default vector mascot on the public landing
+    # when no profile photo has been uploaded. 'neutral' | 'm' | 'f'.
+    # Treated as a free-form short string in the API; frontend validates.
+    default_avatar_gender: Optional[str] = Field('neutral', max_length=10)
 
 class VendorUpdate(BaseModel):
     name: str = Field(..., min_length=1, max_length=200)
@@ -358,9 +362,18 @@ class VendorUpdate(BaseModel):
     store_id: str = Field(..., max_length=64)
     slug: Optional[str] = Field(None, max_length=64)
     store_role: Optional[str] = Field(None, max_length=40)
+    default_avatar_gender: Optional[str] = Field(None, max_length=10)
 
 
 _SLUG_RE = re.compile(r'^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$')
+
+# Allowed values for the default mascot avatar gender hint. Anything else
+# (None, unknown strings, empty) → 'neutral'. Kept tiny on purpose.
+_ALLOWED_AVATAR_GENDERS = {'neutral', 'm', 'f'}
+
+def _normalize_avatar_gender(raw) -> str:
+    s = (raw or 'neutral').strip().lower()
+    return s if s in _ALLOWED_AVATAR_GENDERS else 'neutral'
 
 def _normalize_vendor_slug(raw: str) -> str:
     """Sanitise a vendor slug. Returns '' if input is empty/invalid."""
@@ -408,6 +421,9 @@ class VendorProfileUpdate(BaseModel):
     bio: Optional[str] = Field('', max_length=2000)
     profile_image_url: Optional[str] = Field('', max_length=600)
     profile_image_enabled: Optional[bool] = False
+    # See VendorCreate for the rationale. Vendors can change the default
+    # avatar variant whenever they want from their own dashboard.
+    default_avatar_gender: Optional[str] = Field(None, max_length=10)
 
 class StoreHoursDay(BaseModel):
     """Opening hours for a single day, Google-Business style.
@@ -597,6 +613,7 @@ class VendorResponse(BaseModel):
     email: Optional[str] = ''
     has_credentials: bool = False
     store_role: Optional[str] = 'specialist'
+    default_avatar_gender: Optional[str] = 'neutral'
 
 class AnalyticsEvent(BaseModel):
     vendor_id: str
@@ -2378,6 +2395,7 @@ async def get_vendors(user: dict = Depends(get_current_user)):
         v.setdefault('google_maps_url', '')
         v.setdefault('appointment_url', '')
         v['has_credentials'] = bool(v.get('password_hash'))
+        v.setdefault('default_avatar_gender', 'neutral')
         org_id = v.get('organization_id')
         domain = domain_map.get(org_id) if org_id else None
         if domain:
@@ -2435,6 +2453,10 @@ async def create_vendor(vendor: VendorCreate, user: dict = Depends(get_current_u
         # Store-scoped RBAC role. Defaults to 'specialist' for back-compat
         # with vendors created before this field existed.
         'store_role': (vendor.store_role or 'specialist').strip() or 'specialist',
+        # Gender hint for the default vector mascot used when no profile
+        # picture is uploaded. Validated lazily — frontend coerces to one of
+        # 'neutral' | 'm' | 'f' on render.
+        'default_avatar_gender': _normalize_avatar_gender(vendor.default_avatar_gender),
     }
     
     await db.vendors.insert_one(vendor_doc)
@@ -2637,6 +2659,7 @@ async def get_vendor_public(vendor_id: str):
     if not vendor.get('profile_image_enabled'):
         vendor['profile_image_url'] = ''
     vendor.setdefault('profile_image_url', '')
+    vendor.setdefault('default_avatar_gender', 'neutral')
     # Include carousel posts from store (only currently-active ones)
     posts = []
     if vendor.get('store_id'):
@@ -2776,6 +2799,11 @@ async def update_vendor(vendor_id: str, vendor: VendorUpdate, user: dict = Depen
     if vendor.store_role is not None:
         new_role = (vendor.store_role or '').strip() or 'specialist'
         update_doc['store_role'] = new_role
+
+    # Allow toggling the default mascot gender hint independently of all
+    # other fields. Validation is done in `_normalize_avatar_gender`.
+    if vendor.default_avatar_gender is not None:
+        update_doc['default_avatar_gender'] = _normalize_avatar_gender(vendor.default_avatar_gender)
 
     # Slug change is optional. Empty string explicitly clears it (back to UUID-only URL).
     if vendor.slug is not None:
@@ -2981,6 +3009,7 @@ async def get_vendor_me(vendor: dict = Depends(get_current_vendor)):
     vendor['landing_url'] = await _effective_landing_url(vendor)
     # Back-compat: vendors created before the RBAC feature default to specialist.
     vendor.setdefault('store_role', 'specialist')
+    vendor.setdefault('default_avatar_gender', 'neutral')
     return vendor
 
 
@@ -3111,6 +3140,8 @@ async def update_vendor_profile(vendor_update: VendorProfileUpdate, vendor: dict
         'profile_image_url': (vendor_update.profile_image_url or '').strip(),
         'profile_image_enabled': bool(vendor_update.profile_image_enabled),
     }
+    if vendor_update.default_avatar_gender is not None:
+        update_doc['default_avatar_gender'] = _normalize_avatar_gender(vendor_update.default_avatar_gender)
     await db.vendors.update_one({'id': vendor_id}, {'$set': update_doc})
     updated = await db.vendors.find_one({'id': vendor_id}, {'_id': 0})
     updated.pop('password_hash', None)

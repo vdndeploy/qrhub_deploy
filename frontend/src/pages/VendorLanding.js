@@ -758,6 +758,7 @@ const VendorLanding = () => {
             <div className="hero-avatar-ring">
               <ConsultantAvatar
                 brandColor={vendor.organization?.primary_color || '#F96815'}
+                gender={vendor.default_avatar_gender || 'neutral'}
                 className="w-full h-full"
               />
             </div>

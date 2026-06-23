@@ -25,6 +25,7 @@ const VendorDashboard = () => {
     bio: '',
     profile_image_url: '',
     profile_image_enabled: false,
+    default_avatar_gender: 'neutral',
   });
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -49,6 +50,7 @@ const VendorDashboard = () => {
         bio: vendor.bio || '',
         profile_image_url: vendor.profile_image_url || '',
         profile_image_enabled: !!vendor.profile_image_enabled,
+        default_avatar_gender: vendor.default_avatar_gender || 'neutral',
       });
       setViewVendorId(vendor.id);
       // Manager-only: fetch the team list. Specialists get a single-item
@@ -393,6 +395,7 @@ const VendorDashboard = () => {
                         // empty placeholder so the avatar slot is never blank.
                         <ConsultantAvatar
                           brandColor={vendor?.organization?.primary_color || '#F96815'}
+                          gender={formData.default_avatar_gender}
                           className="w-full h-full"
                           testId="vendor-profile-image-default"
                         />
@@ -467,6 +470,44 @@ const VendorDashboard = () => {
                     </p>
                   </div>
                 </div>
+
+                {/* ── Default mascot gender — only meaningful when no photo
+                    is set; we keep the picker visible always so user can
+                    pre-configure their fallback before uploading. */}
+                {!formData.profile_image_url && (
+                  <div className="mt-4 pt-4 border-t border-gray-200 dark:border-white/10">
+                    <Label className="text-xs uppercase tracking-wide text-gray-600 dark:text-[#8a8a92] font-semibold">
+                      Avatar di default
+                    </Label>
+                    <p className="text-[11px] text-gray-500 dark:text-[#6a6a72] mt-1 mb-2">
+                      Scegli quale variante del mascot usare finché non carichi una tua foto.
+                    </p>
+                    <div className="flex gap-2 flex-wrap" data-testid="vendor-avatar-gender-picker">
+                      {[
+                        { v: 'neutral', label: 'Neutro' },
+                        { v: 'm', label: 'Maschile' },
+                        { v: 'f', label: 'Femminile' },
+                      ].map((o) => {
+                        const active = formData.default_avatar_gender === o.v;
+                        return (
+                          <button
+                            key={o.v}
+                            type="button"
+                            onClick={() => setFormData((p) => ({ ...p, default_avatar_gender: o.v }))}
+                            className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
+                              active
+                                ? 'bg-[#D2FA46] border-[#D2FA46] text-[#0a0a0b]'
+                                : 'border-gray-300 dark:border-white/15 text-gray-700 dark:text-[#a8a8b0] hover:bg-gray-100 dark:hover:bg-white/5'
+                            }`}
+                            data-testid={`vendor-avatar-gender-${o.v}`}
+                          >
+                            {o.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="bg-gray-50 dark:bg-[#0a0a0b] rounded-lg p-4 border border-gray-200 dark:border-white/10">

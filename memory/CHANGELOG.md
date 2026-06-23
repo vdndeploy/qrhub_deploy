@@ -4,6 +4,20 @@
 
 ---
 
+## 2026-06-23 — ConsultantAvatar minimal redesign + admin picker
+
+- **Ridisegno avatar**: rimossi tutti i dettagli facciali, headset, mic, QR emblem, eyebrows, blush, nose, mouth. Restano solo:
+  - Backdrop circolare neutro
+  - Spalle/torso brand-coloured
+  - Head ellisse skin-tone semplice (no features)
+  - Hair shape per gender (cap corta neutra / m vs capelli lunghi f)
+- Codice del componente ridotto da ~220 righe a ~110. Più leggibile a dimensioni piccole (32px tile), più "professional placeholder" e meno mascot.
+- **Vendors.js (admin)**: aggiunto picker pill "Avatar di default" (Neutro/Maschile/Femminile) nel modal create/edit vendor, sotto il select "Ruolo nel negozio". `formData.default_avatar_gender` viene popolato in edit e resettato a `'neutral'` in create. Inviato col PUT/POST esistente.
+- VendorDashboard, VendorLanding, Backend non toccati: già compatibili con la stessa prop.
+- Verificato live: avatar Danu (femminile) ridotto a silhouette pulita, picker admin funzionante in modal mobile ✅. Lint pulito.
+
+---
+
 ## 2026-06-23 — ConsultantAvatar: variant femminile + selector per-vendor
 
 - `ConsultantAvatar.js` accetta nuovo prop `gender="neutral"|"m"|"f"`:

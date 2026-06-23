@@ -58,6 +58,7 @@ const Vendors = () => {
     bio: '',
     store_id: '',
     store_role: 'specialist',
+    default_avatar_gender: 'neutral',
   });
 
   // Dirty-state tracking — shows an amber dot on the Save button when the
@@ -109,6 +110,7 @@ const Vendors = () => {
         store_id: vendor.store_id || '',
         slug: vendor.slug || '',
         store_role: vendor.store_role || 'specialist',
+        default_avatar_gender: vendor.default_avatar_gender || 'neutral',
       });
     } else {
       setEditingVendor(null);
@@ -118,6 +120,7 @@ const Vendors = () => {
         store_id: '',
         slug: '',
         store_role: 'specialist',
+        default_avatar_gender: 'neutral',
       });
     }
     setIsDialogOpen(true);
@@ -525,6 +528,40 @@ const Vendors = () => {
                 Il Store Manager potrà filtrare le analitiche di ogni venditore assegnato allo stesso negozio.
                 Il ruolo viene stampato anche sul cartellino QR.
               </p>
+            </div>
+
+            {/* Default mascot avatar variant — used on the public landing
+                when the vendor hasn't uploaded a profile photo yet. Pill
+                picker matches the design language used elsewhere. */}
+            <div>
+              <Label>Avatar di default</Label>
+              <p className="text-xs text-gray-500 dark:text-[#6a6a72] mt-0.5 mb-2">
+                Variante del mascot mostrata quando il venditore non ha ancora caricato una foto.
+              </p>
+              <div className="flex gap-2 flex-wrap" data-testid="vendor-avatar-gender-picker">
+                {[
+                  { v: 'neutral', label: 'Neutro' },
+                  { v: 'm', label: 'Maschile' },
+                  { v: 'f', label: 'Femminile' },
+                ].map((o) => {
+                  const active = (formData.default_avatar_gender || 'neutral') === o.v;
+                  return (
+                    <button
+                      key={o.v}
+                      type="button"
+                      onClick={() => setFormData({ ...formData, default_avatar_gender: o.v })}
+                      className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
+                        active
+                          ? 'bg-[#D2FA46] border-[#D2FA46] text-[#0a0a0b]'
+                          : 'border-gray-300 dark:border-white/15 text-gray-700 dark:text-[#a8a8b0] hover:bg-gray-100 dark:hover:bg-white/5'
+                      }`}
+                      data-testid={`vendor-avatar-gender-${o.v}`}
+                    >
+                      {o.label}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
             <DialogFooter>

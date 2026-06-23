@@ -10,6 +10,7 @@ import {
   Search, X, FormInput, FolderOpen, Copy, Check,
 } from 'lucide-react';
 import MediaPicker from '@/components/MediaPicker';
+import { useDirtyForm, DirtyDot } from '../hooks/useDirtyForm';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -34,6 +35,10 @@ const Landings = () => {
   const [saving, setSaving] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
+
+  // Dirty-state tracking — amber dot on Save when the form has unsaved
+  // changes. `editing` is the source-of-truth flag for "modal open".
+  const { isDirty } = useDirtyForm(formData, !!editing);
   // Ref-mirror of pickerOpen so the parent Dialog's onOpenChange guard
   // reads a SYNC value (state may be stale inside Radix' close cascade,
   // which would let the editor unmount while the picker is closing).
@@ -497,6 +502,7 @@ const Landings = () => {
                 <Button type="submit" disabled={saving}
                         className="bg-emerald-500 hover:bg-emerald-600 text-white"
                         data-testid="landing-save-btn">
+                  {isDirty && !saving && <DirtyDot />}
                   {saving ? 'Salvataggio…' : 'Salva landing'}
                 </Button>
               </DialogFooter>

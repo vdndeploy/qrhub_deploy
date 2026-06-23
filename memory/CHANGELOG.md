@@ -4,7 +4,23 @@
 
 ---
 
-## 2026-06-23 — Mobile UX: dialog modali responsive + footer sticky + HoursEditor fit
+## 2026-06-23 — Dirty-state indicator sui pulsanti Salva (UX retention)
+
+- Nuovo hook condiviso `frontend/src/hooks/useDirtyForm.js`:
+  - `useDirtyForm(formData, active)` → returns `{isDirty, resetBaseline}`.
+  - Snapshot iniziale via `JSON.stringify` solo quando `active` flippa a `true` (modal apertura), così ogni keystroke registra come dirty.
+  - Componente `<DirtyDot/>` esportato: chip ambrato 6×6px con `animate-pulse`, inline col testo del bottone (`mr-1.5 align-middle`). Testid `dirty-form-dot`.
+- Integrato in **Vendors.js**, **Stores.js**, **Landings.js**:
+  - Bottone "Aggiorna"/"Crea"/"Salva landing" mostra `● ` prefisso quando ci sono modifiche non salvate.
+  - Hook attivo solo finché il modal è aperto (basato su `isDialogOpen` / `!!editing`).
+- **Test live** verificato: 
+  - Apertura modal Vendors → 0 dot (snapshot baseline) ✅
+  - Modifica `Nome` da "Giz" a "Giz X" → 1 dot ambrato visibile sul pulsante sticky ✅
+- ESLint pulito, hot reload OK.
+
+---
+
+
 
 - **`Dialog primitive`** (`components/ui/dialog.jsx`):
   - `DialogContent`: `grid` → `flex flex-col`, width `w-[calc(100vw-1rem)]` (era `w-full max-w-lg` ambiguo su mobile), padding default `p-4 sm:p-6`, height `max-h-[calc(100dvh-2rem)]` con `100dvh` (gestisce correttamente la URL bar di iOS Safari). Selector `[&>form]:min-w-0` forza i form figli a non espandere il container. Risolve overflow horizontal causato da `<form>` block che ignorava il padding del genitore (bug: form width=359, dialog width=374 → form usciva dal dialog).

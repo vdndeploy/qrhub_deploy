@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/table';
 import { toast } from 'sonner';
 import MobileActionBtn from '../components/MobileActionBtn';
+import { useDirtyForm, DirtyDot } from '../hooks/useDirtyForm';
 import {
   Select,
   SelectContent,
@@ -58,6 +59,10 @@ const Vendors = () => {
     store_id: '',
     store_role: 'specialist',
   });
+
+  // Dirty-state tracking — shows an amber dot on the Save button when the
+  // form has unsaved changes. Snapshot is re-taken whenever the dialog opens.
+  const { isDirty } = useDirtyForm(formData, isDialogOpen);
 
   useEffect(() => {
     let alive = true;
@@ -535,6 +540,7 @@ const Vendors = () => {
                 className="bg-[#D2FA46] hover:bg-[#bce63d] text-[#0a0a0b]"
                 data-testid="vendor-submit-button"
               >
+                {isDirty && <DirtyDot />}
                 {editingVendor ? 'Aggiorna' : 'Crea'}
               </Button>
             </DialogFooter>

@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import { Plus, Edit, Trash2, Store as StoreIcon, Megaphone, Search, X } from 'lucide-react';
 import MobileActionBtn from '../components/MobileActionBtn';
 import HoursEditor, { formatHoursText, ensureHoursShape } from '@/components/HoursEditor';
+import { useDirtyForm, DirtyDot } from '../hooks/useDirtyForm';
 import {
   normalizeWhatsapp,
   normalizeInstagram,
@@ -27,6 +28,9 @@ const Stores = () => {
   const [editingStore, setEditingStore] = useState(null);
   const [formData, setFormData] = useState(empty());
   const navigate = useNavigate();
+
+  // Dirty-state tracking → amber dot on Save when there are unsaved changes.
+  const { isDirty } = useDirtyForm(formData, isDialogOpen);
 
   useEffect(() => { fetchStores(); }, []);
 
@@ -354,7 +358,7 @@ const Stores = () => {
                 troppo lungo. Qui restano solo i dati negozio core. */}
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>Annulla</Button>
-              <Button type="submit" className="bg-[#D2FA46] hover:bg-[#bce63d] text-[#0a0a0b]">{editingStore ? 'Aggiorna' : 'Crea'}</Button>
+              <Button type="submit" className="bg-[#D2FA46] hover:bg-[#bce63d] text-[#0a0a0b]">{isDirty && <DirtyDot />}{editingStore ? 'Aggiorna' : 'Crea'}</Button>
             </DialogFooter>
           </form>
         </DialogContent>

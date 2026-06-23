@@ -4,6 +4,17 @@
 
 ---
 
+## 2026-06-23 — Avatar femminile: fronte libera + capelli laterali puliti
+
+- Ridisegno path `f` in `ConsultantAvatar.js`:
+  - Split in `back` (drawn before head ellipse) e `front` (after head). Per `f`, solo `back` viene popolato → la testa MASCHERA naturalmente il front, lasciando la fronte libera.
+  - `back` = halo ellipse (rx=58, ry=62) + 2 long strand path che cadono ai lati fino a y=178.
+  - Niente più "macchia" di capelli sulla fronte.
+- Per `m`/`neutral`: solo `front` (cap corto, look invariato).
+- Verificato live: Danu con `default_avatar_gender='f'` mostra capelli lunghi puliti laterali + fronte/viso completamente libero ✅.
+
+---
+
 ## 2026-06-23 — ConsultantAvatar minimal redesign + admin picker
 
 - **Ridisegno avatar**: rimossi tutti i dettagli facciali, headset, mic, QR emblem, eyebrows, blush, nose, mouth. Restano solo:

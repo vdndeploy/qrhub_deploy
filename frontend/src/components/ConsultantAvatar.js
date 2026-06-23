@@ -11,41 +11,55 @@
  */
 import React from 'react';
 
-// Each entry returns the hair <path>(s) for that gender. Same fill colour
-// (`brandDark`) so org colour drives the whole illustration.
+// Each entry returns either a back-layer (drawn BEHIND the head, e.g. long
+// flowing hair) or a front-layer (drawn ON TOP of the head, e.g. a short
+// cap). The component renders the back layer before the head and the front
+// layer after — so the forehead stays uncovered for the female variant.
 const HAIR_PATHS = {
-  // Short, soft cap — gender-neutral baseline.
-  m: ({ brandDark }) => (
-    <path
-      d="M68 90
-         C 68 64, 86 50, 110 50
-         C 134 50, 152 64, 152 90
-         C 152 92, 150 94, 148 94
-         C 144 80, 130 72, 110 72
-         C 90 72, 76 80, 72 94
-         C 70 94, 68 92, 68 90 Z"
-      fill={brandDark}
-    />
-  ),
-  // Longer hair flowing past the shoulders. Tries to read clearly even at
-  // ~32px so we avoid fine strands and use one continuous silhouette.
-  f: ({ brandDark }) => (
-    <path
-      d="M64 92
-         C 60 70, 76 48, 110 48
-         C 144 48, 160 70, 156 96
-         C 158 116, 156 144, 152 162
-         L 144 160
-         C 148 142, 148 122, 146 108
-         C 138 110, 124 108, 116 104
-         L 114 72
-         C 102 72, 84 78, 78 92
-         C 74 110, 72 138, 76 160
-         L 66 158
-         C 60 138, 58 110, 64 92 Z"
-      fill={brandDark}
-    />
-  ),
+  // Short, soft cap — gender-neutral baseline. Sits as a front layer.
+  m: {
+    back: () => null,
+    front: ({ brandDark }) => (
+      <path
+        d="M68 90
+           C 68 64, 86 50, 110 50
+           C 134 50, 152 64, 152 90
+           C 152 92, 150 94, 148 94
+           C 144 80, 130 72, 110 72
+           C 90 72, 76 80, 72 94
+           C 70 94, 68 92, 68 90 Z"
+        fill={brandDark}
+      />
+    ),
+  },
+  // Long flowing hair — drawn entirely as a BACK layer so the head ellipse
+  // covers any portion that would otherwise sit on the forehead. The user
+  // sees a clean face + long strands falling past the ears down past the
+  // shoulders.
+  f: {
+    back: ({ brandDark }) => (
+      <g fill={brandDark}>
+        {/* Hair halo — sized to clearly stick out around the head ellipse
+            (head rx=42 ry=46) so the hair is unambiguous at small sizes
+            (~32px). The head ellipse will mask the centre, leaving a clean
+            forehead while still showing hair on top and sides. */}
+        <ellipse cx="110" cy="102" rx="58" ry="62" />
+        {/* Long left strand — falls past the ear down to mid-torso. */}
+        <path d="M52 100
+                 C 48 122, 46 154, 52 178
+                 L 76 176
+                 C 74 152, 74 122, 80 102
+                 Z" />
+        {/* Long right strand — mirror */}
+        <path d="M168 100
+                 C 172 122, 174 154, 168 178
+                 L 144 176
+                 C 146 152, 146 122, 140 102
+                 Z" />
+      </g>
+    ),
+    front: () => null,
+  },
 };
 HAIR_PATHS.neutral = HAIR_PATHS.m; // alias
 
@@ -58,7 +72,9 @@ export const ConsultantAvatar = ({
 }) => {
   const brandDark = shadeHex(brandColor, -0.22);
   const sizeProps = size ? { width: size, height: size } : {};
-  const HairPaint = HAIR_PATHS[gender] || HAIR_PATHS.neutral;
+  const hair = HAIR_PATHS[gender] || HAIR_PATHS.neutral;
+  const HairBack = hair.back;
+  const HairFront = hair.front;
 
   return (
     <svg
@@ -79,6 +95,10 @@ export const ConsultantAvatar = ({
         fill={brandColor}
       />
 
+      {/* Back hair layer — drawn BEHIND the head so long-hair variants don't
+          spill onto the forehead. The head ellipse below masks them naturally. */}
+      <HairBack brandDark={brandDark} />
+
       {/* Neck */}
       <path
         d="M99 138 L 99 156 C 99 162, 104 165, 110 165 C 116 165, 121 162, 121 156 L 121 138 Z"
@@ -88,8 +108,9 @@ export const ConsultantAvatar = ({
       {/* Head */}
       <ellipse cx="110" cy="100" rx="42" ry="46" fill="#FBD2B1" />
 
-      {/* Hair (gender-aware) */}
-      <HairPaint brandDark={brandDark} />
+      {/* Front hair layer — sits on TOP of the head, used by the short-cap
+          masculine/neutral variants. */}
+      <HairFront brandDark={brandDark} />
     </svg>
   );
 };

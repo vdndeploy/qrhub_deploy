@@ -5,6 +5,7 @@ import { MapPin, Share2, Store as StoreIcon, Clock, X, Plus, CalendarClock } fro
 import AddToHomeDialog from '@/components/AddToHomeDialog';
 import PostsCarousel from '../components/PostsCarousel';
 import { computeOpenStatus } from '../components/HoursEditor';
+import BrandSocialIcon from '../components/BrandSocialIcon';
 import './VendorLanding.css';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -769,19 +770,28 @@ const VendorLanding = () => {
         )}
         {vendor.instagram && (
           <a className="card" href={vendor.instagram} target="_blank" rel="noopener noreferrer" onClick={() => trackClick('instagram')}>
-            <div className="card-main"><div className="card-icon" style={{ background: 'var(--brand-color)' }}><svg viewBox="0 0 56 56" fill="none"><rect x="4" y="4" width="48" height="48" rx="12" stroke="currentColor" strokeWidth="2.2" fill="none"/><rect x="16" y="16" width="24" height="24" rx="7" stroke="currentColor" strokeWidth="2" fill="none"/><circle cx="28" cy="28" r="5.5" stroke="currentColor" strokeWidth="2" fill="none"/><circle cx="35.5" cy="20.5" r="1.5" fill="currentColor"/></svg></div><div><div className="card-label">Seguici su Instagram</div><div className="card-sublabel">Offerte esclusive</div></div></div>
+            <div className="card-main">
+              <BrandSocialIcon platform="instagram" size={56} className="!rounded-[14px] flex-shrink-0" />
+              <div><div className="card-label">Seguici su Instagram</div><div className="card-sublabel">Offerte esclusive</div></div>
+            </div>
             <div className="card-chevron"><svg viewBox="0 0 24 24" fill="none" stroke="var(--cta-arrow-color)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></div>
           </a>
         )}
         {vendor.facebook && (
           <a className="card" href={vendor.facebook} target="_blank" rel="noopener noreferrer" onClick={() => trackClick('facebook')}>
-            <div className="card-main"><div className="card-icon" style={{ background: 'var(--brand-secondary)' }}><svg viewBox="0 0 56 56" fill="none"><rect x="4" y="4" width="48" height="48" rx="12" stroke="currentColor" strokeWidth="2.2" fill="none"/><path d="M31 42V30H34.5L35 26H31V23.5C31 22.4 31.3 21.7 33 21.7H35V18.1C34.6 18.1 33.3 18 31.8 18C28.6 18 26.5 19.9 26.5 23.2V26H23V30H26.5V42H31Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" fill="none"/></svg></div><div><div className="card-label">Metti Like</div><div className="card-sublabel">Resta aggiornato</div></div></div>
+            <div className="card-main">
+              <BrandSocialIcon platform="facebook" size={56} className="!rounded-[14px] flex-shrink-0" />
+              <div><div className="card-label">Metti Like</div><div className="card-sublabel">Resta aggiornato</div></div>
+            </div>
             <div className="card-chevron"><svg viewBox="0 0 24 24" fill="none" stroke="var(--cta-arrow-color)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></div>
           </a>
         )}
         {vendor.tiktok && (
           <a className="card" href={vendor.tiktok} target="_blank" rel="noopener noreferrer" onClick={() => trackClick('tiktok')}>
-            <div className="card-main"><div className="card-icon" style={{ background: 'var(--brand-color)' }}><svg viewBox="0 0 56 56" fill="none"><rect x="4" y="4" width="48" height="48" rx="12" stroke="currentColor" strokeWidth="2.2" fill="none"/><path d="M32 18v8c2 1.5 4 2 6 2v-4c-2-.5-3.5-2-4-4h-4v12c0 2-1.5 3.5-3.5 3.5S23 34 23 32s1.5-3.5 3.5-3.5c.5 0 1 .1 1.5.3V25c-4-.5-7 2.5-7 6.5 0 4 3 7 7 7s7-3 7-7V24c1.5 1 3.5 2 5.5 2v-4c-2.5 0-4.5-1.5-5.5-4h-3z" stroke="currentColor" strokeWidth="1.8" fill="none"/></svg></div><div><div className="card-label">Seguici su TikTok</div><div className="card-sublabel">Video e contenuti</div></div></div>
+            <div className="card-main">
+              <BrandSocialIcon platform="tiktok" size={56} className="!rounded-[14px] flex-shrink-0" />
+              <div><div className="card-label">Seguici su TikTok</div><div className="card-sublabel">Video e contenuti</div></div>
+            </div>
             <div className="card-chevron"><svg viewBox="0 0 24 24" fill="none" stroke="var(--cta-arrow-color)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></div>
           </a>
         )}

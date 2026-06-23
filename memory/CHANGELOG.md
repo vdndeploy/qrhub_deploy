@@ -4,6 +4,20 @@
 
 ---
 
+## 2026-06-23 — Reusable BrandSocialIcon component + applicato a tutte le landing
+
+- Nuovo componente `/app/frontend/src/components/BrandSocialIcon.js`:
+  - `<BrandSocialIcon platform="instagram|facebook|tiktok" href={url} onClick={track} size={48} testId="..." />` → chip squircle 48×48 (configurabile) con gradient/colore ufficiale + glifo SVG inline + brand-tinted shadow + ring sottile + hover/active scale.
+  - Modalità `glyphOnly`: renderizza solo il glifo monocromatico in `currentColor` (per uso dentro chip custom del chiamante).
+  - Glifo Instagram con `<g>` wrapper per evitare conflitto col CSS legacy di VendorLanding `.card-icon svg > rect:first-of-type{display:none}`.
+- Applicato in:
+  - **`StoreLanding.js`** — sostituiti i 3 blocchi inline (≈70 righe) con 3 chiamate `<BrandSocialIcon/>`.
+  - **`VendorLanding.js`** — i 3 card "Seguici Instagram", "Metti Like", "Seguici TikTok" ora usano lo stesso chip premium al posto del vecchio disco brand-color con icona stilizzata monocromatica.
+- Look unificato tra le due landing pubbliche → quando un'org configura Instagram/FB/TT, l'icona ha la STESSA identità brand ovunque appaia.
+- Verificato live su `/s/windtre-castelnuovo-del-garda` (Store) e `/v/6a0c73f2fbb39d92c9f5edd6` (Vendor) ✅. Lint pulito.
+
+---
+
 ## 2026-06-23 — Social buttons premium (Instagram/Facebook/TikTok)
 
 - Sostituiti i pulsanti lucide-react flat con SVG brand-accurati inline (no deps aggiuntive):

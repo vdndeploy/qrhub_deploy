@@ -45,8 +45,20 @@ body.qrhub-pwa-standalone #install-banner{padding-top:calc(16px + env(safe-area-
 .header-actions{display:flex;align-items:center;gap:8px}
 .vendor-logo{display:block}
 .vendor-logo path{fill:var(--brand-color)!important}
-.map-btn{display:flex;align-items:center;justify-content:center;width:40px;height:40px;background:var(--brand-color);color:white;border:none;border-radius:50%;cursor:pointer;padding:0;box-shadow:0 2px 8px rgba(0,0,0,.18);transition:transform .2s}
+.map-btn{display:flex;align-items:center;justify-content:center;width:40px;height:40px;background:var(--brand-color);color:white;border:none;border-radius:50%;cursor:pointer;padding:0;box-shadow:0 2px 8px rgba(0,0,0,.18);transition:transform .2s;position:relative}
 .map-btn:active{transform:scale(.95)}
+
+/* Header bell badge — appears only when the user is already subscribed
+ * to push. Discreet idle pulse to communicate "active" without nagging,
+ * plus a green status dot drawn by JS. Same circle shape as map-btn so
+ * the header stays visually consistent.
+ */
+.map-btn--bell{animation:qrhub-bell-idle 2.4s ease-in-out infinite}
+@keyframes qrhub-bell-idle{
+  0%,100%{transform:scale(1)}
+  50%{transform:scale(1.04)}
+}
+@media (prefers-reduced-motion: reduce){.map-btn--bell{animation:none}}
 
 /* Install (+) button — pulses softly to invite the tap until the user has
  * installed the PWA. Two-layer animation:

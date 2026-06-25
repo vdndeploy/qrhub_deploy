@@ -58,7 +58,7 @@ function isIOS() {
   return /iPad|iPhone|iPod/.test(ua) && !window.MSStream;
 }
 
-export const PushSubscribe = ({ vendorId, brandColor = '#F96815', vendorName }) => {
+export const PushSubscribe = ({ vendorId, brandColor = '#F96815', vendorName, variant = 'cta' }) => {
   const [loading, setLoading] = useState(false);
   const [subscribed, setSubscribed] = useState(false);
   const [scopePromptOpen, setScopePromptOpen] = useState(false);
@@ -71,22 +71,36 @@ export const PushSubscribe = ({ vendorId, brandColor = '#F96815', vendorName }) 
     typeof Notification !== 'undefined' ? Notification.permission : 'default'
   );
   const [helpOpen, setHelpOpen] = useState(false);
+  // header-bell variant uses a discreet confirm modal instead of immediate
+  // unsubscribe — keeps an accidental tap from disabling notifications.
+  const [confirmUnsubOpen, setConfirmUnsubOpen] = useState(false);
   const capable = isPushCapable();
   const iosLocked = isIOSNonStandalone();
   const ios = isIOS();
 
   // On mount, check if this browser is already subscribed so we skip the
-  // CTA and show a discreet "Sei iscritto" state instead.
+  // CTA and show a discreet "Sei iscritto" state instead. Also listen to a
+  // custom 'qrhub:push-state-changed' event so a sibling instance of the
+  // component (e.g. CTA in body + bell in header) stays in sync without
+  // prop-drilling state up.
   useEffect(() => {
     if (!capable) return;
-    (async () => {
+    let cancelled = false;
+    const refresh = async () => {
       try {
         const reg = await navigator.serviceWorker.getRegistration(SW_URL)
           || await navigator.serviceWorker.ready;
         const sub = await reg.pushManager.getSubscription();
-        if (sub) setSubscribed(true);
+        if (!cancelled) setSubscribed(!!sub);
       } catch { /* swallow — show button anyway */ }
-    })();
+    };
+    refresh();
+    const handler = () => refresh();
+    window.addEventListener('qrhub:push-state-changed', handler);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('qrhub:push-state-changed', handler);
+    };
   }, [capable]);
 
   const persist = async (subscription, scope) => {
@@ -151,6 +165,8 @@ export const PushSubscribe = ({ vendorId, brandColor = '#F96815', vendorName }) 
       await persist(pendingSub, scope);
       setSubscribed(true);
       setScopePromptOpen(false);
+      // Notify sibling instances (e.g. header bell) so they re-fetch state.
+      window.dispatchEvent(new Event('qrhub:push-state-changed'));
       toast.success(scope === 'organization'
         ? 'Iscritto a tutte le offerte ✓'
         : `Iscritto alle offerte di ${vendorName || 'questo venditore'} ✓`);
@@ -169,6 +185,8 @@ export const PushSubscribe = ({ vendorId, brandColor = '#F96815', vendorName }) 
         await sub.unsubscribe();
       }
       setSubscribed(false);
+      setConfirmUnsubOpen(false);
+      window.dispatchEvent(new Event('qrhub:push-state-changed'));
       toast.success('Notifiche disattivate');
     } catch (e) {
       toast.error('Errore disiscrizione');
@@ -178,6 +196,82 @@ export const PushSubscribe = ({ vendorId, brandColor = '#F96815', vendorName }) 
   };
 
   if (!capable && !iosLocked) return null;
+
+  // header-bell variant: discreet circle button with a ringing bell that
+  // appears in the page header ONLY when the user is subscribed. Clicking
+  // opens a tiny confirm modal so customers can't accidentally disable
+  // notifications by tapping the previous big CTA pill.
+  if (variant === 'header-bell') {
+    if (!subscribed) return null;
+    return (
+      <>
+        <button
+          type="button"
+          onClick={() => setConfirmUnsubOpen(true)}
+          className="map-btn map-btn--bell"
+          aria-label="Notifiche attive — tocca per gestire"
+          title="Notifiche attive"
+          data-testid="push-header-bell"
+          style={{ background: 'var(--brand-secondary)' }}
+        >
+          <BellRing className="h-6 w-6" />
+          <span
+            className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-400 ring-2 ring-white"
+            aria-hidden="true"
+          />
+        </button>
+        {confirmUnsubOpen && (
+          <div
+            className="fixed inset-0 z-[70] bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-4"
+            onClick={() => setConfirmUnsubOpen(false)}
+            data-testid="push-confirm-unsub"
+          >
+            <div
+              className="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center">
+                  <BellRing className="h-5 w-5 text-emerald-700" />
+                </div>
+                <h3 className="font-bold text-gray-900 text-lg">Notifiche attive</h3>
+              </div>
+              <p className="text-[13px] text-gray-600 leading-relaxed mb-5">
+                Stai ricevendo le offerte di {vendorName || 'questo venditore'}.
+                Sicuro di voler disattivare le notifiche?
+              </p>
+              <div className="flex flex-col gap-2">
+                <button
+                  type="button"
+                  onClick={() => setConfirmUnsubOpen(false)}
+                  className="w-full rounded-full bg-gray-900 text-white py-3 font-semibold text-[13px] hover:bg-gray-700 transition-colors"
+                  data-testid="push-confirm-unsub-keep"
+                >
+                  Mantieni attive
+                </button>
+                <button
+                  type="button"
+                  onClick={handleUnsubscribe}
+                  disabled={loading}
+                  className="w-full rounded-full bg-white border-[1.5px] border-red-200 text-red-700 py-3 font-semibold text-[13px] hover:bg-red-50 transition-colors disabled:opacity-50"
+                  data-testid="push-confirm-unsub-disable"
+                >
+                  {loading ? 'Attendere…' : 'Disattiva notifiche'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </>
+    );
+  }
+
+  // CTA variant (default): once the user is subscribed we render nothing
+  // at the page CTA position. The discreet bell in the header (other
+  // PushSubscribe instance with variant='header-bell') takes over from
+  // here so accidental taps on the prominent CTA can no longer turn
+  // notifications off.
+  if (subscribed) return null;
 
   // iOS Safari without Home Screen install → friendly hint, not a dead btn.
   if (iosLocked) {
@@ -224,21 +318,6 @@ export const PushSubscribe = ({ vendorId, brandColor = '#F96815', vendorName }) 
           permission="denied"
         />
       </>
-    );
-  }
-
-  if (subscribed) {
-    return (
-      <button
-        type="button"
-        onClick={handleUnsubscribe}
-        disabled={loading}
-        className="inline-flex items-center justify-center gap-2 w-full rounded-full px-5 py-3 bg-emerald-50 border-[1.5px] border-emerald-200 text-emerald-700 text-[13px] font-semibold shadow-sm hover:bg-emerald-100 transition-colors"
-        data-testid="push-unsubscribe-btn"
-      >
-        {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <BellRing className="h-4 w-4" />}
-        Notifiche attive — tocca per disattivare
-      </button>
     );
   }
 

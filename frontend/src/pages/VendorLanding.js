@@ -728,6 +728,16 @@ const VendorLanding = () => {
                 <Plus className="h-6 w-6" />
               </button>
             )}
+            {/* Discreet header bell — only renders when the user is already
+                subscribed to push. Replaces the prominent "tocca per
+                disattivare" pill that lived next to the subscribe CTA so
+                customers can't accidentally turn notifications off. */}
+            <PushSubscribe
+              vendorId={vendor?.id}
+              vendorName={vendor?.name}
+              brandColor={vendor?.organization?.secondary_color || vendor?.organization?.primary_color || '#F96815'}
+              variant="header-bell"
+            />
             <button
               type="button"
               onClick={handleShare}

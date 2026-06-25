@@ -1,0 +1,24 @@
+{
+  "summary": "Verified PushSubscribe denied-permission UX fix on public VendorLanding /v/6a0c73f2fbb39d92c9f5edd6. All 8 scenarios passed: (1) Notification.permission='denied' at mount renders push-blocked-btn with amber-50 bg + amber-300 border, push-subscribe-btn is NOT rendered. (2) Click on push-blocked-btn opens push-help-dialog with generic desktop instructions (lucchetto barra indirizzo). (3) push-help-close (X) closes the dialog. (4) push-help-ok ('Ho capito') closes the dialog. (5) push-blocked-btn is reachable on mobile 393x852 viewport (rendered with bounding box width=345 at bottom of landing). (6) Notification.permission='default' regression: normal push-subscribe-btn renders, blocked-btn does NOT. (7) iOS Safari UA + navigator.standalone=false renders push-ios-hint; click opens HelpDialog with iOS-specific text ('Apri Impostazioni di iPhone', 'Notifiche', 'Aggiungi a Home'). (8) iOS UA + permission='denied' renders push-blocked-btn; click shows iOS-specific instructions in dialog. CRITICALLY verified: NO 'Permesso notifiche negato' toast is fired in any flow — only the dialog UX. Bug fix is complete and working as designed.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": ["/app/tests/playwright/test_push_subscribe_blocked.py"],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "PushSubscribe.js: clean implementation. The permission state is correctly read on mount via useState initializer and re-synced after requestPermission(). HelpDialog branches on `ios` and `permission` props — text reads correctly on all 4 quadrants (iOS/non-iOS x denied/default).",
+    "Minor (non-blocking): the in-component HelpDialog has its own click-outside-to-close on the backdrop. This works correctly but if any future modal is mounted on top there could be overlay z-index conflicts (currently z-[70] for dialog, z-[60] for scope prompt — fine).",
+    "Console: 4x 401 errors on initial page load on the VendorLanding (probably an unauthenticated endpoint check, e.g. /api/auth/me or analytics). Not blocking but noisy. Recommend gating these calls behind a token check."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a (frontend-only test)", "frontend": "100%"},
+  "test_credentials": "none — VendorLanding is public",
+  "seed_data_creation": "none",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Used playwright add_init_script to override Notification.permission and navigator.standalone BEFORE page load (essential — useState initializer reads it on mount). For iOS testing override navigator.userAgent via new_context(user_agent=...) + init script. Dismiss the cookie banner ('Ho capito' button) before interacting with the page. PushSubscribe is at the very bottom of the landing — scroll into view first. All 4 data-testids work: push-blocked-btn, push-subscribe-btn, push-ios-hint, push-help-dialog, push-help-close, push-help-ok.",
+  "rca_of_the_issue": "Original bug: showing only a generic toast 'Permesso notifiche negato' on iOS denial gave no recovery path because iOS denial is sticky (only fixable via iOS Settings). Fix: PushSubscribe now (a) reads Notification.permission on mount and renders a distinct push-blocked-btn when denied, and (b) opens HelpDialog (not toast) both on the initial denied state and after requestPermission()==='denied'. HelpDialog shows iOS-specific or generic recovery instructions based on UA. Verified end-to-end — no regressions on default/iOS-non-standalone flows."
+}

@@ -52,13 +52,28 @@ function isIOSNonStandalone() {
   return isIOS && !standalone;
 }
 
+function isIOS() {
+  if (typeof window === 'undefined') return false;
+  const ua = window.navigator.userAgent || '';
+  return /iPad|iPhone|iPod/.test(ua) && !window.MSStream;
+}
+
 export const PushSubscribe = ({ vendorId, brandColor = '#F96815', vendorName }) => {
   const [loading, setLoading] = useState(false);
   const [subscribed, setSubscribed] = useState(false);
   const [scopePromptOpen, setScopePromptOpen] = useState(false);
   const [pendingSub, setPendingSub] = useState(null);
+  // Cached browser permission state. Read once on mount + after every
+  // permission request so we can render distinct UI for 'denied' (blocked
+  // by user) vs 'default' (never asked). On iOS in particular `denied` is
+  // un-recoverable from JS — the only fix is iOS Settings.
+  const [permission, setPermission] = useState(
+    typeof Notification !== 'undefined' ? Notification.permission : 'default'
+  );
+  const [helpOpen, setHelpOpen] = useState(false);
   const capable = isPushCapable();
   const iosLocked = isIOSNonStandalone();
+  const ios = isIOS();
 
   // On mount, check if this browser is already subscribed so we skip the
   // CTA and show a discreet "Sei iscritto" state instead.
@@ -86,12 +101,24 @@ export const PushSubscribe = ({ vendorId, brandColor = '#F96815', vendorName }) 
 
   const handleSubscribe = async () => {
     if (!capable) return;
+    // If the permission is already 'denied' (user previously blocked or
+    // iOS rejected silently), the browser won't show another prompt — calling
+    // requestPermission() just returns 'denied' synchronously. Open a help
+    // dialog with platform-specific instructions instead.
+    if (Notification.permission === 'denied') {
+      setPermission('denied');
+      setHelpOpen(true);
+      return;
+    }
     setLoading(true);
     try {
       // Permission MUST come from the user gesture (this click).
-      const permission = await Notification.requestPermission();
-      if (permission !== 'granted') {
-        toast.error('Permesso notifiche negato');
+      const result = await Notification.requestPermission();
+      setPermission(result);
+      if (result !== 'granted') {
+        // Open the help dialog rather than just toast — gives the user a
+        // recovery path (especially on iOS where denial is sticky).
+        setHelpOpen(true);
         return;
       }
 
@@ -110,7 +137,9 @@ export const PushSubscribe = ({ vendorId, brandColor = '#F96815', vendorName }) 
       setScopePromptOpen(true);
     } catch (e) {
       console.error('push subscribe failed', e);
-      toast.error('Iscrizione fallita');
+      // Apple's specific error path when in Safari mini-bar / non-fully-
+      // standalone state still throws. Help the user recover.
+      setHelpOpen(true);
     } finally {
       setLoading(false);
     }
@@ -153,15 +182,48 @@ export const PushSubscribe = ({ vendorId, brandColor = '#F96815', vendorName }) 
   // iOS Safari without Home Screen install → friendly hint, not a dead btn.
   if (iosLocked) {
     return (
-      <button
-        type="button"
-        className="inline-flex items-center justify-center gap-2 w-full rounded-full px-5 py-3 bg-white border-[1.5px] border-gray-200 text-gray-700 text-[13px] font-semibold shadow-sm"
-        data-testid="push-ios-hint"
-        onClick={() => toast.info('Su iPhone: Condividi → "Aggiungi a Home" per ricevere notifiche.')}
-      >
-        <Bell className="h-4 w-4" />
-        Notifiche offerte (aggiungi a Home per attivare)
-      </button>
+      <>
+        <button
+          type="button"
+          className="inline-flex items-center justify-center gap-2 w-full rounded-full px-5 py-3 bg-white border-[1.5px] border-gray-200 text-gray-700 text-[13px] font-semibold shadow-sm hover:bg-gray-50 transition-colors"
+          data-testid="push-ios-hint"
+          onClick={() => setHelpOpen(true)}
+        >
+          <Bell className="h-4 w-4" />
+          Notifiche offerte (aggiungi a Home per attivare)
+        </button>
+        <HelpDialog
+          open={helpOpen}
+          onClose={() => setHelpOpen(false)}
+          ios
+          permission="default"
+        />
+      </>
+    );
+  }
+
+  // Permission already denied previously — show a recovery button that
+  // opens the help dialog with platform-specific instructions instead of
+  // re-firing requestPermission() (which would just return 'denied' again).
+  if (permission === 'denied' && !subscribed) {
+    return (
+      <>
+        <button
+          type="button"
+          onClick={() => setHelpOpen(true)}
+          className="inline-flex items-center justify-center gap-2 w-full rounded-full px-5 py-3 bg-amber-50 border-[1.5px] border-amber-300 text-amber-800 text-[13px] font-semibold shadow-sm hover:bg-amber-100 transition-colors"
+          data-testid="push-blocked-btn"
+        >
+          <Bell className="h-4 w-4" />
+          Notifiche bloccate — riabilita
+        </button>
+        <HelpDialog
+          open={helpOpen}
+          onClose={() => setHelpOpen(false)}
+          ios={ios}
+          permission="denied"
+        />
+      </>
     );
   }
 
@@ -252,7 +314,117 @@ export const PushSubscribe = ({ vendorId, brandColor = '#F96815', vendorName }) 
           </div>
         </div>
       )}
+
+      <HelpDialog
+        open={helpOpen}
+        onClose={() => setHelpOpen(false)}
+        ios={ios}
+        permission={permission}
+      />
     </>
+  );
+};
+
+/**
+ * HelpDialog — explains to the user WHY the subscription failed and HOW to
+ * recover. Three flavours:
+ *   - iOS + denied      → Settings → Notifiche → <app name>
+ *   - iOS + not granted → Devi aprire l'app dall'icona Home
+ *   - Android / Desktop → click the lock icon in the URL bar
+ *
+ * Kept inline so it can read `permission` and `ios` from props without
+ * prop-drilling state down.
+ */
+const HelpDialog = ({ open, onClose, ios, permission }) => {
+  if (!open) return null;
+  return (
+    <div
+      className="fixed inset-0 z-[70] bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-4"
+      onClick={onClose}
+      data-testid="push-help-dialog"
+    >
+      <div
+        className="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-3 mb-4">
+          <div className="flex items-center gap-2">
+            <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center">
+              <Bell className="h-5 w-5 text-amber-700" />
+            </div>
+            <h3 className="font-bold text-gray-900 text-lg">
+              {permission === 'denied' ? 'Notifiche bloccate' : 'Permesso necessario'}
+            </h3>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-700"
+            aria-label="Chiudi"
+            data-testid="push-help-close"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        {ios ? (
+          <div className="space-y-3 text-[13px] text-gray-700 leading-relaxed">
+            <p>
+              Per ricevere le offerte sul tuo <strong>iPhone</strong>, segui questi passaggi:
+            </p>
+            <ol className="space-y-2 list-decimal pl-5">
+              <li>
+                Apri <strong>Impostazioni</strong> di iPhone
+              </li>
+              <li>
+                Scorri fino a trovare <strong>Notifiche</strong> &gt; scegli l&apos;app salvata sulla
+                Home (es. il nome del tuo brand)
+              </li>
+              <li>
+                Attiva <strong>Consenti notifiche</strong>
+              </li>
+              <li>
+                Torna qui e premi di nuovo <strong>Ricevi le offerte</strong>
+              </li>
+            </ol>
+            <div className="rounded-xl bg-amber-50 border border-amber-200 p-3 text-[12px] text-amber-900">
+              <strong>Importante:</strong> le notifiche su iPhone funzionano solo se hai aggiunto
+              l&apos;app alla schermata <strong>Home</strong> (Condividi → Aggiungi a Home).
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-3 text-[13px] text-gray-700 leading-relaxed">
+            <p>
+              Le notifiche sono <strong>bloccate</strong> per questo sito. Per riattivarle:
+            </p>
+            <ol className="space-y-2 list-decimal pl-5">
+              <li>
+                Tocca l&apos;icona del <strong>lucchetto</strong> a sinistra della barra
+                dell&apos;indirizzo
+              </li>
+              <li>
+                Apri <strong>Autorizzazioni</strong> o <strong>Permessi sito</strong>
+              </li>
+              <li>
+                Imposta <strong>Notifiche</strong> su <strong>Consenti</strong>
+              </li>
+              <li>
+                Ricarica la pagina e premi di nuovo <strong>Ricevi le offerte</strong>
+              </li>
+            </ol>
+          </div>
+        )}
+
+        <button
+          type="button"
+          onClick={onClose}
+          className="w-full mt-5 rounded-full bg-gray-900 text-white py-3 font-semibold text-[13px] hover:bg-gray-700 transition-colors"
+          data-testid="push-help-ok"
+        >
+          Ho capito
+        </button>
+      </div>
+    </div>
   );
 };
 

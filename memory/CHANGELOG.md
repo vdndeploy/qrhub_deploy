@@ -4,6 +4,14 @@
 
 ---
 
+## 2026-06-25 — Avatar SVG clipped to circle like photos
+
+- `.hero-avatar-ring svg` ora eredita lo stesso styling di `.hero-avatar-ring img`: `border-radius: 50%`, `border: 3px solid #fff`, `background: #fff`. Selector combinato in `VendorLanding.css`.
+- Risultato: il mascot ora è clippato dentro il cerchio con bordino bianco perfettamente identico a una foto vera. Le spalle sono troncate dal cerchio (stile "profile photo" classico).
+- Verificato live su `/v/6a0c73f8fbb39d92c9f5edd8` ✅.
+
+---
+
 ## 2026-06-23 — Avatar femminile: fronte libera + capelli laterali puliti
 
 - Ridisegno path `f` in `ConsultantAvatar.js`:

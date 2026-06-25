@@ -136,7 +136,8 @@ body.qrhub-pwa-standalone #install-banner{padding-top:calc(16px + env(safe-area-
   background: conic-gradient(from 45deg, var(--brand-color), var(--brand-color-soft), color-mix(in srgb, var(--brand-color) 35%, #fff), var(--brand-color));
   box-shadow: 0 6px 20px rgba(0,0,0,0.12);
 }
-.hero-avatar-ring img {
+.hero-avatar-ring img,
+.hero-avatar-ring svg {
   width: 100%;
   height: 100%;
   border-radius: 50%;

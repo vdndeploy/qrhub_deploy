@@ -1,0 +1,45 @@
+{
+  "summary": "Frontend-only retest of PushBroadcastDialog mobile layout fix. Bug is STILL PRESENT: the sticky DialogFooter (Invia notifica + Annulla) overlaps the body fields (Messaggio textarea, Link al tap input) on iPhone 15 Pro 393x852, iPhone SE 375x667, AND surprisingly also on desktop 1440x900. The fix applied (wrap body in flex-1 overflow-y-auto min-h-0) does NOT solve the layout issue. Validation toast + counter + E2E send still work functionally (200 OK, 'Push inviata a 0 dispositivi'). The bug is purely visual but matches the original screenshot from the user (footer covers textarea, URL field appears below the buttons out of order).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "PushBroadcastDialog",
+        "issue": "Sticky DialogFooter overlaps the scroll body — visible on iPhone 15 Pro (393x852), iPhone SE (375x667), AND desktop (1440x900). Measured rects: on iPhone 15 Pro footer.top=447 while scrollContainer.bottom=596 → footer rendered 150px inside the body area, covering the Messaggio textarea. On iPhone SE footer.top=262 while body.bottom=390 → covers title/body/url. On desktop footer.top=559 vs url.bottom=615 → URL input field is completely hidden under the buttons (visually only 'Annulla / Invia notifica' then helper 'Dove portare...' appears, URL Input is missing).",
+        "selector": "[data-testid=\"push-broadcast-dialog\"] DialogFooter",
+        "priority": "HIGH"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "PushBroadcastDialog mobile + desktop",
+        "issues": [
+          "DialogFooter sticky bottom-0 not respecting flex column order — appears to overlay the body wrapper instead of following it. The scrollContainer (div.flex-1.overflow-y-auto) measures 375px tall on iPhone 15 Pro and is reportedly NOT scrollable (scrollHeight==clientHeight==375), meaning content fits inside it, yet footer still renders inside that box.",
+          "Original screenshot scenario (footer covering Messaggio + URL/helper appearing below buttons) is fully reproducible."
+        ]
+      }
+    ]
+  },
+  "test_report_links": [],
+  "action_items": [
+    "RCA: the fix wrapping body in `flex-1 overflow-y-auto min-h-0` does NOT constrain the body because DialogContent has auto height (max-h-[calc(100dvh-2rem)] never reached on iPhone 15 Pro — dialog is only 608px tall in 852px viewport). With flex-1 + basis 0 in an unbounded flex parent, the body's used height is computed against zero free space, while the sticky footer's containing block is DialogContent (not the inner scroll div), so footer's `bottom-0` pins it relative to DialogContent which itself is not scrollable. Result: footer renders ABOVE its natural flex position, overlapping the body fields.",
+    "Suggested fix #1 (preferred, no JSX changes outside dialog): in /app/frontend/src/components/ui/dialog.jsx, change DialogContent to use a real height (e.g. `h-[calc(100dvh-2rem)] sm:h-auto sm:max-h-[calc(100dvh-2rem)]`) on mobile so flex-1 body has actual space to size against. Alternatively keep max-h and remove `gap-4` + ensure DialogContent itself is `overflow-hidden` so children clip, then body's `overflow-y-auto` handles scrolling.",
+    "Suggested fix #2 (simpler, scoped to PushBroadcastDialog): drop the flex-1 wrapper and instead give DialogContent `overflow-y-auto` itself + give the footer a non-sticky variant on small screens (e.g. `sm:sticky sm:bottom-0` so on mobile it's normal block flow at the end of content). Since the form is short, the dialog content can simply grow and let the page/dialog itself scroll if needed.",
+    "Suggested fix #3: remove `sticky bottom-0` entirely from DialogFooter when used in this dialog (pass a className that overrides it) — the form is short enough that a static footer at the end works on all viewports.",
+    "After fix, re-test on 393x852, 375x667, 1440x900 — assertion to use: `footer.getBoundingClientRect().top >= scrollContainer.getBoundingClientRect().bottom - 2` AND `url.getBoundingClientRect().bottom <= footer.getBoundingClientRect().top + 1`."
+  ],
+  "critical_code_review_comments": [
+    "PushBroadcastDialog.js L74 — the added wrapper div assumes DialogContent height is bounded. On viewports where content fits (max-h not reached), `flex-1 overflow-y-auto min-h-0` collapses to content height but the sticky footer still computes `bottom-0` against DialogContent's box, producing overlap. The fix needs to coordinate with dialog.jsx, not just wrap the body.",
+    "dialog.jsx L67 — `sticky bottom-0` on DialogFooter is fragile: it relies on DialogContent being a scroll container, but DialogContent uses `flex flex-col` + `max-h-[...]` without `overflow-hidden` or `overflow-y-auto`, so on viewports where content fits there is no sticky context and on viewports where it overflows the whole dialog spills outside the viewport. Consider making DialogContent itself `overflow-hidden` and giving the implicit body area `overflow-y-auto` via a wrapper component.",
+    "Functional flows (counter update, client-side validation, end-to-end POST /api/push/broadcast with success toast 'Push inviata a 0 dispositivi') all work correctly — bug is purely CSS/layout."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (not retested)", "frontend": "30% (validation + counter + e2e pass, but layout fix fails on all 3 tested viewports)"},
+  "test_credentials": "Org admin admin@example.com / admin123 (QA Test Org) — login OK, dialog opens via [data-testid=posts-broadcast-button] on /dashboard/posts.",
+  "seed_data_creation": "None.",
+  "retest_needed": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Reproduce by: login admin@example.com/admin123 → /dashboard/posts → click [data-testid=posts-broadcast-button] → inspect getBoundingClientRect of [data-testid=push-broadcast-dialog] inner scroll wrapper (div.overflow-y-auto) vs the sticky footer div. On iPhone 15 Pro and iPhone SE the footer.top is significantly less than scrollContainer.bottom, proving overlap. Don't rely only on screenshots — the dialog renders without obvious scrollbar so the bug looks 'styled' but the textarea is genuinely covered. Backend works fine (push send returned 200 with 'Push inviata a 0 dispositivi' in toast).",
+  "rca of the issue": "DialogContent (dialog.jsx L32) is `flex flex-col` with `max-h-[calc(100dvh-2rem)]` but no `overflow-hidden`. Its height is content-driven until max-h is hit. The newly added body wrapper uses `flex-1 overflow-y-auto min-h-0` which, in an unbounded flex column parent (content-sized, not max-h-capped), evaluates to basis:0 + grow:1 → no real free space to grow into → ends up sizing close to content but not coordinating with the sibling sticky footer. The footer (`sticky bottom-0`) computes its sticky anchor against DialogContent's box, but because DialogContent isn't a scroll container, the sticky offset effectively places the footer at `bottom: 0` of DialogContent MINUS the natural flex flow — producing a visual overlap with the preceding body wrapper. Reproduces deterministically at 393x852, 375x667, and 1440x900. Mitigation: make DialogContent the actual scroll container (overflow:hidden on DialogContent + overflow:auto on a single content wrapper), OR drop sticky on this dialog's footer (form is short, static layout works)."
+}

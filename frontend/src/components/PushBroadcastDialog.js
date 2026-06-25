@@ -67,7 +67,11 @@ export const PushBroadcastDialog = ({ open, onOpenChange, vendors = [] }) => {
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-3">
+        {/* Scrollable body — required on mobile (small viewport) so the
+            sticky footer never covers the Messaggio textarea. Without this
+            the dialog overflows the viewport and `sticky bottom-0` pins the
+            footer mid-content. flex-1 + min-h-0 makes flex respect overflow. */}
+        <div className="flex-1 overflow-y-auto min-h-0 -mx-4 sm:-mx-6 px-4 sm:px-6 space-y-3">
           <div>
             <Label>Destinatari</Label>
             <Select value={vendorId} onValueChange={setVendorId}>

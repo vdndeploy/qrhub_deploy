@@ -1,0 +1,23 @@
+{
+  "summary": "Frontend-only retest of PushBroadcastDialog mobile/desktop layout fix (iter 8). The new fix (remove flex-1 overflow-y-auto wrapper + override DialogFooter className with `static mx-0 px-0 pt-2 border-t-0 bg-transparent` to neutralize the default `sticky bottom-0`) RESOLVES the overlap bug on all 3 tested viewports: iPhone 15 Pro (393x852), iPhone SE (375x667), Desktop (1440x900). Computed footer position confirmed as `static`. All deterministic getBoundingClientRect assertions pass. Functional flows (counter update, client-side validation, e2e POST /api/push/broadcast) still work correctly.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "PushBroadcastDialog.js L131 — the override `static mx-0 px-0 pt-2 border-t-0 bg-transparent` correctly wins over the dialog.jsx default `sticky bottom-0 -mx-4 ... border-t ...` thanks to tailwind-merge in cn(). The override is scoped to this dialog only so other dialogs that rely on sticky footer (long forms) are unaffected. Comment in code clearly explains the rationale. Good fix.",
+    "dialog.jsx L67 — the underlying fragility of `sticky bottom-0` on DialogFooter is still present (relies on a scroll container that DialogContent does not provide unless content exceeds max-h). Not strictly an issue here since the fix sidesteps it, but it's worth a future refactor: either drop sticky default and require opt-in for long forms, or make DialogContent the actual scroll container (overflow-hidden on DialogContent + overflow-y-auto on a body wrapper). Cite as tech debt, not a blocker."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (not retested per request)", "frontend": "100% (layout 3/3 viewports PASS, counter PASS, validation PASS, e2e send PASS)"},
+  "test_credentials": "Org admin admin@example.com / admin123 (QA Test Org). Login OK, dialog opens via [data-testid=posts-broadcast-button] on /dashboard/posts.",
+  "seed_data_creation": "None.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Bug fixed and verified. Measurements (deterministic getBoundingClientRect, in pixels): \n- Desktop 1440x900: dialog 166-734, title 373-409, body 445-523, url 580-616, footer 652-709, send 665-701. send.top(665) >= url.bottom(616) ✓, body.bottom(523) < footer.top(652) ✓.\n- iPhone 15 Pro 393x852: dialog 125-728, title 324-360, body 396-486, url 542-578, footer 615-711, send 623-659. send.top(623) >= url.bottom(578) ✓, body.bottom(486) < footer.top(615) ✓.\n- iPhone SE 375x667: dialog 32-635, title 231-267, body 303-393, url 450-486, footer 522-618, send 530-566. send.top(530) >= url.bottom(486) ✓, body.bottom(393) < footer.top(522) ✓.\nFooter computed position is `static` on all viewports (was `sticky` before override). Functional flows: counter '14/160 caratteri' updates correctly while typing, validation toast 'Titolo e messaggio sono obbligatori' shown when body empty, success toast 'Push inviata a 0 dispositivi' shown after valid send. No console errors related to the dialog (only pre-existing 401s for unrelated endpoints).",
+  "rca of the issue": "Previous iteration failure RCA: DialogFooter's default `sticky bottom-0` only behaves correctly inside a real scroll container. DialogContent uses flex flex-col + max-h-[calc(100dvh-2rem)] but NO overflow-hidden/auto, so on short dialogs (like this one) there is no sticky context and the footer renders inside the body's natural flow at a position that visually overlaps. Fix mitigation: drop the sticky requirement entirely for this short 4-field form by passing `static mx-0 px-0 pt-2 border-t-0 bg-transparent` to DialogFooter. tailwind-merge ensures `static` wins over `sticky bottom-0` and the negative margins / border-t are also neutralized. Verified deterministically with getBoundingClientRect: footer is now strictly below the URL input on all 3 viewports."
+}

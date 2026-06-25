@@ -67,11 +67,13 @@ export const PushBroadcastDialog = ({ open, onOpenChange, vendors = [] }) => {
           </DialogDescription>
         </DialogHeader>
 
-        {/* Scrollable body — required on mobile (small viewport) so the
-            sticky footer never covers the Messaggio textarea. Without this
-            the dialog overflows the viewport and `sticky bottom-0` pins the
-            footer mid-content. flex-1 + min-h-0 makes flex respect overflow. */}
-        <div className="flex-1 overflow-y-auto min-h-0 -mx-4 sm:-mx-6 px-4 sm:px-6 space-y-3">
+        {/* Form body — kept in plain flow (no flex-1 wrapper) because the
+            DialogFooter is overridden to `static` below, so we don't need
+            the body to be a scroll container. The shared DialogFooter
+            defaults to `sticky bottom-0` which only works inside a real
+            scroll context; in this short 4-field form a static footer
+            sits naturally at the end on every viewport (393, 375, 1440). */}
+        <div className="space-y-3">
           <div>
             <Label>Destinatari</Label>
             <Select value={vendorId} onValueChange={setVendorId}>
@@ -126,7 +128,7 @@ export const PushBroadcastDialog = ({ open, onOpenChange, vendors = [] }) => {
           </div>
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="static mx-0 px-0 pt-2 border-t-0 bg-transparent">
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>Annulla</Button>
           <Button
             onClick={send}

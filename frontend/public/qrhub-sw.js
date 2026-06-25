@@ -87,7 +87,7 @@ self.addEventListener('push', (event) => {
     body: payload.body || '',
     icon: payload.icon || '/icons/icon-192.png',
     badge: '/icons/icon-192.png',
-    data: { url: payload.url || '/' },
+    data: { url: payload.url || '/', broadcast_id: payload.broadcast_id || null },
     // Group repeated pushes under one tag so the user doesn't see a stack.
     tag: 'qrhub-push',
     renotify: true,
@@ -97,8 +97,23 @@ self.addEventListener('push', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const targetUrl = (event.notification.data && event.notification.data.url) || '/';
+  const data = event.notification.data || {};
+  const targetUrl = data.url || '/';
+  const broadcastId = data.broadcast_id;
   event.waitUntil((async () => {
+    // Fire-and-forget click tracking. Wrapped in try so a tracker outage
+    // never delays the actual navigation the user expects.
+    if (broadcastId) {
+      try {
+        await fetch('/api/push/track-click', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ broadcast_id: broadcastId }),
+          // keepalive so the request survives the SW idle that follows.
+          keepalive: true,
+        });
+      } catch { /* swallow — analytics is best-effort */ }
+    }
     // Focus an existing tab on the same origin if we already have one open
     // — avoids spawning duplicate windows when the user taps a push twice.
     const allClients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });

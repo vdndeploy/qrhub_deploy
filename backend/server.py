@@ -2298,6 +2298,7 @@ async def create_multi_store_post(payload: MultiStorePostCreate,
                         db, vendor_id=v['id'], organization_id=org_id,
                         title=push_title, body=push_body,
                         url=f"/v/{v['id']}",
+                        origin='auto',
                     )
                 except Exception as e:
                     logger.warning('auto-push vendor=%s failed: %s', v['id'], e)

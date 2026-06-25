@@ -4,6 +4,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 
 import { Eye, MousePointerClick, Users } from 'lucide-react';
 import AnalyticsDetailed from './AnalyticsDetailed';
 import DailyCounterCard from '@/components/DailyCounterCard';
+import PushAnalytics from '@/components/PushAnalytics';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -158,6 +159,10 @@ const Overview = () => {
             </div>
           </div>
         )}
+      </div>
+
+      <div className="border-t border-gray-200 dark:border-white/10 pt-6">
+        <PushAnalytics />
       </div>
 
       <div className="border-t border-gray-200 dark:border-white/10 pt-6">

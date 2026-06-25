@@ -259,3 +259,64 @@ class TestAutoPushOnPostCreate:
         # Cleanup
         gid = data['group_id']
         org_admin.delete(f"{BASE_URL}/api/posts/group/{gid}")
+
+
+
+# ── 6. Push Analytics & Click Tracking ────────────────────────────────────
+
+class TestPushAnalytics:
+    def test_analytics_requires_auth(self, anon):
+        r = anon.get(f"{BASE_URL}/api/push/analytics")
+        assert r.status_code == 401, r.text
+
+    def test_analytics_returns_org_scoped_shape(self, org_admin):
+        r = org_admin.get(f"{BASE_URL}/api/push/analytics")
+        assert r.status_code == 200, r.text
+        d = r.json()
+        # Schema sanity
+        for k in ('subscribers', 'totals', 'by_vendor', 'recent_broadcasts'):
+            assert k in d, f"missing {k}: {d}"
+        for k in ('total', 'vendor_scope', 'org_scope'):
+            assert k in d['subscribers']
+        for k in ('broadcasts', 'sent', 'clicks', 'ctr_pct'):
+            assert k in d['totals']
+        assert isinstance(d['by_vendor'], list)
+        assert isinstance(d['recent_broadcasts'], list)
+
+    def test_broadcast_now_returns_broadcast_id(self, org_admin):
+        r = org_admin.post(f"{BASE_URL}/api/push/broadcast", json={
+            'title': 'TEST_ANALYTICS_BCAST', 'body': 'verifico shape',
+        })
+        assert r.status_code == 200, r.text
+        d = r.json()
+        assert 'broadcast_id' in d and isinstance(d['broadcast_id'], str)
+        assert len(d['broadcast_id']) >= 16
+
+    def test_track_click_increments_counter(self, org_admin):
+        # 1. Fire a broadcast and capture the id
+        b = org_admin.post(f"{BASE_URL}/api/push/broadcast", json={
+            'title': 'TEST_ANALYTICS_CLICKS', 'body': 'CTR test',
+        }).json()
+        bid = b['broadcast_id']
+        # 2. Hit the public track-click 3 times (no auth required)
+        for _ in range(3):
+            r = requests.post(f"{BASE_URL}/api/push/track-click",
+                              json={'broadcast_id': bid})
+            assert r.status_code == 200, r.text
+            assert r.json()['status'] == 'ok'
+        # 3. Verify the analytics endpoint reflects the new click count
+        analytics = org_admin.get(f"{BASE_URL}/api/push/analytics").json()
+        # Find our broadcast in recent_broadcasts
+        match = next((x for x in analytics['recent_broadcasts'] if x['id'] == bid), None)
+        assert match is not None, 'broadcast missing from analytics'
+        assert match['clicks'] == 3, f"expected 3 clicks, got {match}"
+
+    def test_track_click_unknown_id_silent_ok(self):
+        # SW should never retry — backend must accept gracefully.
+        r = requests.post(f"{BASE_URL}/api/push/track-click",
+                          json={'broadcast_id': 'nonexistent' + uuid.uuid4().hex})
+        assert r.status_code == 200, r.text
+
+    def test_track_click_invalid_payload(self):
+        r = requests.post(f"{BASE_URL}/api/push/track-click", json={})
+        assert r.status_code == 422, r.text

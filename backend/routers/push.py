@@ -68,6 +68,14 @@ async def bootstrap_vapid_keys(db):
         await db.push_subscriptions.create_index('endpoint', unique=True)
     except Exception as e:
         logger.warning('push_subscriptions index already exists: %s', e)
+    # Index for the analytics dashboard (org-scoped, sorted by recency).
+    try:
+        await db.push_broadcasts.create_index(
+            [('organization_id', 1), ('created_at', -1)]
+        )
+        await db.push_broadcasts.create_index('id', unique=True)
+    except Exception as e:
+        logger.warning('push_broadcasts index already exists: %s', e)
     logger.info('VAPID keys bootstrapped')
     return doc
 
@@ -106,14 +114,21 @@ def _send_one(sub_doc, payload_json, vapid_private_key, vapid_subject):
 async def broadcast_push(db, *, vendor_id: Optional[str] = None,
                          organization_id: Optional[str] = None,
                          title: str, body: str, url: str,
-                         icon: Optional[str] = None):
+                         icon: Optional[str] = None,
+                         origin: str = 'manual'):
     """Send a push to either a single vendor's subscribers OR every
     subscriber of an organization (when `vendor_id` is None and
-    `organization_id` is given). Returns (sent_count, removed_count)."""
+    `organization_id` is given). Returns (sent_count, removed_count,
+    broadcast_id).
+
+    Side effect: persists a `push_broadcasts` doc that powers the Analytics
+    dashboard (sent counter + click counter once the SW pings back).
+    `origin` is 'manual' for admin broadcasts or 'auto' for post-triggered
+    pushes so admins can split the funnel."""
     cfg = await db.push_config.find_one({'_id': 'vapid'})
     if not cfg:
         logger.warning('broadcast_push: VAPID not bootstrapped, skipping')
-        return (0, 0)
+        return (0, 0, None)
 
     query = {}
     if vendor_id:
@@ -125,15 +140,24 @@ async def broadcast_push(db, *, vendor_id: Optional[str] = None,
     elif organization_id:
         query = {'organization_id': organization_id}
     else:
-        return (0, 0)
+        return (0, 0, None)
 
     subs = await db.push_subscriptions.find(query).to_list(2000)
     if not subs:
-        return (0, 0)
+        # Still log a 0-recipient broadcast so admins see "no audience" attempts.
+        bid = await _record_broadcast(db, organization_id, vendor_id, title,
+                                       body, url, origin, sent=0, stale=0)
+        return (0, 0, bid)
 
+    # Pre-create the broadcast doc so we can embed its id in the payload —
+    # the SW will ping back with this id on notificationclick.
+    broadcast_id = await _record_broadcast(db, organization_id, vendor_id,
+                                            title, body, url, origin,
+                                            sent=0, stale=0)
     payload = json.dumps({
         'title': title[:120], 'body': body[:400], 'url': url,
         'icon': icon or '/icons/icon-192.png',
+        'broadcast_id': broadcast_id,
     })
     tasks = [
         asyncio.to_thread(_send_one, s, payload, cfg['private_key'], cfg['subject'])
@@ -143,7 +167,36 @@ async def broadcast_push(db, *, vendor_id: Optional[str] = None,
     stale = [ep for ep in results if ep]
     if stale:
         await db.push_subscriptions.delete_many({'endpoint': {'$in': stale}})
-    return (len(subs) - len(stale), len(stale))
+    sent_count = len(subs) - len(stale)
+    # Update the broadcast doc with real counters.
+    await db.push_broadcasts.update_one(
+        {'id': broadcast_id},
+        {'$set': {'sent': sent_count, 'stale_cleaned': len(stale)}}
+    )
+    return (sent_count, len(stale), broadcast_id)
+
+
+async def _record_broadcast(db, organization_id, vendor_id, title, body, url,
+                             origin, *, sent: int, stale: int) -> str:
+    """Create a `push_broadcasts` doc and return its id.
+    Lightweight by design — the analytics dashboard reads from this same
+    collection so we keep it denormalized (vendor name resolved at read time)."""
+    from uuid import uuid4
+    bid = uuid4().hex
+    await db.push_broadcasts.insert_one({
+        'id': bid,
+        'organization_id': organization_id or '',
+        'vendor_id': vendor_id or '',
+        'title': title[:120],
+        'body': body[:400],
+        'url': url or '/',
+        'origin': origin,           # 'manual' | 'auto'
+        'sent': sent,
+        'stale_cleaned': stale,
+        'clicks': 0,
+        'created_at': datetime.now(timezone.utc).isoformat(),
+    })
+    return bid
 
 
 # ── Pydantic models ────────────────────────────────────────────────────────
@@ -169,6 +222,10 @@ class BroadcastRequest(BaseModel):
     body: str = Field(..., min_length=1, max_length=400)
     url: Optional[str] = Field('', max_length=600)
     vendor_id: Optional[str] = Field(None, max_length=64)
+
+
+class TrackClickRequest(BaseModel):
+    broadcast_id: str = Field(..., min_length=8, max_length=64)
 
 
 # ── Routes ─────────────────────────────────────────────────────────────────
@@ -228,14 +285,135 @@ def attach_routes(db, get_current_user_dep):
             )
             if not v:
                 raise HTTPException(404, 'Vendor non trovato nella tua org')
-        sent, removed = await broadcast_push(
+        sent, removed, broadcast_id = await broadcast_push(
             db,
             vendor_id=req.vendor_id,
             organization_id=org_id,
             title=req.title,
             body=req.body,
             url=req.url or '/',
+            origin='manual',
         )
-        return {'sent': sent, 'cleaned_stale': removed}
+        return {'sent': sent, 'cleaned_stale': removed, 'broadcast_id': broadcast_id}
+
+    @router.post('/track-click')
+    async def track_click(req: TrackClickRequest):
+        """Public endpoint (no auth) called by the service worker when a
+        user taps the notification. Best-effort counter — we never block
+        the navigation on this. Silently returns 200 even if the id is
+        unknown so a stale SW doesn't keep retrying."""
+        await db.push_broadcasts.update_one(
+            {'id': req.broadcast_id},
+            {'$inc': {'clicks': 1},
+             '$set': {'last_click_at': datetime.now(timezone.utc).isoformat()}}
+        )
+        return {'status': 'ok'}
+
+    @router.get('/analytics')
+    async def get_analytics(user: dict = Depends(get_current_user_dep),
+                            limit: int = 20):
+        """Returns aggregated push analytics for the user's org:
+        - totals: subscribers (by scope), broadcasts, total_sent, total_clicks
+        - recent_broadcasts: most recent N with sent/clicks/CTR + vendor name
+        - by_vendor: subscribers count grouped by vendor (top 10)
+        Org-scoped — never leaks cross-tenant data."""
+        org_id = user.get('organization_id')
+        if not org_id:
+            raise HTTPException(403, 'Org context mancante')
+
+        # ── Subscriber breakdown ──
+        sub_total = await db.push_subscriptions.count_documents(
+            {'organization_id': org_id}
+        )
+        sub_org_wide = await db.push_subscriptions.count_documents(
+            {'organization_id': org_id, 'scope': 'organization'}
+        )
+        sub_vendor_only = sub_total - sub_org_wide
+
+        # ── Recent broadcasts with vendor name resolved in a single pass ──
+        cursor = db.push_broadcasts.find(
+            {'organization_id': org_id}, {'_id': 0}
+        ).sort('created_at', -1).limit(max(1, min(limit, 100)))
+        recent_raw = await cursor.to_list(100)
+
+        vendor_ids = list({b['vendor_id'] for b in recent_raw if b.get('vendor_id')})
+        vendor_map = {}
+        if vendor_ids:
+            vendor_docs = await db.vendors.find(
+                {'id': {'$in': vendor_ids}, 'organization_id': org_id},
+                {'_id': 0, 'id': 1, 'name': 1}
+            ).to_list(len(vendor_ids))
+            vendor_map = {v['id']: v.get('name', '') for v in vendor_docs}
+
+        recent = []
+        for b in recent_raw:
+            sent = b.get('sent', 0) or 0
+            clicks = b.get('clicks', 0) or 0
+            ctr = round((clicks / sent) * 100, 1) if sent > 0 else 0.0
+            recent.append({
+                'id': b['id'],
+                'title': b.get('title', ''),
+                'body': b.get('body', ''),
+                'origin': b.get('origin', 'manual'),
+                'vendor_id': b.get('vendor_id', ''),
+                'vendor_name': vendor_map.get(b.get('vendor_id', ''), ''),
+                'sent': sent,
+                'clicks': clicks,
+                'ctr_pct': ctr,
+                'created_at': b.get('created_at', ''),
+            })
+
+        # ── Org-wide totals (cheap aggregate) ──
+        totals_pipeline = [
+            {'$match': {'organization_id': org_id}},
+            {'$group': {
+                '_id': None,
+                'broadcasts': {'$sum': 1},
+                'sent': {'$sum': {'$ifNull': ['$sent', 0]}},
+                'clicks': {'$sum': {'$ifNull': ['$clicks', 0]}},
+            }},
+        ]
+        agg = await db.push_broadcasts.aggregate(totals_pipeline).to_list(1)
+        totals_doc = agg[0] if agg else {'broadcasts': 0, 'sent': 0, 'clicks': 0}
+        total_sent = totals_doc.get('sent', 0)
+        total_clicks = totals_doc.get('clicks', 0)
+        overall_ctr = round((total_clicks / total_sent) * 100, 1) if total_sent > 0 else 0.0
+
+        # ── Top vendors by subscriber count (top 10) ──
+        by_vendor_pipeline = [
+            {'$match': {'organization_id': org_id, 'vendor_id': {'$ne': ''}}},
+            {'$group': {'_id': '$vendor_id', 'subscribers': {'$sum': 1}}},
+            {'$sort': {'subscribers': -1}},
+            {'$limit': 10},
+        ]
+        bv = await db.push_subscriptions.aggregate(by_vendor_pipeline).to_list(10)
+        bv_vendor_ids = [r['_id'] for r in bv]
+        bv_map = {}
+        if bv_vendor_ids:
+            vds = await db.vendors.find(
+                {'id': {'$in': bv_vendor_ids}, 'organization_id': org_id},
+                {'_id': 0, 'id': 1, 'name': 1}
+            ).to_list(len(bv_vendor_ids))
+            bv_map = {v['id']: v.get('name', '') for v in vds}
+
+        return {
+            'subscribers': {
+                'total': sub_total,
+                'vendor_scope': sub_vendor_only,
+                'org_scope': sub_org_wide,
+            },
+            'totals': {
+                'broadcasts': totals_doc.get('broadcasts', 0),
+                'sent': total_sent,
+                'clicks': total_clicks,
+                'ctr_pct': overall_ctr,
+            },
+            'by_vendor': [
+                {'vendor_id': r['_id'], 'vendor_name': bv_map.get(r['_id'], ''),
+                 'subscribers': r['subscribers']}
+                for r in bv
+            ],
+            'recent_broadcasts': recent,
+        }
 
     return router

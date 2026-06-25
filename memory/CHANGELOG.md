@@ -4,6 +4,21 @@
 
 ---
 
+## 2026-06-25 — Push Analytics dashboard + Install button pulse animation
+
+- **Install button pulse** (`VendorLanding.css` + `VendorLanding.js`): added `.map-btn--install` class on the "+" header button with a 1.8s heartbeat scale + expanding glow ring (white + brand-color box-shadow). Respects `prefers-reduced-motion`. Pause on hover/focus. Auto-hidden when PWA is already installed (standalone mode).
+- **Push Analytics backend** (`routers/push.py`):
+  - Refactored `broadcast_push()` to persist each broadcast as a `push_broadcasts` doc (id, org, vendor, title/body, origin: manual|auto, sent, stale_cleaned, clicks, created_at) — returns 3-tuple `(sent, removed, broadcast_id)`.
+  - New endpoint `POST /api/push/track-click` (public, no auth) — incremented by service worker on `notificationclick`. Silently 200 on unknown ids so a stale SW doesn't retry.
+  - New endpoint `GET /api/push/analytics` (auth, org-scoped) — returns subscribers breakdown (total/vendor_scope/org_scope), totals (broadcasts/sent/clicks/ctr_pct), top vendors by subscribers, and last 20 broadcasts with per-row CTR and vendor name.
+  - Indexes added: `push_broadcasts.{organization_id,created_at:-1}` + unique `id`.
+- **Service worker** (`qrhub-sw.js`): `push` event now passes `broadcast_id` into `notification.data`; `notificationclick` fires `keepalive` POST to `/api/push/track-click` before navigation (fire-and-forget, never blocks UX).
+- **Frontend dashboard** (`PushAnalytics.js` + mounted on `Overview.js`): premium gummy card with 4 stat tiles (Iscritti totali, Notifiche inviate, Click totali, CTR medio), top-vendor chips, and a sortable recent-broadcasts table with origin badge (Auto/Manuale), sent count, clicks, per-row CTR%, and "Quando" timestamp.
+- **Regression tests**: extended `tests/test_push.py` from 15 → **21 pytests** (added schema check, broadcast_id in response, click increment, unknown id graceful, payload validation). All ✅.
+- **Verified end-to-end**: curl flows, screenshot, click counter increment, CTR computation, org-scoped isolation.
+
+
+
 ## 2026-06-25 — Web Push Notifications (PWA) — COMPLETED
 
 - **Backend** (`/app/backend/routers/push.py`):

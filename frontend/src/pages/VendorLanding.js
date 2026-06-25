@@ -719,7 +719,7 @@ const VendorLanding = () => {
               <button
                 type="button"
                 onClick={() => setAddToHomeOpen(true)}
-                className="map-btn"
+                className="map-btn map-btn--install"
                 aria-label="Aggiungi alla schermata Home"
                 title="Salva sul telefono"
                 data-testid="vendor-add-to-home-button"

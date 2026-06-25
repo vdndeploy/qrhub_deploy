@@ -22,6 +22,7 @@
 | Backup DB + Backup GitHub | ✅ Done |
 | Free-tier Usage Monitor + Billing | ✅ Done |
 | Refactor server.py Fase 1 (3 router) | ✅ Done |
+| Web Push Notifications (PWA) | ✅ Done (25/06/26) |
 
 ---
 

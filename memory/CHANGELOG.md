@@ -4,6 +4,25 @@
 
 ---
 
+## 2026-06-25 — Web Push Notifications (PWA) — COMPLETED
+
+- **Backend** (`/app/backend/routers/push.py`):
+  - VAPID keypair auto-bootstrap on startup (stored in `db.push_config`, idempotent).
+  - Endpoints: `GET /api/push/public-key`, `POST /api/push/subscribe` (upsert, unique index on endpoint), `POST /api/push/unsubscribe`, `POST /api/push/broadcast` (auth + tenant-scoped).
+  - `broadcast_push()` helper: per-vendor pushes also reach org-wide subscribers via `$or` query; stale endpoints (404/410) auto-cleaned via `delete_many`.
+  - Auto-push on `POST /api/posts` when `notify_subscribers=True` (default ON in create mode, OFF on edit).
+- **Frontend**:
+  - `PushSubscribe.js` (vendor landing opt-in): capability detection, iOS Safari hint for non-standalone, scope picker (vendor / org-wide), persists to backend, supports unsubscribe.
+  - `PushBroadcastDialog.js` (admin manual broadcast): vendor selector populated from `/api/vendors`, title/body/url inputs, posts to `/api/push/broadcast`.
+  - `Posts.js`: wired vendors fetch + `<PushBroadcastDialog>` mount (was missing — fixed in this session).
+  - `qrhub-sw.js`: added `push` and `notificationclick` listeners (showNotification + focus existing tab / openWindow).
+- **Critical bug found+fixed by testing agent**: `_send_one` was declared `async def` but is passed to `asyncio.to_thread` (sync-only). The async coroutine objects polluted the `stale` list → `bson.errors.InvalidDocument` on `delete_many` → 500. Fix: dropped `async` keyword (pywebpush is purely synchronous).
+- **Regression suite**: `/app/backend/tests/test_push.py` — 15/15 pytests ✅.
+- **Frontend e2e**: org_admin login → /dashboard/posts → "Lancia offerta" → dialog renders → validation + success toast verified. VendorLanding `push-subscribe-btn` renders. `qrhub-sw.js` HTTP 200 + handlers present.
+- **NOT yet deployed to Fly.io** — user must trigger `/api/deploy/trigger` or via Super Admin UI when ready.
+
+
+
 ## 2026-06-25 — Avatar SVG clipped to circle like photos
 
 - `.hero-avatar-ring svg` ora eredita lo stesso styling di `.hero-avatar-ring img`: `border-radius: 50%`, `border: 3px solid #fff`, `background: #fff`. Selector combinato in `VendorLanding.css`.

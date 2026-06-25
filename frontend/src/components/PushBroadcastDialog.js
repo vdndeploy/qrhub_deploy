@@ -25,7 +25,7 @@ const API = process.env.REACT_APP_BACKEND_URL + '/api';
 export const PushBroadcastDialog = ({ open, onOpenChange, vendors = [] }) => {
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
-  const [url, setUrl] = useState('/');
+  const [url, setUrl] = useState('');
   const [vendorId, setVendorId] = useState('all');
   const [loading, setLoading] = useState(false);
 
@@ -39,7 +39,7 @@ export const PushBroadcastDialog = ({ open, onOpenChange, vendors = [] }) => {
       const payload = {
         title: title.trim(),
         body: body.trim(),
-        url: url.trim() || '/',
+        url: url.trim(),
       };
       if (vendorId && vendorId !== 'all') payload.vendor_id = vendorId;
       const { data } = await axios.post(`${API}/push/broadcast`, payload, { withCredentials: true });

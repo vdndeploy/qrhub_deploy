@@ -123,7 +123,8 @@ export const PushBroadcastDialog = ({ open, onOpenChange, vendors = [] }) => {
               data-testid="push-broadcast-url"
             />
             <p className="text-[11px] text-gray-500 mt-1">
-              Dove portare l&apos;utente quando tocca la notifica. Default: homepage.
+              Lascia vuoto per portare ogni utente alla landing del proprio vendor
+              (consigliato). Specifica un URL solo per puntare a una pagina diversa.
             </p>
           </div>
         </div>

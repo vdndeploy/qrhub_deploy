@@ -320,3 +320,127 @@ class TestPushAnalytics:
     def test_track_click_invalid_payload(self):
         r = requests.post(f"{BASE_URL}/api/push/track-click", json={})
         assert r.status_code == 422, r.text
+
+
+
+# ── 7. URL personalization in broadcast_push payload ─────────────────────
+# These tests verify the bug fix: when the admin doesn't pass an explicit
+# url (or passes '/'), each subscriber receives a payload pointing to
+# /v/{their_own_vendor_id} so the SW landing avoids the DomainGuard root
+# block on custom domains. We test the helper directly because actually
+# sending the push requires VAPID and the upstream FCM endpoint.
+
+class TestPushUrlPersonalization:
+    def test_payload_personalized_when_url_empty(self):
+        """broadcast_push with url='' or '/' must build payloads with
+        per-subscriber url='/v/<vendor_id>'."""
+        import asyncio
+        import sys
+        sys.path.insert(0, '/app/backend')
+        from routers import push as push_mod
+
+        # We mock _send_one to capture the payload JSONs without actually
+        # contacting push services.
+        captured = []
+        def fake_send(sub, payload_json, *_):
+            captured.append((sub.get('endpoint'), payload_json))
+            return None  # not stale
+
+        class FakeDB:
+            class _push_config:
+                @staticmethod
+                async def find_one(_q):
+                    return {'_id': 'vapid', 'private_key': 'fake', 'subject': 'mailto:t@t.it'}
+            class _push_subscriptions:
+                @staticmethod
+                def find(_q):
+                    class _C:
+                        async def to_list(self, _n):
+                            return [
+                                {'endpoint': 'e1', 'vendor_id': 'v-aaa', 'organization_id': 'org1', 'scope': 'organization'},
+                                {'endpoint': 'e2', 'vendor_id': 'v-bbb', 'organization_id': 'org1', 'scope': 'vendor'},
+                            ]
+                    return _C()
+                @staticmethod
+                async def delete_many(_q): return None
+            class _push_broadcasts:
+                @staticmethod
+                async def insert_one(_d): return None
+                @staticmethod
+                async def update_one(*_a, **_k): return None
+            push_config = _push_config()
+            push_subscriptions = _push_subscriptions()
+            push_broadcasts = _push_broadcasts()
+
+        original_send = push_mod._send_one
+        push_mod._send_one = fake_send
+        try:
+            sent, removed, bid = asyncio.run(push_mod.broadcast_push(
+                FakeDB(), organization_id='org1',
+                title='X', body='Y', url='', origin='manual'
+            ))
+        finally:
+            push_mod._send_one = original_send
+
+        assert sent == 2, f"expected 2 sent, got {sent}"
+        assert removed == 0
+        assert bid and isinstance(bid, str)
+        # Verify each captured payload has the per-subscriber URL
+        import json
+        for endpoint, raw in captured:
+            d = json.loads(raw)
+            if endpoint == 'e1':
+                assert d['url'] == '/v/v-aaa', f"e1 url wrong: {d['url']}"
+            elif endpoint == 'e2':
+                assert d['url'] == '/v/v-bbb', f"e2 url wrong: {d['url']}"
+            assert d['title'] == 'X'
+            assert d['body'] == 'Y'
+            assert 'broadcast_id' in d
+
+    def test_payload_uses_explicit_url_when_provided(self):
+        """When the admin passes a real URL like '/promo', that takes
+        precedence over per-subscriber personalization."""
+        import asyncio
+        from routers import push as push_mod
+
+        captured = []
+        def fake_send(sub, payload_json, *_):
+            captured.append(payload_json); return None
+
+        class FakeDB:
+            class _push_config:
+                @staticmethod
+                async def find_one(_q):
+                    return {'_id': 'vapid', 'private_key': 'fake', 'subject': 'mailto:t@t.it'}
+            class _push_subscriptions:
+                @staticmethod
+                def find(_q):
+                    class _C:
+                        async def to_list(self, _n):
+                            return [{'endpoint': 'e1', 'vendor_id': 'v-aaa',
+                                     'organization_id': 'org1', 'scope': 'vendor'}]
+                    return _C()
+                @staticmethod
+                async def delete_many(_q): return None
+            class _push_broadcasts:
+                @staticmethod
+                async def insert_one(_d): return None
+                @staticmethod
+                async def update_one(*_a, **_k): return None
+            push_config = _push_config()
+            push_subscriptions = _push_subscriptions()
+            push_broadcasts = _push_broadcasts()
+
+        original_send = push_mod._send_one
+        push_mod._send_one = fake_send
+        try:
+            asyncio.run(push_mod.broadcast_push(
+                FakeDB(), organization_id='org1',
+                title='X', body='Y', url='/promo-windtre', origin='manual'
+            ))
+        finally:
+            push_mod._send_one = original_send
+
+        import json
+        d = json.loads(captured[0])
+        assert d['url'] == '/promo-windtre', f"expected explicit url, got {d['url']}"

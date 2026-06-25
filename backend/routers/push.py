@@ -154,13 +154,30 @@ async def broadcast_push(db, *, vendor_id: Optional[str] = None,
     broadcast_id = await _record_broadcast(db, organization_id, vendor_id,
                                             title, body, url, origin,
                                             sent=0, stale=0)
-    payload = json.dumps({
-        'title': title[:120], 'body': body[:400], 'url': url,
+
+    # Per-subscriber payload: when the admin didn't pass an explicit deep
+    # link (url is '', '/' or None), personalize the click URL to that
+    # subscriber's own vendor landing — opening the root of a custom
+    # domain hits the DomainGuard ("Pagina non disponibile") because root
+    # is reserved for vendor pages. Falling back to '/v/<their_vendor>'
+    # always lands on a valid page.
+    explicit_url = bool(url) and url not in ('/', '')
+    base_payload = {
+        'title': title[:120], 'body': body[:400],
         'icon': icon or '/icons/icon-192.png',
         'broadcast_id': broadcast_id,
-    })
+    }
+
+    def _payload_for(sub):
+        sub_url = url if explicit_url else ''
+        if not sub_url:
+            v_id = sub.get('vendor_id') or vendor_id or ''
+            sub_url = f"/v/{v_id}" if v_id else '/'
+        return json.dumps({**base_payload, 'url': sub_url})
+
     tasks = [
-        asyncio.to_thread(_send_one, s, payload, cfg['private_key'], cfg['subject'])
+        asyncio.to_thread(_send_one, s, _payload_for(s),
+                          cfg['private_key'], cfg['subject'])
         for s in subs
     ]
     results = await asyncio.gather(*tasks)
@@ -291,7 +308,7 @@ def attach_routes(db, get_current_user_dep):
             organization_id=org_id,
             title=req.title,
             body=req.body,
-            url=req.url or '/',
+            url=req.url or '',
             origin='manual',
         )
         return {'sent': sent, 'cleaned_stale': removed, 'broadcast_id': broadcast_id}

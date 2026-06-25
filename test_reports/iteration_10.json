@@ -1,0 +1,29 @@
+{
+  "summary": "Verified bug fix for org-wide push URL personalization (Letizia/Danu bug). All 23 backend pytests in test_push.py PASSED including the 2 new TestPushUrlPersonalization tests (test_payload_personalized_when_url_empty, test_payload_uses_explicit_url_when_provided). Frontend E2E verified on preview env: (1) /api/push/broadcast still works with empty url body — admin login -> /dashboard/posts -> Lancia offerta -> title+body -> Invia notifica -> success toast 'Push inviata a 0 dispositivi'. (2) PushBroadcastDialog shows the updated helper text 'Lascia vuoto per portare ogni utente alla landing del proprio vendor (consigliato). Specifica un URL solo per puntare a una pagina diversa.' under the 'Link al tap (opzionale)' field. (3) Iter 8 mobile dialog regression intact on iPhone 15 Pro 393x852 — DialogFooter is position:static (computed), URL input rect y=533 sits above send button rect y=630, NO overlap, helper text visible, field editable. (4) Iter 9 denied-permission UX regression intact on /v/6a0c73f2fbb39d92c9f5edd6 with Notification.permission='denied' init script — push-blocked-btn renders (push-subscribe-btn does NOT), clicking opens push-help-dialog 'Notifiche bloccate' with recovery instructions. (5) Payload shape validated indirectly via the 2 unit tests that mock _send_one and assert title/body/url/broadcast_id keys on the captured JSON.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_push.py",
+    "/app/test_reports/pytest/iter10_test_push.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "routers/push.py broadcast_push(): the _payload_for() helper logic is correct and well-commented. The `explicit_url = bool(url) and url not in ('/', '')` check correctly treats '', None, and '/' as 'no explicit url' so per-subscriber personalization wins. Fallback chain (sub.vendor_id -> outer vendor_id -> '/') is safe.",
+    "routers/push.py _record_broadcast still persists `url or '/'` for analytics auditability — this is intentional and fine; the per-subscriber URL is only carried in the FCM payload, not in the broadcast doc. Good separation.",
+    "Minor: PushBroadcastDialog.js still initializes useState('/') for url and sends `url.trim() || '/'`. This means even with an empty input the frontend sends url='/' to the backend. The backend now correctly treats '/' as 'no explicit url' and personalizes — so the end-to-end fix works — but a cleaner approach would be sending '' from the frontend to match the new backend default. Non-blocking.",
+    "Console: still 3-4x 401 errors on initial page load on the VendorLanding (probably /api/auth/me unauthenticated probe). Noted in iter 9 — still present, non-blocking.",
+    "Worth adding a tiny integration test that POSTs to /api/push/broadcast with no url field at all (currently the existing tests pass url indirectly) — but the 2 new unit tests already cover the inner helper so this is low priority."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (23/23)", "frontend": "100% (4/4 scenarios)"},
+  "test_credentials": "admin@example.com / admin123 (org admin, QA Test Org); superadmin@qrhub.it / changeme123 (super admin)",
+  "seed_data_creation": "none — used pre-seeded admin@example.com org admin + pre-existing vendor 6a0c73f2fbb39d92c9f5edd6 (Danu).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Push URL personalization fix verified end-to-end on preview env. The 2 new TestPushUrlPersonalization tests mock FakeDB + _send_one and assert the captured payload JSON contains per-subscriber url='/v/<vendor_id>' when admin passes url='' or '/', and the explicit URL wins when passed. The frontend dialog still hardcodes useState('/') but it works because backend now treats '/' as 'no explicit url'. SW (qrhub-sw.js) was NOT changed in this fix — the actual click navigation will use whatever URL is in the payload (which is now personalized). To do a real FCM smoke test you'd need a real iOS PWA subscriber — not feasible via pytest, hence the mock approach. The DPA banner still appears on the admin dashboard (non-blocking — does not affect the test flow).",
+  "rca_of_the_issue": "Original bug (Letizia/Danu): broadcast_push() was passing the same url payload to every subscriber. When admin sent an org-wide push without specifying a deep link, the route handler defaulted to url='/'. On the custom domain app.vdn.srl, navigating to '/' is blocked by DomainGuard ('Pagina non disponibile — dominio dedicato alle pagine pubbliche dei venditori'). Fix: in broadcast_push(), build the payload PER subscriber via _payload_for(sub) — if the admin url is missing/'/'/'', fallback to '/v/<sub.vendor_id>' so each user lands on their own vendor landing. Route now passes url='' (instead of '/') as its default. Verified by the 2 new unit tests that mock _send_one and capture the json.dumps payloads."
+}

@@ -177,6 +177,17 @@ const Posts = () => {
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
+  // Load vendors once for the "Lancia offerta" broadcast dialog. We don't
+  // block the main feed on this — failure just means the picker shows the
+  // org-wide option only, which is still useful.
+  useEffect(() => {
+    let cancelled = false;
+    axios.get(`${API}/vendors`, { withCredentials: true })
+      .then(({ data }) => { if (!cancelled) setVendors(Array.isArray(data) ? data : []); })
+      .catch(() => { /* silent — broadcast still works org-wide */ });
+    return () => { cancelled = true; };
+  }, []);
+
   const setStoreFilter = (sid) => {
     if (sid) {
       setSearchParams({ store: sid }, { replace: true });
@@ -769,6 +780,12 @@ const Posts = () => {
         }}
         kind="posts"
         title="Immagini per gli annunci"
+      />
+
+      <PushBroadcastDialog
+        open={broadcastOpen}
+        onOpenChange={setBroadcastOpen}
+        vendors={vendors}
       />
     </div>
   );

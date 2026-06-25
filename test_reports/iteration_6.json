@@ -1,0 +1,43 @@
+{
+  "summary": "Iteration 6 — Web Push Notifications (VAPID + subscribe + broadcast + auto-push on post + frontend dialog + VendorLanding opt-in). 15/15 backend pytests PASS and all frontend assertions PASS after the testing agent fixed one critical bug. CRITICAL BUG FOUND AND FIXED: routers/push.py _send_one was declared `async def` but passed to asyncio.to_thread (which expects a sync callable) → coroutine objects accumulated in `stale` list → delete_many({'endpoint': {'$in': [<coroutine>...]}}) raised bson.errors.InvalidDocument → 500 on every broadcast that touched at least one subscription. Fixed by removing `async` keyword from _send_one (it has no awaits — pywebpush is sync). After the fix, both per-vendor and org-wide broadcast return 200 with {sent, cleaned_stale} and stale FCM endpoints are correctly cleaned up. End-to-end UI flow validated: org_admin admin@example.com/admin123 → /dashboard/posts → 'Lancia offerta' button (data-testid=posts-broadcast-button) opens PushBroadcastDialog → all 5 fields render (push-broadcast-vendor / -title / -body / -url / -send) → empty submit shows toast 'Titolo e messaggio sono obbligatori' → vendor select populated with 'Tutti gli iscritti dell'organizzazione' + 3 QA vendors (QA Manager Test, QA Specialist Test, QA Specialist Two) → filled title+body, picked first option (org-wide) → submitted → toast 'Push inviata a 0 dispositivi' (expected since no real subs in test env). New-post dialog: data-testid=post-notify-subscribers-toggle aria-checked='true' (create mode default ON). Public /v/6a0c73f2fbb39d92c9f5edd6 renders push-subscribe-btn correctly. /qrhub-sw.js HTTP 200 and contains both 'push' and 'notificationclick' handlers. VAPID public key returned by /api/push/public-key is 87 chars, base64url, starts with 'B', no padding, no '/' or '+'. Tenant isolation verified: org_admin broadcasting against a vendor of another org → 404.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_push.py",
+    "/app/test_reports/pytest/iteration_6_results.xml"
+  ],
+  "action_items": [
+    "Confirm the _send_one async→sync fix in /app/backend/routers/push.py is acceptable (it is the only correct way to use asyncio.to_thread with pywebpush which is purely synchronous).",
+    "Optional: extend webpush exception handling to also delete subs returning 401/403 (invalid VAPID auth) — currently only 404/410 are treated as stale. Not a blocker.",
+    "Optional: validate that mobile Safari iOS users see push-ios-hint when standalone PWA criteria aren't met (capability fallback path was not covered by this iteration — needs Mobile Safari which Playwright headless Chromium doesn't simulate)."
+  ],
+  "critical_code_review_comments": [
+    "CRITICAL FIX APPLIED — routers/push.py:_send_one: previously `async def`. asyncio.to_thread(fn, *args) expects a sync callable; passing an async function makes the thread executor call it to obtain a coroutine, return that coroutine as the future's result (never awaited), and the caller's `results` list ends up holding coroutines that satisfy `if ep` truthiness check, polluting `stale` with non-string objects. Symptom: bson.errors.InvalidDocument on delete_many → 500 on broadcast. Two-line fix: drop `async` (function has no awaits, pywebpush is sync). Verified all 15 pytests now green including the org-wide broadcast and per-vendor broadcast.",
+    "routers/push.py — _PushKeys.dict() is deprecated in pydantic v2 (use .model_dump()). Currently still works due to compat shim. Consider migrating to keep the codebase v2-native.",
+    "routers/push.py:broadcast_push — when vendor_id is provided but organization_id is None, the $or short-circuits to a vendor-only filter. Fine in practice but the function signature suggests both can be independent; consider documenting that for org-wide pushes the caller MUST pass organization_id and vendor_id=None.",
+    "server.py:2287-2305 — auto-push loops vendors sequentially. For stores with many vendors this can serialize unnecessarily. Consider asyncio.gather for the inner loop, with per-vendor exception isolation kept.",
+    "Posts.js:236 — edit-mode notify_subscribers default is False (correct, per spec). However the current openEdit always sets it to False even if the underlying group originally had notify_subscribers=True at create time — admins editing minor metadata may unintentionally NOT re-broadcast. That is the documented behavior (re-broadcast must be explicit). Just flagging for product visibility.",
+    "PushBroadcastDialog wires url default to '/' on the backend when empty, but the dialog allows the user to type a path. There is no input sanitization for absolute http(s) URLs vs path-only URLs — consider warning when the URL doesn't start with '/' to avoid opening external domains via notificationclick."
+  ],
+  "updated_files": [
+    "/app/backend/routers/push.py (made _send_one synchronous — single-keyword fix to unblock broadcast)",
+    "/app/backend/tests/test_push.py (new — 15 pytest cases covering all push endpoints + auto-push)"
+  ],
+  "success_rate": {
+    "backend": "100% (15/15 pytests)",
+    "frontend": "100% (all asserted flows pass: broadcast dialog, validation toast, success toast, vendor select population, create-mode default ON, VendorLanding push-subscribe-btn render, /qrhub-sw.js handlers present)"
+  },
+  "test_credentials": "Super admin: superadmin@qrhub.it / changeme123. Org admin: admin@example.com / admin123 (org QA Test Org, 3 vendors: QA Manager Test / QA Specialist Test / QA Specialist Two — vendor id 6a0c73f2fbb39d92c9f5edd6 'Giz' used for public landing test).",
+  "seed_data_creation": "Pytest creates and cleans up subscriptions inline (TEST_ idempotency endpoint, FCM-style fake endpoints). One TEST_PUSH_AUTO multi-store Post was created via /api/posts and immediately deleted via /api/posts/group/{group_id}. No persisted seed data left behind.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Critical async bug FIXED by testing agent in /app/backend/routers/push.py (removed `async` from _send_one). If the codebase changes in that file again, watch for the same pattern — pywebpush is sync, so its wrapper MUST be sync to be valid input for asyncio.to_thread. Backend regression pytest suite is at /app/backend/tests/test_push.py (15 tests, ~10s). Frontend: org_admin /dashboard/posts → posts-broadcast-button → push-broadcast-dialog with vendor/title/body/url/send testids; New post button → post-notify-subscribers-toggle (create-mode aria-checked=true). Public /v/{vendor_id} renders push-subscribe-btn (or push-ios-hint on iOS standalone). Service worker /qrhub-sw.js exposes push + notificationclick listeners.",
+  "rca of the issue": "ROOT CAUSE: routers/push.py line 77 declared `async def _send_one(...)` but the function body contains zero `await` expressions — pywebpush.webpush() is a synchronous HTTP call. The caller (broadcast_push, line 135) wraps it with asyncio.to_thread(_send_one, ...). asyncio.to_thread schedules `_send_one(*args)` on a thread executor. When _send_one is async, calling it inside the thread RETURNS a coroutine object instantly (never schedules its body), and that coroutine becomes the thread future's result. asyncio.gather then yields a list of coroutine objects (never executed). The list-comp `stale = [ep for ep in results if ep]` keeps all coroutines (truthy). Finally `db.push_subscriptions.delete_many({'endpoint': {'$in': stale}})` passes coroutines into BSON encoder → bson.errors.InvalidDocument: cannot encode object: <coroutine object _send_one ...> → 500 to the client. REPRO: any /api/push/broadcast with ≥1 stored subscription pointing at a fake/expired endpoint (which is exactly what our tests register). MITIGATION (applied): drop `async` so _send_one is a plain function, properly executed inside the thread, returning either None or the endpoint string for stale cleanup. VERIFICATION: 15/15 pytests green; FCM 404 responses now correctly clean stale subs and the endpoint returns {'sent': N, 'cleaned_stale': M}."
+}

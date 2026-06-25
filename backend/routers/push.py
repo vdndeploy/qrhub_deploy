@@ -74,8 +74,11 @@ async def bootstrap_vapid_keys(db):
 
 # ── Broadcast helper ───────────────────────────────────────────────────────
 
-async def _send_one(sub_doc, payload_json, vapid_private_key, vapid_subject):
-    """Synchronous send wrapped in `asyncio.to_thread` by the caller."""
+def _send_one(sub_doc, payload_json, vapid_private_key, vapid_subject):
+    """Synchronous send wrapped in `asyncio.to_thread` by the caller.
+    Must remain a regular `def` (not `async def`) so it can run inside the
+    thread executor — otherwise `asyncio.to_thread` would receive a
+    coroutine object instead of a callable result."""
     try:
         webpush(
             subscription_info={

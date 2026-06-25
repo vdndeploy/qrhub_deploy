@@ -7,6 +7,7 @@ import PostsCarousel from '../components/PostsCarousel';
 import { computeOpenStatus } from '../components/HoursEditor';
 import BrandSocialIcon from '../components/BrandSocialIcon';
 import ConsultantAvatar from '../components/ConsultantAvatar';
+import PushSubscribe from '../components/PushSubscribe';
 import './VendorLanding.css';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -815,6 +816,17 @@ const VendorLanding = () => {
             <div className="card-chevron"><svg viewBox="0 0 24 24" fill="none" stroke="var(--cta-arrow-color)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></div>
           </a>
         )}
+
+        {/* Push opt-in — sits at the end of the action cards so the user has
+            already seen what this consultant offers before opting into
+            ongoing notifications. */}
+        <div className="px-1 pt-1">
+          <PushSubscribe
+            vendorId={vendor.id}
+            vendorName={vendor.name}
+            brandColor={vendor.organization?.primary_color || '#F96815'}
+          />
+        </div>
       </div>
 
       {(vendor.posts && vendor.posts.length > 0) && (

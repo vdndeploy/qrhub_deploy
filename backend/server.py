@@ -1988,6 +1988,10 @@ class PostCreate(BaseModel):
     start_at: Optional[str] = None  # ISO datetime; if null = active immediately
     end_at: Optional[str] = None    # ISO datetime; if null = no expiry
     enabled: Optional[bool] = True  # admin on/off toggle (default ON)
+    # Auto web-push: default ON. When the Post becomes active, all push
+    # subscribers of the same store/org are notified once. Toggleable per
+    # post from the admin UI.
+    notify_subscribers: Optional[bool] = True
 
 
 class PostUpdate(PostCreate):
@@ -2159,6 +2163,7 @@ class MultiStorePostCreate(BaseModel):
     start_at: Optional[str] = None
     end_at: Optional[str] = None
     enabled: Optional[bool] = True
+    notify_subscribers: Optional[bool] = True
 
 
 class MultiStorePostUpdate(BaseModel):
@@ -2274,6 +2279,31 @@ async def create_multi_store_post(payload: MultiStorePostCreate,
         }
         await db.posts.insert_one(doc.copy())
         inserted.append(sid)
+
+    # ── Auto web-push to subscribers (default ON). Fires once per vendor in
+    # the affected stores so subscribers get a targeted notification.
+    if payload.notify_subscribers and inserted:
+        try:
+            vendors = await db.vendors.find(
+                {'store_id': {'$in': inserted}, 'organization_id': org_id},
+                {'_id': 0, 'id': 1}
+            ).to_list(500)
+            push_title = (payload.title or 'Nuovo annuncio').strip()[:80]
+            push_body = (payload.text or '').strip()[:160] or 'Tocca per scoprire'
+            for v in vendors:
+                # Per-vendor push automatically also reaches subscribers who
+                # opted into the entire organization (see broadcast_push).
+                try:
+                    await _push_module.broadcast_push(
+                        db, vendor_id=v['id'], organization_id=org_id,
+                        title=push_title, body=push_body,
+                        url=f"/v/{v['id']}",
+                    )
+                except Exception as e:
+                    logger.warning('auto-push vendor=%s failed: %s', v['id'], e)
+        except Exception as e:
+            logger.warning('auto-push gather vendors failed: %s', e)
+
     return {'group_id': group_id, 'stores_count': len(inserted)}
 
 
@@ -3364,12 +3394,16 @@ from routers.deploy import router as _deploy_router  # noqa: E402
 from routers.media import router as _media_router  # noqa: E402
 from routers.analytics import router as _analytics_router  # noqa: E402
 from routers.super_admin import router as _super_admin_router  # noqa: E402
+from routers import push as _push_module  # noqa: E402
 
 # Attach with the same /api prefix used by api_router
 app.include_router(_deploy_router, prefix='/api')
 app.include_router(_media_router, prefix='/api')
 app.include_router(_analytics_router, prefix='/api')
 app.include_router(_super_admin_router, prefix='/api')
+# Push router exposes its own /api/push prefix internally so we attach without
+# an extra prefix. `attach_routes` wires the routes with our db + auth dep.
+app.include_router(_push_module.attach_routes(db, get_current_user))
 
 # ──────────────────────────────────────────────────────────────────
 # Open Graph / Twitter card preview pages for vendor landings.
@@ -4039,6 +4073,12 @@ async def _security_headers(request: Request, call_next):
 
 @app.on_event('startup')
 async def seed_admin():
+    # ── Bootstrap VAPID keys once so push works on every replica.
+    try:
+        await _push_module.bootstrap_vapid_keys(db)
+    except Exception as e:
+        logger.warning('VAPID bootstrap failed (push disabled): %s', e)
+
     # 0. Hydrate Cloudinary from MongoDB `config` if env vars are absent.
     # The super-admin UI saves Cloudinary creds into the `config` collection,
     # but `media.py /api/upload` only checked module-load-time env vars and

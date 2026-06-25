@@ -16,6 +16,7 @@ import MediaPicker from '@/components/MediaPicker';
 import AnnouncementPreview from '@/components/AnnouncementPreview';
 import MobileActionBtn from '../components/MobileActionBtn';
 import { useDirtyForm, DirtyDot } from '../hooks/useDirtyForm';
+import PushBroadcastDialog from '../components/PushBroadcastDialog';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -25,6 +26,8 @@ const emptyForm = () => ({
   cta_text: '', cta_whatsapp_message: '',
   start_at: null, end_at: null,
   enabled: true,
+  // Default ON: every new announcement notifies subscribers automatically.
+  notify_subscribers: true,
   store_ids: [],
 });
 
@@ -144,6 +147,8 @@ const Posts = () => {
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [broadcastOpen, setBroadcastOpen] = useState(false);
+  const [vendors, setVendors] = useState([]);
 
   // Dirty-state tracking → amber dot on Save when the form has unsaved
   // changes. `editing` is non-null whenever the post editor modal is open.
@@ -214,6 +219,10 @@ const Posts = () => {
       cta_text: g.cta_text || '', cta_whatsapp_message: g.cta_whatsapp_message || '',
       start_at: g.start_at || null, end_at: g.end_at || null,
       enabled: g.enabled !== false,
+      // In edit-mode default to OFF — the original post has already triggered
+      // its notification at first publish. Re-toggle ON only when the admin
+      // explicitly wants to re-broadcast (e.g. major edit).
+      notify_subscribers: false,
       store_ids: (g.stores || []).map(s => s.store_id),
     });
     setEditing(g);
@@ -269,7 +278,10 @@ const Posts = () => {
       const payload = { ...form };
       if (editing === 'new') {
         const { data } = await axios.post(`${API}/posts`, payload, { withCredentials: true });
-        toast.success(`Annuncio creato su ${data.stores_count} ${data.stores_count === 1 ? 'negozio' : 'negozi'}`);
+        toast.success(
+          `Annuncio creato su ${data.stores_count} ${data.stores_count === 1 ? 'negozio' : 'negozi'}` +
+          (payload.notify_subscribers ? ' • notifiche push in invio 📣' : '')
+        );
       } else {
         const { data } = await axios.put(`${API}/posts/group/${editing.group_id}`, payload, { withCredentials: true });
         const parts = [];
@@ -330,13 +342,24 @@ const Posts = () => {
             Crea un annuncio unico e pubblicalo su più negozi contemporaneamente.
           </p>
         </div>
-        <Button
-          onClick={openNew}
-          className="bg-[#D2FA46] hover:bg-[#bce63d] text-[#0a0a0b]"
-          data-testid="posts-new-button"
-        >
-          <Plus className="h-4 w-4 mr-2" />Nuovo Annuncio
-        </Button>
+        <div className="flex gap-2 flex-wrap">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setBroadcastOpen(true)}
+            className="border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-500/40 dark:text-amber-400 dark:hover:bg-amber-500/10"
+            data-testid="posts-broadcast-button"
+          >
+            <Megaphone className="h-4 w-4 mr-2" />Lancia offerta
+          </Button>
+          <Button
+            onClick={openNew}
+            className="bg-[#D2FA46] hover:bg-[#bce63d] text-[#0a0a0b]"
+            data-testid="posts-new-button"
+          >
+            <Plus className="h-4 w-4 mr-2" />Nuovo Annuncio
+          </Button>
+        </div>
       </div>
 
       <div className="flex items-center gap-2 flex-wrap text-sm">
@@ -568,6 +591,28 @@ const Posts = () => {
                 checked={form.enabled}
                 onCheckedChange={(v) => setForm({ ...form, enabled: v })}
                 data-testid="post-enabled-toggle"
+              />
+            </div>
+
+            {/* Push notify toggle — when ON, the create endpoint fires an
+                automatic web-push to every subscriber of the selected
+                vendors. Hidden when editing an already-published group
+                (default OFF in edit) to avoid double-broadcasts. */}
+            <div className="flex items-center justify-between p-3 rounded-xl border border-amber-200 dark:border-amber-500/30 bg-amber-50/60 dark:bg-amber-500/5">
+              <div className="min-w-0">
+                <div className="text-sm font-medium text-gray-900 dark:text-white flex items-center gap-1.5">
+                  📣 Notifica push subscriber
+                </div>
+                <div className="text-xs text-gray-500 dark:text-[#8a8a92]">
+                  {form.notify_subscribers
+                    ? 'Invierà una notifica push a tutti gli iscritti dei venditori dei negozi selezionati.'
+                    : 'Nessuna notifica push verrà inviata al salvataggio.'}
+                </div>
+              </div>
+              <Switch
+                checked={!!form.notify_subscribers}
+                onCheckedChange={(v) => setForm({ ...form, notify_subscribers: v })}
+                data-testid="post-notify-subscribers-toggle"
               />
             </div>
 

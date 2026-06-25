@@ -72,3 +72,42 @@ self.addEventListener('fetch', (event) => {
     })
   );
 });
+
+// ── Web Push handler ──────────────────────────────────────────────────────
+// Receives push payloads from `pywebpush` and displays a native notification.
+// Payload shape (see backend `broadcast_push`):
+//   { title: string, body: string, url: string, icon?: string }
+self.addEventListener('push', (event) => {
+  if (!event.data) return;
+  let payload = {};
+  try { payload = event.data.json(); }
+  catch { payload = { title: 'QRHub', body: event.data.text(), url: '/' }; }
+  const title = payload.title || 'QRHub';
+  const options = {
+    body: payload.body || '',
+    icon: payload.icon || '/icons/icon-192.png',
+    badge: '/icons/icon-192.png',
+    data: { url: payload.url || '/' },
+    // Group repeated pushes under one tag so the user doesn't see a stack.
+    tag: 'qrhub-push',
+    renotify: true,
+  };
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const targetUrl = (event.notification.data && event.notification.data.url) || '/';
+  event.waitUntil((async () => {
+    // Focus an existing tab on the same origin if we already have one open
+    // — avoids spawning duplicate windows when the user taps a push twice.
+    const allClients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    for (const c of allClients) {
+      if (c.url.includes(self.location.origin) && 'focus' in c) {
+        c.navigate(targetUrl).catch(() => {});
+        return c.focus();
+      }
+    }
+    return self.clients.openWindow(targetUrl);
+  })());
+});

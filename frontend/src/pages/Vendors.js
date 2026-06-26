@@ -658,7 +658,12 @@ const Vendors = () => {
             </DialogDescription>
           </DialogHeader>
           
-          <div className="space-y-4">
+          {/* Scrollable body — gives the dialog a real scroll context so
+              the sticky DialogFooter actually pins to the visible bottom
+              instead of disappearing below the viewport on tall content
+              (the QR + landing info pushes total height past 100dvh on
+              small phones). flex-1 + min-h-0 makes flex respect overflow. */}
+          <div className="flex-1 overflow-y-auto min-h-0 -mx-4 sm:-mx-6 px-4 sm:px-6 space-y-4">
             <div className="bg-white dark:bg-[#131316] rounded-lg border-2 border-gray-200 dark:border-white/10 p-6 flex items-center justify-center">
               {qrPreviewUrl && (
                 <img
@@ -720,7 +725,7 @@ const Vendors = () => {
             )}
           </div>
 
-          <DialogFooter className="static mx-0 px-0 pt-2 border-t-0 bg-transparent">
+          <DialogFooter>
             <Button
               variant="outline"
               onClick={handleCloseQrPreview}

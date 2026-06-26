@@ -93,6 +93,12 @@ const DomainGuard = ({ children }) => {
 
   if (showCourtesy) {
     const host = window.location.hostname;
+    // Build the admin login URL on the platform primary domain so a user who
+    // ends up on a tenant custom domain (e.g. app.vdn.srl/login because they
+    // bookmarked the wrong host) has a clear one-click escape back to the
+    // real admin panel. Falls back to qrhub.it if config didn't ship one.
+    const primaryDomain = (config.primary_domain || 'qrhub.it').replace(/^https?:\/\//, '');
+    const adminLoginUrl = `https://${primaryDomain}/login`;
     return (
       <div
         data-testid="domain-guard-courtesy"
@@ -149,8 +155,33 @@ const DomainGuard = ({ children }) => {
             dei venditori. Se hai un QR code, inquadralo per essere reindirizzato
             alla pagina corretta.
           </p>
+
+          {/* Admin escape hatch — visible only on tenant custom domains.
+              Lets bookmarked / mistakenly-visited admins jump back to the
+              real login portal without having to manually type the URL. */}
+          <a
+            href={adminLoginUrl}
+            data-testid="domain-guard-admin-escape"
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 8,
+              padding: '12px 22px', borderRadius: 999,
+              background: '#D2FA46', color: '#0a0a0b',
+              fontSize: 13.5, fontWeight: 700, textDecoration: 'none',
+              boxShadow: '0 4px 20px rgba(210,250,70,0.18)',
+              marginBottom: 24,
+            }}
+          >
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none"
+                 stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
+              <polyline points="10 17 15 12 10 7" />
+              <line x1="15" y1="12" x2="3" y2="12" />
+            </svg>
+            Vai al pannello admin
+          </a>
+
           <p style={{ color: '#6a6a72', fontSize: 12.5, lineHeight: 1.6, margin: 0 }}>
-            Stai cercando il sito ufficiale dell'organizzazione? Contatta
+            Stai cercando il sito ufficiale dell&apos;organizzazione? Contatta
             direttamente chi ti ha fornito il dominio.
           </p>
         </div>

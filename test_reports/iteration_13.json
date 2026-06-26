@@ -1,0 +1,34 @@
+{
+  "summary": "Validated DomainGuard admin escape link fix. All 4 scenarios PASS: (1) courtesy page on non-admin host shows admin escape CTA with correct testid + href, (2) /v/:id bypasses courtesy, (3) /s/:slug bypasses courtesy, (4) super admin login on preview env (which is in admin_host_suffixes) flows normally to /dashboard/organizations and renders the Organizzazioni table. Backend non-regression checked via curl: /api/platform/config returns expected primary_domain=qrhub.it + suffixes; /api/auth/login with superadmin@qrhub.it/changeme123 returns 200; /api/auth/me returns 200 after login.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/test_reports/iteration_13.json"
+  ],
+  "action_items": [
+    "Nessuna azione richiesta. Il fix DomainGuard funziona correttamente in preview. Procedi con il deploy Vercel per propagarlo in produzione (qrhub.it + custom domains come app.vdn.srl)."
+  ],
+  "critical_code_review_comments": [
+    "DomainGuard.js: il fallback hardcoded 'qrhub.it' alla riga 100 è ragionevole come safety-net ma duplica conoscenza già nel backend /api/platform/config — accettabile dato che è solo fallback se config arriva senza primary_domain.",
+    "DomainGuard.js: il link admin-escape costruisce sempre https:// (corretto per produzione), ma in dev localhost il primary_domain potrebbe non avere TLS — non-issue in pratica perchè la courtesy non si triggerare su localhost (è in admin_hosts_allowlist).",
+    "DomainGuard.js: ottima decisione di NON fare 302-redirect: l'admin escape link è esplicito (richiede click utente), quindi nessun tenant viene 'rapito' dal proprio dominio."
+  ],
+  "updated_files": [],
+  "success_rate": {
+    "backend": "100%",
+    "frontend": "100%"
+  },
+  "test_credentials": "Super Admin: superadmin@qrhub.it / changeme123 (da SUPERADMIN_PASSWORD in backend/.env). Login funzionante su preview env.",
+  "seed_data_creation": "Nessuna. Test ha solo verificato courtesy page (via route mock di /api/platform/config) e login flow normale.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Per testare il courtesy page del DomainGuard su preview env (che è in admin_host_suffixes), si DEVE usare page.route() per fare mock di /api/platform/config restituendo admin_hosts_allowlist=[] e admin_host_suffixes=[]. Il preview env https://qr-deploy-1.preview.emergentagent.com è normalmente in admin_host_suffixes (.preview.emergentagent.com) quindi mostra direttamente /login. Selettori da usare: [data-testid='domain-guard-courtesy'] per la courtesy page, [data-testid='domain-guard-admin-escape'] per il link admin (href atteso https://qrhub.it/login, testo 'Vai al pannello admin').",
+  "rca of the issue": "Bug originale (utente non riesce a entrare in pannello superadmin): l'utente probabilmente bookmarkava /login su un dominio tenant custom (es. app.vdn.srl/login). DomainGuard correttamente bloccava le route admin sul tenant domain mostrando 'Pagina non disponibile', ma NON forniva un escape verso il primary_domain. Mitigazione: aggiunto link CTA 'Vai al pannello admin' con href costruito da config.primary_domain ('https://qrhub.it/login') e data-testid='domain-guard-admin-escape'. Fix verificato funzionante in preview. Per riproduzione: navigare a /login su un host che NON è in admin_hosts_allowlist né endsWith() di admin_host_suffixes → courtesy ora mostra il CTA che riporta a qrhub.it/login."
+}

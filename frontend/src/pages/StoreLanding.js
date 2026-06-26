@@ -273,7 +273,6 @@ const StoreLanding = () => {
               src={store.landing_hero_image}
               alt={store.landing_title || store.name}
               className="block w-full h-auto"
-              crossOrigin="anonymous"
               data-testid="store-landing-hero-image"
             />
           ) : (
@@ -284,9 +283,10 @@ const StoreLanding = () => {
           )}
         </section>
 
-        {/* ── Title band — dynamic gradient sampled from the image bottom.
-            Sits directly under the picture so the title is on a solid
-            (gradient) surface, never overlapped on the photo. */}
+        {/* ── Title band — uniform white gradient (no longer derived
+            from the hero image). Sits directly under the picture so the
+            title is on a solid, brand-neutral surface — guaranteed
+            legible black text on every variant, regardless of poster. */}
         <section
           className="relative px-6 pt-7 pb-12"
           style={{

@@ -1,0 +1,23 @@
+{
+  "summary": "Frontend-only retest of QR Preview Dialog (Vendors.js L723) sticky-footer-overlap fix. The override className 'static mx-0 px-0 pt-2 border-t-0 bg-transparent' on DialogFooter neutralizes the shared component default 'sticky bottom-0'. Verified on 3 viewports (iPhone SE 375x667, iPhone 15 Pro 393x852, Desktop 1440x900) via deterministic getBoundingClientRect: footer is strictly BELOW the QR image and below the landing-url info box. Functional flows verified: 'Scarica PNG' triggers PNG download, 'Chiudi' closes the modal. Regression on the 2 other DialogFooters in Vendors.js (vendor create/edit dialog at L567, credentials dialog at L632) confirmed: both still computed `position: sticky / bottom: 0px` — the fix is correctly scoped to only the qr-preview-dialog.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Vendors.js L723 — override `static mx-0 px-0 pt-2 border-t-0 bg-transparent` correctly wins over dialog.jsx default 'sticky bottom-0 -mx-4 ... border-t ...' via tailwind-merge in cn(). Computed style confirmed: position=static on all 3 viewports. Scope is local — other dialogs in same file untouched. Good targeted fix consistent with iter 8 PushBroadcastDialog pattern.",
+    "Tech debt (already noted iter 8): DialogFooter default 'sticky bottom-0' is fragile because DialogContent is not a real scroll container unless content overflows. Two dialogs already need the same override (PushBroadcastDialog, QrPreviewDialog). Consider refactoring dialog.jsx so the default is non-sticky and opt-in for long forms — would simplify any future short-content dialog."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (frontend-only request)", "frontend": "100% (3/3 viewports PASS overlap check; download PASS; close PASS; regression on 2 sibling dialogs PASS)"},
+  "test_credentials": "admin@example.com / admin123 (QA Test Org). Login OK on /login.",
+  "seed_data_creation": "None.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Bug fixed and verified. Measurements (getBoundingClientRect, px):\n- iPhone SE 375x667: image.bottom=392, landing.bottom=510, footer.top=582, download.top=590 — footer.top >= image.bottom ✓, footer.top >= landing.bottom ✓.\n- iPhone 15 Pro 393x852: image.bottom=479.5, landing.bottom=581.5, footer.top=653.5, download.top=661.5 ✓✓.\n- Desktop 1440x900: image.bottom=527.5, landing.bottom=629.5, footer.top=701.5, download.top=714.5 ✓✓.\nFooter computed position on all 3 = 'static' (was sticky before override). Footer.className contains both default sticky classes AND the override; tailwind-merge resolves to static at runtime.\nFunctional: 'Scarica PNG' downloads qr_<id>.png correctly. 'Chiudi' closes modal correctly.\nRegression: vendor-dialog (L567) footer = sticky/bottom:0px (unchanged). credentials-dialog (L632) footer = sticky/bottom:0px (unchanged). Fix scoped to qr-preview-dialog only.\nVisual screenshot Desktop confirms: QR fully visible, link info box below, footer (Chiudi + Scarica PNG green-lime) at the bottom of the natural flow — no overlap with QR image.",
+  "rca of the issue": "Same pattern as iter 8 PushBroadcastDialog: DialogFooter default `sticky bottom-0` only behaves correctly inside a real scroll container. DialogContent uses flex + max-h-[calc(100dvh-2rem)] but has NO overflow-y-auto, so on short dialogs the sticky context is missing and the footer renders at the natural-flow bottom — which on iOS Safari with overflowing content can visually paint over the QR image's lower portion. The fix (override with `static mx-0 px-0 pt-2 border-t-0 bg-transparent`) drops the sticky requirement entirely for this short dialog and removes the negative margins / border-t, ensuring the footer sits strictly below the QR + info-box in the document flow. Verified deterministically on 3 viewports."
+}

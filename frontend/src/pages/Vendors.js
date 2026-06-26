@@ -720,7 +720,7 @@ const Vendors = () => {
             )}
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="static mx-0 px-0 pt-2 border-t-0 bg-transparent">
             <Button
               variant="outline"
               onClick={handleCloseQrPreview}

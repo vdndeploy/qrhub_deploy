@@ -1,0 +1,24 @@
+{
+  "summary": "Verified the NEW band strategy on /s/passa-a-fibra: titleband is always a uniform white→gray-100 linear gradient with slate-900 black text, fully independent of hero_image. Tested with 3 distinct hero images (WindTre cloudinary, orange Unsplash camera, purple plasma) plus empty hero — band computed style is byte-identical in every case: backgroundImage='linear-gradient(rgb(255, 255, 255) 0%, rgb(243, 244, 246) 100%)' and color='rgb(15, 23, 42)'. Source confirmed clean: no sampleHeroColor, no transition-[background]. Contrast title-on-white = 17.85:1 (WCAG AAA pass). Cleanup performed (hero_image reset to '').",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "StoreLanding.js lines 49-58: bandRgb and bandRgbDark are top-level consts (not state) — correct since they never change. Inline literal constants would be marginally cleaner but the named consts improve readability.",
+    "Line 287-289 comment block still says 'dynamic gradient sampled from the image bottom' — this is stale (sampling was removed). Should be updated to reflect the new uniform-white behavior. Minor doc drift, no functional impact.",
+    "Line 271-278 <img>: crossOrigin='anonymous' is now vestigial (it was only needed for canvas pixel sampling). Safe to remove since no canvas reads hero pixels anymore. Not blocking — leaving it doesn't break anything."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a", "frontend": "100%"},
+  "test_credentials": "admin@example.com / admin123 (used to PATCH /api/stores/{id}/landings/{id} for hero swap during testing)",
+  "seed_data_creation": "None permanent. Temporarily PATCHed hero_image to orange (unsplash 1502920917128) then purple plasma (unsplash 1530973428) then reset to '' as final cleanup. Variant 8f67a135-1d80-49d3-87e3-f8ea5ba90d0d hero_image is now empty.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "URL: https://qr-deploy-1.preview.emergentagent.com/s/passa-a-fibra. Store id 6a383aa59bbc459260a5f6e7, variant id 8f67a135-1d80-49d3-87e3-f8ea5ba90d0d. The band [data-testid=store-landing-titleband] is now STATIC: backgroundImage 'linear-gradient(rgb(255,255,255) 0%, rgb(243,244,246) 100%)' and color 'rgb(15,23,42)' regardless of hero. Note: getComputedStyle normalizes 'linear-gradient(180deg, ...)' by dropping the '180deg,' because 180deg = default 'to bottom' direction — this is browser-normalized output, not a code issue. Subtitle uses text-slate-700 (rgb(51,65,85)). Cleanup: hero_image is currently '' on the variant; main agent should re-set it if needed for demo.",
+  "rca of the issue": "N/A — this iteration verifies an intentional product pivot (drop image color sampling, use uniform white band always). All acceptance criteria met."
+}

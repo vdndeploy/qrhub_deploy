@@ -46,51 +46,16 @@ const StoreLanding = () => {
   const sessionStartRef = useRef(Date.now());
   const storeIdRef = useRef('');
 
-  // ── Dynamic hero color band ───────────────────────────────────────────
-  // We sample the bottom ~80px strip of the hero image to derive a base
-  // colour for the title band underneath the picture. This way the band
-  // visually continues the image instead of being a hard cut, AND the
-  // hero image itself is shown at its natural aspect ratio (square,
-  // 4:5 post, 9:16 story…) — no more crop violence on user-supplied
-  // promo creatives.
-  const [bandColor, setBandColor] = useState({ r: 17, g: 24, b: 39 }); // gray-900 fallback
-  const sampleHeroColor = (img) => {
-    try {
-      if (!img || !img.naturalWidth) return;
-      const canvas = document.createElement('canvas');
-      const stripH = Math.max(8, Math.floor(img.naturalHeight * 0.12));
-      canvas.width = 40;
-      canvas.height = 12;
-      const ctx = canvas.getContext('2d', { willReadFrequently: true });
-      // Draw the bottom strip of the image scaled into a tiny 40×12 buffer.
-      ctx.drawImage(
-        img,
-        0, img.naturalHeight - stripH, img.naturalWidth, stripH,
-        0, 0, 40, 12
-      );
-      const { data } = ctx.getImageData(0, 0, 40, 12);
-      let r = 0, g = 0, b = 0, n = 0;
-      for (let i = 0; i < data.length; i += 4) {
-        const a = data[i + 3];
-        if (a < 200) continue; // skip transparent samples
-        r += data[i]; g += data[i + 1]; b += data[i + 2]; n++;
-      }
-      if (!n) return;
-      setBandColor({ r: Math.round(r / n), g: Math.round(g / n), b: Math.round(b / n) });
-    } catch {
-      // Canvas may throw on cross-origin without proper CORS headers.
-      // Silently keep the fallback (gray-900) — never break the page.
-    }
-  };
-  // Title text colour: pick white on dark band, near-black on light band.
-  // Uses relative luminance per WCAG (sRGB lin coefficients).
-  const bandIsDark = useMemo(() => {
-    const { r, g, b } = bandColor;
-    const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-    return lum < 150;
-  }, [bandColor]);
-  const bandRgb = `rgb(${bandColor.r}, ${bandColor.g}, ${bandColor.b})`;
-  const bandRgbDark = `rgb(${Math.max(0, bandColor.r - 25)}, ${Math.max(0, bandColor.g - 25)}, ${Math.max(0, bandColor.b - 25)})`;
+  // ── Title band — uniform white gradient, black text ────────────────────
+  // Originally we sampled the hero image to derive the band colour, but a
+  // brand-image sampling approach over-promised: shadows muddied the
+  // gradient on orange posters, and even after multiple attempts the
+  // result was inconsistent. The product decision is a clean, neutral
+  // band that always looks polished regardless of the hero — soft
+  // white-to-light-gray gradient with near-black text. Uniform across
+  // every landing variant, zero configuration, zero ambiguity.
+  const bandRgb = 'rgb(255, 255, 255)';
+  const bandRgbDark = 'rgb(243, 244, 246)'; // gray-100 — subtle lower edge
 
   useEffect(() => {
     let cancelled = false;
@@ -309,7 +274,6 @@ const StoreLanding = () => {
               alt={store.landing_title || store.name}
               className="block w-full h-auto"
               crossOrigin="anonymous"
-              onLoad={(e) => sampleHeroColor(e.currentTarget)}
               data-testid="store-landing-hero-image"
             />
           ) : (
@@ -324,14 +288,14 @@ const StoreLanding = () => {
             Sits directly under the picture so the title is on a solid
             (gradient) surface, never overlapped on the photo. */}
         <section
-          className="relative px-6 pt-7 pb-12 transition-[background] duration-500 ease-out"
+          className="relative px-6 pt-7 pb-12"
           style={{
             background: `linear-gradient(180deg, ${bandRgb} 0%, ${bandRgbDark} 100%)`,
-            color: bandIsDark ? '#ffffff' : '#0f172a',
+            color: '#0f172a',
           }}
           data-testid="store-landing-titleband"
         >
-          {/* Soft top blend so the photo "melts" into the band */}
+          {/* Soft top blend so the photo "melts" into the white band */}
           <div
             aria-hidden
             className="absolute -top-8 inset-x-0 h-8 pointer-events-none"
@@ -347,7 +311,7 @@ const StoreLanding = () => {
           </h1>
           {store.landing_subtitle && (
             <p
-              className={`mt-2 text-[14px] leading-relaxed font-medium ${bandIsDark ? 'text-white/90' : 'text-slate-700'}`}
+              className="mt-2 text-[14px] leading-relaxed font-medium text-slate-700"
               data-testid="store-landing-subtitle"
             >
               {store.landing_subtitle}

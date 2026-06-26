@@ -47,18 +47,14 @@ const StoreLanding = () => {
   const storeIdRef = useRef('');
 
   // ── Dynamic hero color band ───────────────────────────────────────────
-  // We sample the hero image to derive a base colour for the title band
-  // underneath. The naïve "average the RGB of the bottom strip" approach
-  // muds-out vivid hues (an orange poster with shadows averaged out
-  // brown) because dark/shadow pixels desaturate the mean. Now we:
-  //   1. Sample a broader region (bottom 35%, not just bottom 12%)
-  //   2. Drop near-black & near-white pixels — they're shadows /
-  //      highlights, not the dominant brand colour
-  //   3. Convert the resulting RGB → HSL and snap saturation to a
-  //      vibrant floor (≥ 0.55) so the gradient pops with the image's
-  //      hue instead of returning a muddied desaturated cousin.
-  // This keeps the band visually continuous with the picture while
-  // protecting tenants from "orange image → brown gradient" bugs.
+  // We sample the hero image to derive a base colour for the title band.
+  // Naïve mean RGB muds-out vivid hues — even with shadow filtering, a
+  // bright orange poster with a dark-shirted subject averages out to brown.
+  //
+  // The fix: weight each pixel by its OWN saturation (squared) before
+  // averaging. Vibrant pixels dominate; muddy mid-tones contribute less.
+  // Then snap saturation to a vibrant floor + clamp lightness in a
+  // bright-but-readable range. Result: bright posters → bright band.
   const [bandColor, setBandColor] = useState({ r: 17, g: 24, b: 39 }); // gray-900 fallback
   // RGB → HSL → boost S floor → RGB. Tiny helper, inline for clarity.
   const punchUpSaturation = (r, g, b) => {
@@ -76,12 +72,14 @@ const StoreLanding = () => {
       }
       h /= 6;
     }
-    // Floor saturation at 0.55 so washed-out images still produce a
-    // confident gradient. Cap lightness in a comfortable mid-range so we
-    // don't shoot to white or black.
-    const sBoost = Math.max(s, 0.55);
-    const lClamp = Math.min(0.6, Math.max(0.22, l));
-    // HSL → RGB
+    // Floor saturation HARD at 0.7 — we WANT a punchy band. Bright vivid
+    // hero images deserve a bright vivid band, never the muddied mean.
+    const sBoost = Math.max(s, 0.7);
+    // Lightness window 0.45-0.72 keeps the band bright enough to look
+    // like a continuation of a vivid poster (not a dark brown shadow)
+    // while still leaving white text legible against it (band remains
+    // mid-tone, not paper-white).
+    const lClamp = Math.min(0.72, Math.max(0.45, l));
     const hue2rgb = (p, q, t) => {
       if (t < 0) t += 1;
       if (t > 1) t -= 1;
@@ -98,44 +96,63 @@ const StoreLanding = () => {
       b: Math.round(hue2rgb(p, q, h - 1 / 3) * 255),
     };
   };
+  // Per-pixel saturation in [0,1]. Cheap inline computation, no HSL
+  // conversion needed — we just need the relative weight.
+  const pixelSaturation = (r, g, b) => {
+    const max = Math.max(r, g, b);
+    const min = Math.min(r, g, b);
+    if (max === 0) return 0;
+    return (max - min) / max;
+  };
   const sampleHeroColor = (img) => {
     try {
       if (!img || !img.naturalWidth) return;
       const canvas = document.createElement('canvas');
-      // Sample the bottom 35% of the image — wider than before so we
-      // pick up the dominant tone, not just edge shadows.
-      const stripH = Math.max(8, Math.floor(img.naturalHeight * 0.35));
+      // Sample the bottom 25% — close enough to the band to feel like a
+      // continuation, wide enough to catch the dominant colour pocket.
+      const stripH = Math.max(8, Math.floor(img.naturalHeight * 0.25));
       canvas.width = 60;
-      canvas.height = 30;
+      canvas.height = 24;
       const ctx = canvas.getContext('2d', { willReadFrequently: true });
       ctx.drawImage(
         img,
         0, img.naturalHeight - stripH, img.naturalWidth, stripH,
-        0, 0, 60, 30
+        0, 0, 60, 24
       );
-      const { data } = ctx.getImageData(0, 0, 60, 30);
-      let r = 0, g = 0, b = 0, n = 0;
+      const { data } = ctx.getImageData(0, 0, 60, 24);
+      let r = 0, g = 0, b = 0, w = 0;
       for (let i = 0; i < data.length; i += 4) {
         const a = data[i + 3];
         if (a < 200) continue; // transparent pixel
         const pr = data[i], pg = data[i + 1], pb = data[i + 2];
-        // Skip dark shadows (< 40) and bright highlights (> 230) —
-        // they drag the mean away from the true brand colour.
         const lum = 0.2126 * pr + 0.7152 * pg + 0.0722 * pb;
-        if (lum < 40 || lum > 230) continue;
-        r += pr; g += pg; b += pb; n++;
+        // Skip deep shadows AND bright highlights (likely white background).
+        if (lum < 50 || lum > 240) continue;
+        // Weight by saturation squared — vivid pixels dominate the mean,
+        // muddy mid-tones contribute almost nothing. Floor at 0.04 so a
+        // truly grayscale image still produces a valid (if dark) result.
+        const sat = pixelSaturation(pr, pg, pb);
+        const weight = sat * sat + 0.04;
+        r += pr * weight;
+        g += pg * weight;
+        b += pb * weight;
+        w += weight;
       }
-      // Fallback: if every sample got filtered (low-contrast image),
-      // re-run without the lum filter to avoid an empty result.
-      if (n < 8) {
-        r = 0; g = 0; b = 0; n = 0;
+      // Fallback: if every sample got filtered, re-run without the lum/
+      // saturation filter so we never end up with a black band.
+      if (w < 0.5) {
+        r = 0; g = 0; b = 0; w = 0;
         for (let i = 0; i < data.length; i += 4) {
           if (data[i + 3] < 200) continue;
-          r += data[i]; g += data[i + 1]; b += data[i + 2]; n++;
+          r += data[i]; g += data[i + 1]; b += data[i + 2]; w++;
         }
       }
-      if (!n) return;
-      const avg = { r: Math.round(r / n), g: Math.round(g / n), b: Math.round(b / n) };
+      if (!w) return;
+      const avg = {
+        r: Math.round(r / w),
+        g: Math.round(g / w),
+        b: Math.round(b / w),
+      };
       setBandColor(punchUpSaturation(avg.r, avg.g, avg.b));
     } catch {
       // Canvas may throw on cross-origin without proper CORS headers.

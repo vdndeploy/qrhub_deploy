@@ -1,0 +1,27 @@
+{
+  "summary": "Validated NEW gradient band fix (S floor 0.7, L clamp 0.45-0.72, sat^2 weighting, 25% bottom strip) on /s/passa-a-fibra. Bandcolor sampled from hero image now meets S>=0.65 AND L>=0.45 on every valid colored image tested. Login admin@example.com/admin123 OK. Patched variant 8f67a135-1d80-49d3-87e3-f8ea5ba90d0d hero_image via PATCH /api/stores/{store}/landings/{id}, navigated, read computed background of [data-testid=store-landing-titleband], parsed first rgb() and converted to HSL: T1 orange unsplash 1542435503 -> RGB(234,139,134) S=0.704 L=0.722 PASS; T3 purple unsplash 1557672172 -> RGB(209,134,234) S=0.704 L=0.722 PASS; T-data-orange (deterministic pure #FF8000 PNG data URL) -> RGB(255,128,0) S=1.0 L=0.5 PASS; T-data-yellow (#FFFF00 PNG) -> RGB(255,255,0) S=1.0 L=0.5 PASS. T2 (unsplash 1574786577) NOT testable: URL returns HTTP 404 (broken upstream image), naturalWidth=0, sampleHeroColor returns early, band stays gray-900 — confirms silent-fallback regression instead. Regressions: T5 crossOrigin='anonymous' set on <img> -> PASS; T6 empty hero_image -> no hero-image element, band rgb(17,24,39)=gray-900 fallback, no crash -> PASS; T4 title legibility -> bandIsDark logic correctly picks dark text rgb(15,23,42) on light purple band (lum=157>150). Cleanup: hero_image set back to '' on the variant.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/tests/test_store_landing_band.py"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "StoreLanding.js sampleHeroColor (49-160): sat^2 + 0.04 weighting + S floor 0.7 + L clamp 0.45-0.72 verified empirically — pure orange (255,128,0) and pure yellow (255,255,0) pass through unaltered with S=1.0, L=0.5. Photographic orange poster yields S=0.704, L=0.722 — both > thresholds. Fix is mathematically sound.",
+    "Silent canvas-readback fallback (try/catch + naturalWidth guard + w<0.5 secondary fallback) correctly handles: a) broken image URLs (HTTP 404), b) cross-origin tainted canvas, c) empty hero_image. All three confirmed to fall back to gray-900 without page crash.",
+    "bandIsDark threshold of lum<150 is borderline for mid-tone bands like rgb(234,139,134) lum=158.8 (light) and rgb(209,134,234) lum=157.1 (light) — both render dark text. Works but the threshold sits very close to these typical post-punch colors; consider WCAG contrast-ratio computation for the title text vs the actual chosen band color if future hero images skew closer to lum=150 boundary (cosmetic, non-blocking).",
+    "Cleanup pattern in iter-15 test (PATCH hero_image='' after test run) is safe because StoreLandingVariantCreate accepts empty string for hero_image. No DB residue."
+  ],
+  "updated_files": [],
+  "success_rate": { "backend": "n/a (frontend-only)", "frontend": "6/6 testable scenarios PASS (T2 had broken upstream image URL — silent fallback verified instead)" },
+  "test_credentials": "admin@example.com / admin123 (Org Admin, store_id=6a383aa59bbc459260a5f6e7, variant id=8f67a135-1d80-49d3-87e3-f8ea5ba90d0d, slug=passa-a-fibra).",
+  "seed_data_creation": "None. Variant was already provisioned. Test patched its hero_image multiple times and reset to '' at the end.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "To re-verify the gradient band: login as admin@example.com/admin123 to set cookies (page.context.request.post /api/auth/login), PATCH /api/stores/6a383aa59bbc459260a5f6e7/landings/8f67a135-1d80-49d3-87e3-f8ea5ba90d0d with full StoreLandingVariantCreate body (all required: name, slug, title, subtitle, hero_image, logo_url, cta_color, whatsapp_message, enabled), navigate /s/passa-a-fibra, wait 2.5s after image onLoad, read getComputedStyle(querySelector('[data-testid=store-landing-titleband]')).backgroundImage, parse first rgb() with regex, convert to HSL. Use deterministic data-URL PNGs for reproducibility — public unsplash URLs can 404. Sample bandIsDark threshold lum<150 may need attention if hero colors regress to that boundary. The whole helper code is in /app/frontend/src/pages/StoreLanding.js lines 49-160.",
+  "rca of the issue": "ORIGINAL: user screenshot showed muddy dark-brown band (RGB ~110,60,50) under a vivid orange WindTre hero image because: 1) mean RGB on bottom strip averaged in dark-shirted subject pixels and shadows, 2) prior S floor 0.55 + L clamp 0.22-0.6 was still allowing dark outputs near lum=80-110. FIX validated: raising S floor to 0.7 and L lower bound to 0.45 (clamp 0.45-0.72), plus weighting each pixel by sat^2 so vibrant pixels dominate the mean. Result: orange poster yields RGB(234,139,134) S=0.70 L=0.72 (instead of the user-reported brown). Verified deterministically with pure-orange data-URL PNG which round-trips unchanged. No issue remaining."
+}

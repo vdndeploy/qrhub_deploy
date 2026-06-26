@@ -166,7 +166,7 @@ async def delete_file(public_id: str, user: dict = Depends(get_current_user)):
             detail='File in uso come foto profilo o logo organizzazione. Rimuovi prima il riferimento.'
         )
 
-    if CLOUDINARY_ENABLED:
+    if _server.CLOUDINARY_ENABLED:
         try:
             cloudinary.uploader.destroy(public_id, resource_type=f.get('resource_type', 'image'), invalidate=True)
         except Exception as e:
@@ -213,7 +213,7 @@ async def bulk_delete_files(req: BulkDeleteRequest, user: dict = Depends(get_cur
             if url and url in in_use_url:
                 failed.append({'public_id': pid, 'reason': 'in_use_protected'})
                 continue
-            if CLOUDINARY_ENABLED:
+            if _server.CLOUDINARY_ENABLED:
                 try:
                     cloudinary.uploader.destroy(pid, resource_type=f.get('resource_type', 'image'), invalidate=True)
                 except Exception as e:
@@ -374,7 +374,7 @@ async def delete_media(public_id: str, user: dict = Depends(get_current_user_or_
             detail='Media in uso (post o foto profilo). Rimuovi prima il riferimento o usa il bulk-delete admin.'
         )
 
-    if CLOUDINARY_ENABLED:
+    if _server.CLOUDINARY_ENABLED:
         try:
             cloudinary.uploader.destroy(public_id, resource_type=f.get('resource_type', 'image'), invalidate=True)
         except Exception as e:

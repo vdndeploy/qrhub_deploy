@@ -1,0 +1,25 @@
+{
+  "summary": "Verified the fix for the user-reported bug 'NON RIESCO A ELIMINARE PIU LE IMMAGINI DAI MEDIA'. Root cause was 3 references to bare CLOUDINARY_ENABLED in /app/backend/routers/media.py (lines 169, 216, 377) causing NameError -> 500 on every DELETE /api/media/{public_id}. Main agent applied the fix (prefix _server.) on all 3 sites; this run validates the fix end-to-end via pytest (6 tests, 100% pass) and a real UI flow (Libreria Media -> Elimina) which now shows the 'File eliminato' toast and decrements the card count.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": { "ui_bugs": [], "integration_issues": [], "design_issues": [] },
+  "test_report_links": [
+    "/app/backend/tests/test_media_delete_fix.py",
+    "/app/test_reports/pytest/iter21_media_delete.xml"
+  ],
+  "action_items": [
+    "Backend fix is verified in preview. Deploy /api/deploy/fly/deploy-code from Super Admin (manual via curl with SA cookie) to propagate to qrhub.it / app.vdn.srl production."
+  ],
+  "critical_code_review_comments": [
+    "media.py imports CLOUDINARY_ENABLED via `import server as _server` (late-binding). Consider exposing the flag once at the top of media.py via a module-level `from server import CLOUDINARY_ENABLED` AFTER server is fully imported, OR adding a quick `is_cloudinary_enabled()` helper to avoid future shadowing/typo regressions like the one just fixed.",
+    "Several try/except around cloudinary.uploader.destroy swallow errors silently (only logger.warning). If Cloudinary destroy fails, the DB record is still removed -> orphaned asset on Cloudinary side. Consider adding a soft-fail metric or admin alert.",
+    "_compute_in_use_sets does a full collection scan on every delete (posts + stores + vendors + organizations). On larger tenants this can be slow; consider caching the in-use sets per request (FastAPI dependency cache) or projecting only org-scoped docs."
+  ],
+  "updated_files": ["/app/backend/tests/test_media_delete_fix.py"],
+  "success_rate": { "backend": "100%", "frontend": "100%" },
+  "test_credentials": "admin@example.com / admin123 (QA Test Org). superadmin via env SUPERADMIN_PASSWORD not used this run.",
+  "seed_data_creation": "Test uploads tiny 1x1 PNGs to /api/upload (folder=uploads) per test, then deletes them. In-use 409 test temporarily writes the uploaded url into one vendor.profile_image_url via direct mongo (via motor), tests 409, then restores the vendor's original value. No persistent data left behind.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "All 6 media-delete pytest cases under /app/backend/tests/test_media_delete_fix.py are passing. Backend logs no longer show NameError for CLOUDINARY_ENABLED. UI flow on /dashboard/media -> Elimina works end-to-end. If main agent re-runs after fly.io deploy, just `pytest backend/tests/test_media_delete_fix.py` should remain green.",
+  "rca of the issue": "Root cause: NameError at runtime in /app/backend/routers/media.py because CLOUDINARY_ENABLED is defined in /app/backend/server.py and imported into media.py via `import server as _server`. Three call sites (delete single file, bulk delete, delete media library asset) used the bare name `CLOUDINARY_ENABLED` instead of `_server.CLOUDINARY_ENABLED`, so every DELETE attempt raised NameError -> FastAPI returned 500. Reproduction (pre-fix): login as admin -> open /dashboard/media -> click Elimina on any image -> toast 'Errore eliminazione' + backend log 'NameError: name CLOUDINARY_ENABLED is not defined' at media.py:169/216/377. Mitigation applied by main agent: change bare references to _server.CLOUDINARY_ENABLED on lines 169, 216, 377 (matching the already-correct reference on line 64). Verification: 6 pytest assertions (success 200, 404 missing, 409 in-use, 404 cross-tenant, legacy /api/files DELETE regression, /api/files/bulk-delete regression) all pass; UI flow confirmed via Playwright with success toast and card-count decrement; backend access log shows expected 200/404/409 status codes."
+}

@@ -47,36 +47,96 @@ const StoreLanding = () => {
   const storeIdRef = useRef('');
 
   // ── Dynamic hero color band ───────────────────────────────────────────
-  // We sample the bottom ~80px strip of the hero image to derive a base
-  // colour for the title band underneath the picture. This way the band
-  // visually continues the image instead of being a hard cut, AND the
-  // hero image itself is shown at its natural aspect ratio (square,
-  // 4:5 post, 9:16 story…) — no more crop violence on user-supplied
-  // promo creatives.
+  // We sample the hero image to derive a base colour for the title band
+  // underneath. The naïve "average the RGB of the bottom strip" approach
+  // muds-out vivid hues (an orange poster with shadows averaged out
+  // brown) because dark/shadow pixels desaturate the mean. Now we:
+  //   1. Sample a broader region (bottom 35%, not just bottom 12%)
+  //   2. Drop near-black & near-white pixels — they're shadows /
+  //      highlights, not the dominant brand colour
+  //   3. Convert the resulting RGB → HSL and snap saturation to a
+  //      vibrant floor (≥ 0.55) so the gradient pops with the image's
+  //      hue instead of returning a muddied desaturated cousin.
+  // This keeps the band visually continuous with the picture while
+  // protecting tenants from "orange image → brown gradient" bugs.
   const [bandColor, setBandColor] = useState({ r: 17, g: 24, b: 39 }); // gray-900 fallback
+  // RGB → HSL → boost S floor → RGB. Tiny helper, inline for clarity.
+  const punchUpSaturation = (r, g, b) => {
+    const rn = r / 255, gn = g / 255, bn = b / 255;
+    const max = Math.max(rn, gn, bn), min = Math.min(rn, gn, bn);
+    const l = (max + min) / 2;
+    let h = 0, s = 0;
+    if (max !== min) {
+      const d = max - min;
+      s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+      switch (max) {
+        case rn: h = (gn - bn) / d + (gn < bn ? 6 : 0); break;
+        case gn: h = (bn - rn) / d + 2; break;
+        default: h = (rn - gn) / d + 4;
+      }
+      h /= 6;
+    }
+    // Floor saturation at 0.55 so washed-out images still produce a
+    // confident gradient. Cap lightness in a comfortable mid-range so we
+    // don't shoot to white or black.
+    const sBoost = Math.max(s, 0.55);
+    const lClamp = Math.min(0.6, Math.max(0.22, l));
+    // HSL → RGB
+    const hue2rgb = (p, q, t) => {
+      if (t < 0) t += 1;
+      if (t > 1) t -= 1;
+      if (t < 1 / 6) return p + (q - p) * 6 * t;
+      if (t < 1 / 2) return q;
+      if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+      return p;
+    };
+    const q = lClamp < 0.5 ? lClamp * (1 + sBoost) : lClamp + sBoost - lClamp * sBoost;
+    const p = 2 * lClamp - q;
+    return {
+      r: Math.round(hue2rgb(p, q, h + 1 / 3) * 255),
+      g: Math.round(hue2rgb(p, q, h) * 255),
+      b: Math.round(hue2rgb(p, q, h - 1 / 3) * 255),
+    };
+  };
   const sampleHeroColor = (img) => {
     try {
       if (!img || !img.naturalWidth) return;
       const canvas = document.createElement('canvas');
-      const stripH = Math.max(8, Math.floor(img.naturalHeight * 0.12));
-      canvas.width = 40;
-      canvas.height = 12;
+      // Sample the bottom 35% of the image — wider than before so we
+      // pick up the dominant tone, not just edge shadows.
+      const stripH = Math.max(8, Math.floor(img.naturalHeight * 0.35));
+      canvas.width = 60;
+      canvas.height = 30;
       const ctx = canvas.getContext('2d', { willReadFrequently: true });
-      // Draw the bottom strip of the image scaled into a tiny 40×12 buffer.
       ctx.drawImage(
         img,
         0, img.naturalHeight - stripH, img.naturalWidth, stripH,
-        0, 0, 40, 12
+        0, 0, 60, 30
       );
-      const { data } = ctx.getImageData(0, 0, 40, 12);
+      const { data } = ctx.getImageData(0, 0, 60, 30);
       let r = 0, g = 0, b = 0, n = 0;
       for (let i = 0; i < data.length; i += 4) {
         const a = data[i + 3];
-        if (a < 200) continue; // skip transparent samples
-        r += data[i]; g += data[i + 1]; b += data[i + 2]; n++;
+        if (a < 200) continue; // transparent pixel
+        const pr = data[i], pg = data[i + 1], pb = data[i + 2];
+        // Skip dark shadows (< 40) and bright highlights (> 230) —
+        // they drag the mean away from the true brand colour.
+        const lum = 0.2126 * pr + 0.7152 * pg + 0.0722 * pb;
+        if (lum < 40 || lum > 230) continue;
+        r += pr; g += pg; b += pb; n++;
+      }
+      // Fallback: if every sample got filtered (low-contrast image),
+      // re-run without the lum filter to avoid an empty result.
+      if (n < 8) {
+        r = 0; g = 0; b = 0; n = 0;
+        for (let i = 0; i < data.length; i += 4) {
+          if (data[i + 3] < 200) continue;
+          r += data[i]; g += data[i + 1]; b += data[i + 2]; n++;
+        }
       }
       if (!n) return;
-      setBandColor({ r: Math.round(r / n), g: Math.round(g / n), b: Math.round(b / n) });
+      const avg = { r: Math.round(r / n), g: Math.round(g / n), b: Math.round(b / n) };
+      setBandColor(punchUpSaturation(avg.r, avg.g, avg.b));
     } catch {
       // Canvas may throw on cross-origin without proper CORS headers.
       // Silently keep the fallback (gray-900) — never break the page.

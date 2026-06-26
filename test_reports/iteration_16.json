@@ -1,0 +1,26 @@
+{
+  "summary": "Verified ROLLBACK of sampleHeroColor (commit ecbb64f) on /s/passa-a-fibra with WindTre cloudinary hero. The band under the hero is now a DELICATE gray (RGB 209,214,221, HSL s=0.150), NOT vibrant/saturated. Rollback meets the user's preferred behavior — faithful RGB mean of bottom 12% with no artificial boost.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [
+    "Cleanup: as per request, reset variant 8f67a135-1d80-49d3-87e3-f8ea5ba90d0d hero_image='' on /s/passa-a-fibra so the WindTre cloudinary image used for replication is not left as residue. (Frontend-only testing agent cannot perform admin DB writes safely.)"
+  ],
+  "critical_code_review_comments": [
+    "sampleHeroColor (StoreLanding.js lines 57-84) is correctly restored: canvas 40x12, bottom 12% strip (stripH = max(8, naturalHeight*0.12)), simple RGB sum/n, NO punchUpSaturation, NO pixelSaturation, NO HSL boost, NO S floor. Matches the commit ecbb64f spec exactly.",
+    "bandIsDark threshold (lum < 150 via WCAG sRGB lin coefficients) unchanged — correctly picked black title text on light band(209,214,221), lum≈213. ✓",
+    "Fallback gray-900 (r:17,g:24,b:39) is intact via useState initial value — would trigger automatically on tainted canvas / broken image / empty hero (try/catch silently keeps fallback)."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a", "frontend": "100%"},
+  "test_credentials": "admin@example.com / admin123 (not used; frontend-only public landing test)",
+  "seed_data_creation": "None — used existing variant slug=passa-a-fibra with hero_image already set to WindTre cloudinary URL by main agent.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "URL tested: https://qr-deploy-1.preview.emergentagent.com/s/passa-a-fibra with hero https://res.cloudinary.com/doqp3gr5e/image/upload/v1782217202/org_6a0c70cefcb344d7e01fa069/landings/file_ldl2iv.jpg. Method: page.evaluate getComputedStyle of [data-testid=store-landing-titleband], parse first rgb() of linear-gradient, convert to HSL. Result: rgb(209,214,221), s=0.150 (PASS, well under the 0.5 threshold). Note: the band is gray-blue not brown because the bottom 12% of this specific WindTre image is mostly white background + cyan Protecta logo, so the faithful RGB mean lands on light gray-blue. This is exactly the desired behavior — 'media RGB del bottom 12%, niente boost artificiale'. Compared to iter 15 (S=0.7 floor + L clamp produced saturated rgb(234,139,134)), this rollback is clearly the tenuous behavior the user requested.",
+  "rca of the issue": "N/A — this iteration verifies a successful rollback, not a bug fix. Previous iters 14-15 over-tuned the band via punchUpSaturation (sat^2 weighting + S floor + L clamp), producing band colors too vibrant for the WindTre poster. The clean revert to canvas 40x12 + plain RGB mean (commit ecbb64f) restores the original behavior."
+}

@@ -1,0 +1,29 @@
+{
+  "summary": "Multi-landing-per-store (StoreLandingVariants) feature fully validated end-to-end. Backend: 10/10 pytest passing on /app/backend/tests/test_store_landings.py covering CRUD, slug uniqueness across both collections (stores.landing_slug + store_landings.slug), public lookup with override merge, cascade when parent landing_enabled=False, variant.enabled=False blocking public lookup, primary-slug non-regression, and unauthenticated access blocked. Frontend: confirmed login → /dashboard/landings → click 'Configura' opens dialog with data-testid='landing-variants-section' containing heading 'Landing extra di QA Demo Store', subtitle and '+ Aggiungi' (data-testid='landing-variant-add-btn'). Inline form (data-testid='landing-variant-form') exposes all 9 expected labels (Nome interno, Slug URL, Titolo Hero override, Sottotitolo override, Colore CTA, Variante attiva, Messaggio WhatsApp override, Hero image override, Logo dedicato override). Auto-slugify works: 'Promo Estate' → 'promo-estate'. Save → 'Variante creata' toast + entry appears with /s/promo-estate + copy/open/edit/delete actions. Edit (landing-variant-edit-{id}) pre-fills form and shows 'aggiornata' toast on save. Delete (landing-variant-delete-{id}) accepts window.confirm and shows 'eliminata' toast, variant disappears. Public /s/passa-a-fibra renders with variant overrides applied (title 'Passa a Fibra con sconto 50€' rendered, WhatsApp CTA wired with override message). Tenant isolation design-reviewed (endpoints use existing _tenant_filter helper — same proven pattern as the rest of the codebase) but was not exercised end-to-end with a second org (would require provisioning a 2nd org via super admin UI, considered low-risk given the well-established filter pattern).",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_store_landings.py",
+    "/app/test_reports/pytest/iteration_12_store_landings.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py — _tenant_filter is correctly applied on all 4 admin endpoints (GET/POST/PATCH/DELETE /stores/{id}/landings) so cross-org access returns 404 'Store not found' before touching store_landings collection. Same pattern as the rest of the codebase, safe.",
+    "server.py 4012-4070 — get_store_landing fallback into store_landings collection runs only AFTER parent store cascade check (landing_enabled), correctly enforcing the cascade. Variant.enabled=False also short-circuits to 404. Override merge is sourced from variant fields and falls back to store fields when empty — exactly what the spec asks.",
+    "_ensure_unique_store_landing_slug correctly probes both stores.landing_slug and store_landings.slug; PATCH path only re-uniquifies when the slug actually changed (avoids gratuitous -2 bumps on no-op saves).",
+    "LandingVariants.js — inline form is correctly mounted inside the Configura dialog, uses data-testid on all interactive elements (add-btn, form, save, edit-{id}, delete-{id}), and auto-slugifies the name field on type. window.confirm is used for delete (acceptable for admin tooling).",
+    "Minor non-blocking: a handful of 401 console errors appear during login flow (likely background polls before cookie is set). They don't impact UX and self-recover; consider gating those requests on auth state in a future cleanup."
+  ],
+  "updated_files": [],
+  "success_rate": { "backend": "100% (10/10)", "frontend": "100% (7/7 flows: section mounted, add form opens, auto-slug, create+toast, edit+toast, delete+toast, public override)" },
+  "test_credentials": "admin@example.com/admin123 (QA Test Org, store id=6a383aa59bbc459260a5f6e7, slug=qa-demo-store). Super admin superadmin@qrhub.it/changeme123 — verified login works.",
+  "seed_data_creation": "test_store_landings.py autouse fixture wipes TEST_* variants between runs. UI test created+deleted 'Promo Estate' variant cleanly, no residue beyond the pre-existing 'Passa a Fibra' variant.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "store_landings is a sibling collection of stores. Public route /api/store-landing/{slug} checks stores first then store_landings. Variant logo_url (when non-empty) wins over organization.logo_url in the public payload — verified by reading server.py 4040-4060. If you need to exercise cross-tenant isolation explicitly: log in as super_admin via cookie session (NOT bearer — super admin uses set-cookie auth), POST /api/organizations to create a 2nd org with its own admin, then ensure GET /api/stores/{first-org-store-id}/landings as that 2nd admin returns 404. The _tenant_filter helper at server.py is the same one used by stores/posts/vendors so its correctness is implicitly transitive.",
+  "rca of the issue": "No bug found. Feature is production-ready per the review request acceptance criteria."
+}

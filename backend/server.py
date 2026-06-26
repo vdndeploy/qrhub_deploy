@@ -1198,6 +1198,174 @@ async def delete_store(store_id: str, user: dict = Depends(get_current_user)):
 
 
 # ──────────────────────────────────────────────────────────────────
+# Store Landing Variants — multiple landings per store
+#   Allows a store (e.g. "Negozio X") to expose several distinct funnel
+#   pages, each at its own slug, sharing the store's identity (orari,
+#   indirizzo, social, vendors) but with customised hero / CTA / colors
+#   per campaign (e.g. "WindTre Protetti", "Passa a Fibra").
+#   The primary landing keeps living on the store doc (stores.landing_*);
+#   each additional variant is a separate doc in `store_landings`.
+# ──────────────────────────────────────────────────────────────────
+
+class StoreLandingVariantCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=80)
+    slug: Optional[str] = Field('', max_length=80)
+    title: Optional[str] = Field('', max_length=120)
+    subtitle: Optional[str] = Field('', max_length=200)
+    hero_image: Optional[str] = Field('', max_length=600)
+    logo_url: Optional[str] = Field('', max_length=600)
+    cta_color: Optional[str] = Field('', max_length=24)
+    whatsapp_message: Optional[str] = Field('', max_length=600)
+    enabled: Optional[bool] = True
+
+
+class StoreLandingVariantResponse(BaseModel):
+    id: str
+    store_id: str
+    organization_id: str
+    name: str
+    slug: str
+    title: str = ''
+    subtitle: str = ''
+    hero_image: str = ''
+    logo_url: str = ''
+    cta_color: str = ''
+    whatsapp_message: str = ''
+    enabled: bool = True
+    landing_url: str = ''
+    created_at: str
+    updated_at: str = ''
+
+
+async def _store_variant_to_response(v: dict, store: dict) -> dict:
+    """Build the StoreLandingVariantResponse dict — includes the effective
+    public URL so the admin UI can render the "Copia link" / "Apri" actions
+    without re-deriving it client-side."""
+    # Effective URL: reuse the same helper as the primary landing, but
+    # pass the variant slug instead of the store slug.
+    pseudo_store = {**store, 'landing_slug': v.get('slug', '')}
+    eff_url = await _effective_store_landing_url(pseudo_store)
+    return {
+        'id': v.get('id', ''),
+        'store_id': v.get('store_id', ''),
+        'organization_id': v.get('organization_id', ''),
+        'name': v.get('name', ''),
+        'slug': v.get('slug', ''),
+        'title': v.get('title', ''),
+        'subtitle': v.get('subtitle', ''),
+        'hero_image': v.get('hero_image', ''),
+        'logo_url': v.get('logo_url', ''),
+        'cta_color': v.get('cta_color', ''),
+        'whatsapp_message': v.get('whatsapp_message', ''),
+        'enabled': v.get('enabled', True),
+        'landing_url': eff_url,
+        'created_at': v.get('created_at', ''),
+        'updated_at': v.get('updated_at', ''),
+    }
+
+
+@api_router.get('/stores/{store_id}/landings')
+async def list_store_landings(store_id: str, user: dict = Depends(get_current_user)):
+    """Lists all extra landing variants for a store. Tenant-scoped."""
+    qf = _tenant_filter(user, {'id': store_id})
+    store = await db.stores.find_one(qf, {'_id': 0})
+    if not store:
+        raise HTTPException(status_code=404, detail='Store not found')
+    variants = await db.store_landings.find(
+        {'store_id': store_id}, {'_id': 0}
+    ).sort('created_at', 1).to_list(50)
+    return [await _store_variant_to_response(v, store) for v in variants]
+
+
+@api_router.post('/stores/{store_id}/landings', response_model=StoreLandingVariantResponse)
+async def create_store_landing(store_id: str, body: StoreLandingVariantCreate,
+                                user: dict = Depends(get_current_user)):
+    qf = _tenant_filter(user, {'id': store_id})
+    store = await db.stores.find_one(qf, {'_id': 0})
+    if not store:
+        raise HTTPException(status_code=404, detail='Store not found')
+    raw_slug = (body.slug or body.name).strip()
+    base_slug = _slugify(raw_slug)
+    final_slug = await _ensure_unique_store_landing_slug(base_slug)
+    now = datetime.now(timezone.utc).isoformat()
+    doc = {
+        'id': str(uuid.uuid4()),
+        'store_id': store_id,
+        'organization_id': store.get('organization_id', ''),
+        'name': body.name.strip(),
+        'slug': final_slug,
+        'title': (body.title or '').strip(),
+        'subtitle': (body.subtitle or '').strip(),
+        'hero_image': (body.hero_image or '').strip(),
+        'logo_url': (body.logo_url or '').strip(),
+        'cta_color': (body.cta_color or '').strip(),
+        'whatsapp_message': (body.whatsapp_message or '').strip(),
+        'enabled': bool(body.enabled),
+        'created_at': now,
+        'updated_at': now,
+    }
+    await db.store_landings.insert_one(doc)
+    return await _store_variant_to_response(doc, store)
+
+
+@api_router.patch('/stores/{store_id}/landings/{landing_id}',
+                  response_model=StoreLandingVariantResponse)
+async def update_store_landing(store_id: str, landing_id: str,
+                                body: StoreLandingVariantCreate,
+                                user: dict = Depends(get_current_user)):
+    qf = _tenant_filter(user, {'id': store_id})
+    store = await db.stores.find_one(qf, {'_id': 0})
+    if not store:
+        raise HTTPException(status_code=404, detail='Store not found')
+    variant = await db.store_landings.find_one(
+        {'id': landing_id, 'store_id': store_id}, {'_id': 0}
+    )
+    if not variant:
+        raise HTTPException(status_code=404, detail='Landing not found')
+    raw_slug = (body.slug or body.name).strip()
+    base_slug = _slugify(raw_slug) or variant.get('slug', '')
+    # Re-uniqueify only if the slug actually changed (avoids gratuitous -2 bumps).
+    if base_slug != variant.get('slug'):
+        new_slug = await _ensure_unique_store_landing_slug(
+            base_slug, exclude_variant_id=landing_id
+        )
+    else:
+        new_slug = base_slug
+    updates = {
+        'name': body.name.strip(),
+        'slug': new_slug,
+        'title': (body.title or '').strip(),
+        'subtitle': (body.subtitle or '').strip(),
+        'hero_image': (body.hero_image or '').strip(),
+        'logo_url': (body.logo_url or '').strip(),
+        'cta_color': (body.cta_color or '').strip(),
+        'whatsapp_message': (body.whatsapp_message or '').strip(),
+        'enabled': bool(body.enabled),
+        'updated_at': datetime.now(timezone.utc).isoformat(),
+    }
+    await db.store_landings.update_one({'id': landing_id}, {'$set': updates})
+    variant.update(updates)
+    return await _store_variant_to_response(variant, store)
+
+
+@api_router.delete('/stores/{store_id}/landings/{landing_id}')
+async def delete_store_landing(store_id: str, landing_id: str,
+                                user: dict = Depends(get_current_user)):
+    qf = _tenant_filter(user, {'id': store_id})
+    store = await db.stores.find_one(qf, {'_id': 0, 'id': 1})
+    if not store:
+        raise HTTPException(status_code=404, detail='Store not found')
+    res = await db.store_landings.delete_one(
+        {'id': landing_id, 'store_id': store_id}
+    )
+    if res.deleted_count == 0:
+        raise HTTPException(status_code=404, detail='Landing not found')
+    return {'message': 'Landing deleted'}
+
+
+
+
+# ──────────────────────────────────────────────────────────────────
 # Organizations (multi-tenancy - super admin only)
 # ──────────────────────────────────────────────────────────────────
 def _slugify(s: str) -> str:
@@ -1207,13 +1375,16 @@ def _slugify(s: str) -> str:
     return out.strip('-') or str(uuid.uuid4())[:8]
 
 
-async def _ensure_unique_store_landing_slug(base_slug: str, exclude_store_id: str = '') -> str:
-    """Make sure the landing slug is unique across ALL tenants (it lives at
-    the public /s/:slug route which has no tenant prefix). If the slug
-    collides we append a short suffix `-2`, `-3`, ...
+async def _ensure_unique_store_landing_slug(base_slug: str, exclude_store_id: str = '',
+                                            exclude_variant_id: str = '') -> str:
+    """Make sure the landing slug is unique across ALL tenants AND across
+    both the primary `stores.landing_slug` AND the `store_landings`
+    variants collection — they all share the public `/s/:slug` namespace.
+    If the slug collides we append a short suffix `-2`, `-3`, ...
 
-    The check ignores `exclude_store_id` so callers can refresh-set the same
-    slug on the same store without colliding with themselves.
+    `exclude_store_id` skips checking against a specific primary store
+    (so refresh-saving the same slug doesn't bump). `exclude_variant_id`
+    does the same for a specific variant doc.
     """
     base_slug = (base_slug or '').strip().lower()
     if not base_slug:
@@ -1221,11 +1392,15 @@ async def _ensure_unique_store_landing_slug(base_slug: str, exclude_store_id: st
     candidate = base_slug
     n = 1
     while True:
-        q = {'landing_slug': candidate}
+        q_store = {'landing_slug': candidate}
         if exclude_store_id:
-            q['id'] = {'$ne': exclude_store_id}
-        existing = await db.stores.find_one(q, {'_id': 0, 'id': 1})
-        if not existing:
+            q_store['id'] = {'$ne': exclude_store_id}
+        clash_store = await db.stores.find_one(q_store, {'_id': 0, 'id': 1})
+        q_var = {'slug': candidate}
+        if exclude_variant_id:
+            q_var['id'] = {'$ne': exclude_variant_id}
+        clash_var = await db.store_landings.find_one(q_var, {'_id': 0, 'id': 1})
+        if not clash_store and not clash_var:
             return candidate
         n += 1
         candidate = f'{base_slug}-{n}'
@@ -3837,7 +4012,14 @@ async def og_vendor_preview(vendor_id: str, request: Request):
 async def get_store_landing(slug: str):
     """Public store landing data. No auth — anyone with the slug can fetch.
     Returns ONLY the fields needed to render the public landing (no tenant
-    IDs, no internal metadata)."""
+    IDs, no internal metadata).
+
+    Resolution order:
+      1. `stores.landing_slug` — primary landing on the store doc.
+      2. `store_landings.slug` — extra variant; loads the parent store and
+         merges the variant's overrides on top of the primary landing
+         fields so the public payload shape is identical for the SPA.
+    """
     slug = (slug or '').strip().lower()
     if not slug:
         raise HTTPException(status_code=404, detail='Store not found')
@@ -3845,6 +4027,40 @@ async def get_store_landing(slug: str):
         {'landing_slug': slug, 'landing_enabled': True},
         {'_id': 0},
     )
+    variant = None
+    if not store:
+        # Try the extra-variants collection. We require the variant to be
+        # enabled AND the parent store to also have landing_enabled=True so
+        # toggling the master landing off kills every campaign at once.
+        variant = await db.store_landings.find_one(
+            {'slug': slug, 'enabled': True}, {'_id': 0}
+        )
+        if variant:
+            store = await db.stores.find_one(
+                {'id': variant['store_id'], 'landing_enabled': True},
+                {'_id': 0},
+            )
+            if store:
+                # Variant overrides win — empty strings still fall back to
+                # the primary landing so admins can override piecemeal.
+                store = dict(store)
+                for k_var, k_store in (
+                    ('title', 'landing_title'),
+                    ('subtitle', 'landing_subtitle'),
+                    ('hero_image', 'landing_hero_image'),
+                    ('whatsapp_message', 'landing_whatsapp_message'),
+                    ('cta_color', 'landing_cta_color'),
+                ):
+                    v = (variant.get(k_var) or '').strip()
+                    if v:
+                        store[k_store] = v
+                # Expose the variant slug as the canonical landing slug
+                # so Share / Copy-link surface the right URL.
+                store['landing_slug'] = variant.get('slug', slug)
+                # Track override of org-level logo for the variant header.
+                _var_logo = (variant.get('logo_url') or '').strip()
+                if _var_logo:
+                    store['_variant_logo_url'] = _var_logo
     if not store:
         raise HTTPException(status_code=404, detail='Landing non disponibile')
     org = {}
@@ -3898,7 +4114,10 @@ async def get_store_landing(slug: str):
         'landing_cta_color': (store.get('landing_cta_color') or '').strip(),
         'organization': {
             'name': org.get('brand_name') or org.get('name', ''),
-            'logo_url': org.get('logo_url', ''),
+            # Variant logo override (if the visitor hit a /s/<variant-slug>)
+            # wins over the org-level logo so each campaign can ship its own
+            # brand mark. Falls back to the org logo when not set.
+            'logo_url': store.get('_variant_logo_url') or org.get('logo_url', ''),
             'pwa_icon_url': org.get('pwa_icon_url', ''),
             'primary_color': org.get('primary_color', '#F96815'),
             'secondary_color': org.get('secondary_color', ''),

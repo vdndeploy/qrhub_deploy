@@ -10,6 +10,7 @@ import {
   Search, X, FormInput, FolderOpen, Copy, Check,
 } from 'lucide-react';
 import MediaPicker from '@/components/MediaPicker';
+import LandingVariants from '@/components/LandingVariants';
 import { useDirtyForm, DirtyDot } from '../hooks/useDirtyForm';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -506,6 +507,14 @@ const Landings = () => {
                   {saving ? 'Salvataggio…' : 'Salva landing'}
                 </Button>
               </DialogFooter>
+
+              {/* ── Landing EXTRA (multi-funnel) ─────────────────────────
+                  Renders the list of additional landing variants for this
+                  store (e.g. "Passa a Fibra", "Promo Estate"). Each variant
+                  has its own slug + URL; visitors land on /s/<variant-slug>
+                  and see the same store identity but with overridden hero,
+                  title, CTA color and WhatsApp message. */}
+              <LandingVariants storeId={editing.id} storeName={editing.name} />
             </form>
           )}
         </DialogContent>

@@ -308,6 +308,82 @@ async def get_vendor_detailed_analytics(period: str = '30d', vendor_id: Optional
     return await _build_detailed_analytics({'vendor_id': target['id']}, period)
 
 
+@router.get('/analytics/top-vendors')
+async def get_top_vendors(period: str = '30d', limit: int = 10,
+                           user: dict = Depends(get_current_user)):
+    """Top vendors by QR scan count (page_view events) in the chosen period.
+    Tenant-scoped: org admins only see their org's vendors, super admin sees
+    all. Returns sorted list with scan count + WhatsApp click count + CTR.
+
+    Powers the "Migliori venditori" widget on the org admin dashboard so
+    you can compare vendor performance at-a-glance, switch period filter
+    (today / yesterday / 7d / 30d / month), and spot top performers.
+    """
+    start_iso, end_iso = _period_to_dates(period)
+    base = {'timestamp': {'$gte': start_iso, '$lte': end_iso}}
+
+    # Org-scope the query — super admin gets everything, org admin only own.
+    if _is_super_admin(user):
+        vendors_qf = {}
+    else:
+        org_id = user.get('organization_id')
+        if not org_id:
+            raise HTTPException(status_code=403, detail='Org context mancante')
+        vendors_qf = {'organization_id': org_id}
+    vendors = await db.vendors.find(vendors_qf, {
+        '_id': 0, 'id': 1, 'name': 1, 'organization_id': 1,
+        'profile_image_url': 1,
+    }).to_list(10000)
+    if not vendors:
+        return {'period': period, 'start': start_iso, 'end': end_iso, 'items': []}
+    vid_to_meta = {v['id']: v for v in vendors}
+    base['vendor_id'] = {'$in': list(vid_to_meta.keys())}
+
+    # Single aggregation: count both page_view and whatsapp_click per vendor.
+    pipeline = [
+        {'$match': {**base, 'event_type': {'$in': ['page_view', 'whatsapp_click']}}},
+        {'$group': {
+            '_id': {'vendor_id': '$vendor_id', 'et': '$event_type'},
+            'count': {'$sum': 1},
+        }},
+    ]
+    rows = await db.analytics.aggregate(pipeline).to_list(20000)
+    scan_by_vid, wa_by_vid = {}, {}
+    for r in rows:
+        vid = r['_id']['vendor_id']
+        et = r['_id']['et']
+        if et == 'page_view':
+            scan_by_vid[vid] = r['count']
+        elif et == 'whatsapp_click':
+            wa_by_vid[vid] = r['count']
+
+    items = []
+    for vid, meta in vid_to_meta.items():
+        scans = scan_by_vid.get(vid, 0)
+        if scans == 0 and wa_by_vid.get(vid, 0) == 0:
+            continue  # skip vendors with no activity in the period
+        clicks = wa_by_vid.get(vid, 0)
+        ctr = round((clicks / scans) * 100, 1) if scans > 0 else 0.0
+        items.append({
+            'vendor_id': vid,
+            'vendor_name': meta.get('name', ''),
+            'profile_image_url': meta.get('profile_image_url', ''),
+            'organization_id': meta.get('organization_id', ''),
+            'scans': scans,
+            'whatsapp_clicks': clicks,
+            'ctr_pct': ctr,
+        })
+    # Sort by scans desc, then whatsapp clicks desc as tie-breaker.
+    items.sort(key=lambda x: (-x['scans'], -x['whatsapp_clicks']))
+    return {
+        'period': period,
+        'start': start_iso,
+        'end': end_iso,
+        'items': items[:max(1, min(limit, 50))],
+    }
+
+
+
 def _click_label(et: str) -> str:
     return {
         'whatsapp_click': 'WhatsApp', 'instagram_click': 'Instagram',

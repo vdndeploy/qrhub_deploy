@@ -4,6 +4,15 @@
 
 ---
 
+## 2026-02-12 — Bug fix P0: cross-vendor push leak (Lancia messaggio offerta)
+
+- **Issue**: When admin used "Lancia messaggio offerta" dialog and selected a specific vendor (e.g. Vendor A), the push was also delivered to subscribers of other vendors of the same org who had opted into "tutte le offerte del brand" (scope='organization').
+- **Root cause**: `broadcast_push()` in `routers/push.py` always built an `$or` query that included `{organization_id, scope:'organization'}` whenever a vendor_id was passed — unconditionally pulling org-wide subs from ANY vendor.
+- **Fix**: added `include_org_scope: bool = True` param to `broadcast_push()`. The manual broadcast endpoint passes `include_org_scope = (req.vendor_id is None)` → strict `{vendor_id: X}` filter when admin targets a specific vendor. Auto-push from post creation keeps the default (True) so the "all brand offers" subscription stays meaningful for org-wide subscribers.
+- **Tests**: 3 new unit tests `TestVendorScopingFix` in `tests/test_push.py` (FakeDB) + 3 E2E tests in `tests/test_push_vendor_scoping_e2e.py` (real MongoDB, 4 seeded subs per case). Testing agent validated 29/29 tests passing — zero cross-vendor leak, all regressions green.
+
+
+
 ## 2026-06-25 — Push Analytics dashboard + Install button pulse animation
 
 - **Install button pulse** (`VendorLanding.css` + `VendorLanding.js`): added `.map-btn--install` class on the "+" header button with a 1.8s heartbeat scale + expanding glow ring (white + brand-color box-shadow). Respects `prefers-reduced-motion`. Pause on hover/focus. Auto-hidden when PWA is already installed (standalone mode).

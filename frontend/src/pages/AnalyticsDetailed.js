@@ -7,6 +7,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { Eye, MousePointerClick, Smartphone, MapPin, Download, Filter, ChevronDown, ChevronUp } from 'lucide-react';
 import { toast } from 'sonner';
+import { AnalyticsResetButton } from '../components/AnalyticsResetButton';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -134,6 +135,19 @@ export default function AnalyticsDetailed({ mode = 'admin', vendors = [], defaul
       } catch { /* non-blocking — sezione opzionale */ }
     }
   }, [period, vendorId, mode, endpoint, targetVendorId]);
+
+  // After a successful Store Landings reset, fetch only the landing
+  // subset (the global event_log + KPIs above stay valid since the reset
+  // is scoped to store_landing_* events).
+  const refetchLandings = useCallback(async () => {
+    if (mode !== 'admin') return;
+    try {
+      const { data: ld } = await axios.get(`${API}/analytics/store-landings`, {
+        params: { period }, withCredentials: true,
+      });
+      setLandingsData(ld);
+    } catch { /* swallow */ }
+  }, [period, mode]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -372,19 +386,23 @@ export default function AnalyticsDetailed({ mode = 'admin', vendors = [], defaul
             </div>
           </CollapsibleContent>
         </Collapsible>
-
-        {/* ── Lead-gen Landing Negozi — only renders for admin AND if at least
-            one store has activated the public landing page. */}
-        {mode === 'admin' && landingsData && landingsData.totals.views > 0 && (
-          <StoreLandingsSection data={landingsData} />
-        )}
       </div>
+
+      {/* Lead-gen Landing Negozi — extracted into its OWN dedicated card so
+          it's no longer visually "attached" to the Log Eventi panel above.
+          Only renders for admin AND only when at least one store has
+          activated the public landing page (totals.views > 0). */}
+      {mode === 'admin' && landingsData && landingsData.totals.views > 0 && (
+        <StoreLandingsSection data={landingsData} period={period} onReset={refetchLandings} />
+      )}
     </div>
   );
 }
 
 // ── Lead-gen funnel section for /s/:slug landing pages ────────────────────
-const StoreLandingsSection = ({ data }) => {
+// Rendered as a stand-alone card (NOT nested under the Log Eventi panel) so
+// admins immediately perceive it as a separate analytics surface.
+const StoreLandingsSection = ({ data, onReset }) => {
   const t = data.totals;
   // 4-stage funnel: Atterraggi → Engaged (any non-bounce) → CTA click → Form view
   const engaged = Math.max(0, t.views - t.bounces);
@@ -397,13 +415,26 @@ const StoreLandingsSection = ({ data }) => {
   ];
   const max = funnel[0].value || 1;
   return (
-    <div className="space-y-4" data-testid="landings-analytics-section">
-      <div className="flex items-center gap-2 pt-2">
-        <span className="inline-block w-2 h-6 rounded-full bg-emerald-500" />
-        <h3 className="text-base font-semibold text-gray-900 dark:text-white">
-          Landing Negozi — Funnel lead-gen
-        </h3>
-        <span className="text-[10px] uppercase tracking-widest font-semibold text-emerald-600 ml-1">NEW</span>
+    <section
+      className="bg-white dark:bg-[#131316] rounded-3xl border border-gray-200 dark:border-white/10 shadow-sm p-5 sm:p-6 space-y-4"
+      data-testid="landings-analytics-section"
+    >
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <span className="inline-block w-2 h-6 rounded-full bg-emerald-500" />
+          <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">
+            Landing Negozi — Funnel lead-gen
+          </h3>
+          <span className="text-[10px] uppercase tracking-widest font-semibold text-emerald-600 ml-1">NEW</span>
+        </div>
+        <AnalyticsResetButton
+          label="Reset Funnel Landing"
+          description="Verranno cancellati tutti gli eventi delle landing pubbliche dei negozi (atterraggi, click CTA, form view, bounce). I link landing restano attivi."
+          resetEndpoint={`${API}/analytics/store-landings/reset`}
+          auditEndpoint={`${API}/analytics/store-landings/audit-log`}
+          onReset={onReset}
+          testIdPrefix="landings-reset"
+        />
       </div>
 
       {/* KPI cards specifico landing */}
@@ -491,7 +522,7 @@ const StoreLandingsSection = ({ data }) => {
           </table>
         </div>
       </Card>
-    </div>
+    </section>
   );
 };
 

@@ -19,6 +19,7 @@ from zoneinfo import ZoneInfo
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse, Response as FastAPIResponse
+from pydantic import BaseModel, Field
 from user_agents import parse as parse_ua
 
 # Reportlab — used for PDF analytics export.
@@ -675,6 +676,90 @@ async def get_store_landings_analytics(period: str = '7d', user: dict = Depends(
     # Sort descending by conversion rate then views for a "top performers" feel.
     by_store.sort(key=lambda r: (r['conversion_rate'], r['views']), reverse=True)
     return {'period': period, 'totals': totals, 'by_store': by_store}
+
+
+# ── Reset + audit log for the Store Landings funnel dashboard ─────────────
+
+class _StoreLandingsResetRequest(BaseModel):
+    confirm: str = Field(..., min_length=5, max_length=10)
+
+
+@router.post('/analytics/store-landings/reset')
+async def reset_store_landings_analytics(
+    req: _StoreLandingsResetRequest,
+    user: dict = Depends(get_current_user),
+):
+    """Wipe every `store_landing_*` event for the caller's org (KPIs go to
+    0). Requires `confirm == 'RESET'` so a stray click can't nuke months of
+    funnel data. Records the operation in `analytics_reset_log` for audit."""
+    org_id = user.get('organization_id')
+    if not org_id:
+        raise HTTPException(403, 'Org context mancante')
+    if (req.confirm or '').strip().upper() != 'RESET':
+        raise HTTPException(400, 'Conferma non valida — digita RESET')
+
+    # Find every store of the org → delete only store_landing_* events
+    # whose store_id is in the tenant. Never touches other tenants or other
+    # event types (page_view, click_*, etc.).
+    stores = await db.stores.find(
+        {'organization_id': org_id}, {'_id': 0, 'id': 1}
+    ).to_list(2000)
+    store_ids = [s['id'] for s in stores]
+    if not store_ids:
+        # Nothing to wipe but still log the action so admins see "I tried".
+        audit_id = await _record_landing_reset(db, organization_id=org_id,
+                                                user=user, deleted_count=0)
+        return {'deleted': 0, 'audit_id': audit_id}
+
+    result = await db.analytics.delete_many({
+        'event_type': {'$regex': '^store_landing_'},
+        'store_id': {'$in': store_ids},
+    })
+    deleted = result.deleted_count if result else 0
+    audit_id = await _record_landing_reset(db, organization_id=org_id,
+                                            user=user, deleted_count=deleted)
+    logger.info('store-landings analytics reset org=%s by=%s deleted=%s',
+                 org_id, user.get('email'), deleted)
+    return {'deleted': deleted, 'audit_id': audit_id}
+
+
+@router.get('/analytics/store-landings/audit-log')
+async def get_store_landings_audit_log(
+    user: dict = Depends(get_current_user),
+    limit: int = 20,
+):
+    """Returns the most recent landing-dashboard reset operations for the
+    caller's organization. Powers the 'Storico reset' accordion under the
+    Landing Negozi funnel card."""
+    org_id = user.get('organization_id')
+    if not org_id:
+        raise HTTPException(403, 'Org context mancante')
+    cursor = db.analytics_reset_log.find(
+        {'organization_id': org_id, 'dashboard_type': 'store_landings'},
+        {'_id': 0}
+    ).sort('reset_at', -1).limit(max(1, min(limit, 100)))
+    items = await cursor.to_list(100)
+    return {'items': items}
+
+
+async def _record_landing_reset(db, *, organization_id: str, user: dict,
+                                 deleted_count: int) -> str:
+    """Mirror of routers.push._record_analytics_reset — kept local so this
+    module stays self-contained and we don't risk an import cycle through
+    the push router."""
+    from uuid import uuid4
+    aid = uuid4().hex
+    await db.analytics_reset_log.insert_one({
+        'id': aid,
+        'organization_id': organization_id,
+        'dashboard_type': 'store_landings',
+        'reset_by_user_id': user.get('id') or user.get('_id') or '',
+        'reset_by_email': user.get('email', ''),
+        'reset_by_name': user.get('name') or user.get('email', ''),
+        'deleted_count': int(deleted_count),
+        'reset_at': datetime.now(timezone.utc).isoformat(),
+    })
+    return aid
 
 
 @router.get('/analytics/overview')

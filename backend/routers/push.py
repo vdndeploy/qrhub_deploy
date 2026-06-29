@@ -264,6 +264,34 @@ class TrackClickRequest(BaseModel):
     broadcast_id: str = Field(..., min_length=8, max_length=64)
 
 
+class ResetAnalyticsRequest(BaseModel):
+    # Mandatory typed confirmation — must equal "RESET" (case-insensitive).
+    # Keeps a single misclick from wiping the entire analytics history.
+    confirm: str = Field(..., min_length=5, max_length=10)
+
+
+# ── Audit log helper (shared by push + landing analytics resets) ──────────
+
+async def _record_analytics_reset(db, *, organization_id: str,
+                                   dashboard_type: str, user: dict,
+                                   deleted_count: int) -> str:
+    """Append a row to `analytics_reset_log` so org-admins keep a forensic
+    trail of who wiped which dashboard and when. Returns the new audit id."""
+    from uuid import uuid4
+    aid = uuid4().hex
+    await db.analytics_reset_log.insert_one({
+        'id': aid,
+        'organization_id': organization_id,
+        'dashboard_type': dashboard_type,  # 'push' | 'store_landings'
+        'reset_by_user_id': user.get('id') or user.get('_id') or '',
+        'reset_by_email': user.get('email', ''),
+        'reset_by_name': user.get('name') or user.get('email', ''),
+        'deleted_count': int(deleted_count),
+        'reset_at': datetime.now(timezone.utc).isoformat(),
+    })
+    return aid
+
+
 # ── Routes ─────────────────────────────────────────────────────────────────
 
 def attach_routes(db, get_current_user_dep):
@@ -456,5 +484,44 @@ def attach_routes(db, get_current_user_dep):
             ],
             'recent_broadcasts': recent,
         }
+
+    @router.post('/analytics/reset')
+    async def reset_push_analytics(req: ResetAnalyticsRequest,
+                                    user: dict = Depends(get_current_user_dep)):
+        """Wipe the org's push_broadcasts history (KPIs reset to 0). Requires
+        the caller to type "RESET" so a single misclick can't nuke months of
+        data. Subscribers list is left untouched — only the broadcast log
+        and its sent/clicks counters disappear. Writes an audit entry to
+        `analytics_reset_log` so admins can trace who reset what & when."""
+        org_id = user.get('organization_id')
+        if not org_id:
+            raise HTTPException(403, 'Org context mancante')
+        if (req.confirm or '').strip().upper() != 'RESET':
+            raise HTTPException(400, 'Conferma non valida — digita RESET')
+        result = await db.push_broadcasts.delete_many({'organization_id': org_id})
+        deleted = result.deleted_count if result else 0
+        audit_id = await _record_analytics_reset(
+            db, organization_id=org_id, dashboard_type='push',
+            user=user, deleted_count=deleted,
+        )
+        logger.info('push analytics reset org=%s by=%s deleted=%s',
+                     org_id, user.get('email'), deleted)
+        return {'deleted': deleted, 'audit_id': audit_id}
+
+    @router.get('/analytics/audit-log')
+    async def get_push_audit_log(user: dict = Depends(get_current_user_dep),
+                                  limit: int = 20):
+        """Returns the most recent push-dashboard reset operations for the
+        caller's organization (org-scoped). Powers the 'Storico reset'
+        accordion below the Push Analytics card."""
+        org_id = user.get('organization_id')
+        if not org_id:
+            raise HTTPException(403, 'Org context mancante')
+        cursor = db.analytics_reset_log.find(
+            {'organization_id': org_id, 'dashboard_type': 'push'},
+            {'_id': 0}
+        ).sort('reset_at', -1).limit(max(1, min(limit, 100)))
+        items = await cursor.to_list(100)
+        return {'items': items}
 
     return router

@@ -10,9 +10,10 @@
  * Self-contained: no props, fetches /api/push/analytics on mount. Hides
  * itself silently when the user has no org context (super admin route).
  */
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import axios from 'axios';
 import { Bell, MousePointerClick, Send, Megaphone, Sparkles, Loader2, Users } from 'lucide-react';
+import { AnalyticsResetButton } from './AnalyticsResetButton';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -63,6 +64,14 @@ const PushAnalytics = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
+  const fetchData = useCallback(() => {
+    setLoading(true);
+    return axios.get(`${API}/push/analytics`, { withCredentials: true })
+      .then(({ data }) => { setData(data); setError(false); })
+      .catch(() => { setError(true); })
+      .finally(() => { setLoading(false); });
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
     axios.get(`${API}/push/analytics`, { withCredentials: true })
@@ -101,11 +110,21 @@ const PushAnalytics = () => {
             Iscritti e performance delle notifiche push inviate ai tuoi vendor.
           </p>
         </div>
-        {!hasAnyActivity && (
-          <span className="hidden sm:inline-block text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-[#6a6a72] bg-gray-100 dark:bg-white/5 px-2.5 py-1 rounded-full">
-            In attesa di dati
-          </span>
-        )}
+        <div className="flex flex-col items-end gap-2 shrink-0">
+          {!hasAnyActivity && (
+            <span className="hidden sm:inline-block text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-[#6a6a72] bg-gray-100 dark:bg-white/5 px-2.5 py-1 rounded-full">
+              In attesa di dati
+            </span>
+          )}
+          <AnalyticsResetButton
+            label="Reset Push Analytics"
+            description="Verranno cancellate tutte le notifiche storiche e i contatori (invii, click, CTR). Gli iscritti restano attivi."
+            resetEndpoint={`${API}/push/analytics/reset`}
+            auditEndpoint={`${API}/push/analytics/audit-log`}
+            onReset={fetchData}
+            testIdPrefix="push-reset"
+          />
+        </div>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">

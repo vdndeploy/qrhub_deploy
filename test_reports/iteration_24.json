@@ -1,0 +1,31 @@
+{
+  "summary": "Iter 24 — Analytics Reset + Audit Log (Push & Landing Negozi) fully validated. Backend: 14/14 pytest passed against live API (auth gate, confirm guard with case-insensitive 'reset', org-scoped audit-log, deleted_count + audit_id shape, push totals=0 after reset, landings totals=0 after reset, push regression 26/26 still green). Frontend: end-to-end UI flow validated against the deployed dashboard — push-reset-trigger opens AlertDialog, confirm button disabled until 'RESET' typed (case-insensitive accepted by backend, frontend uses exact uppercase compare), Annulla closes dialog, history toggle reveals panel with audit items (3 entries showing 'Org Admin -X eventi' from the just-run backend tests, proving FE↔BE integration). Landings section structural separation verified by code inspection (sibling <section> with data-testid='landings-analytics-section', NOT nested inside Log Eventi outer div) — UI not rendered live because totals.views=0 (documented condition).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_analytics_reset.py",
+    "/app/test_reports/pytest/iter24_analytics_reset.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Both reset endpoints use .strip().upper() == 'RESET' — clean and consistent across push.py and analytics.py. Tenant isolation enforced via user.organization_id on both delete_many() filters (push_broadcasts org match; analytics filtered by store_ids of the org).",
+    "_record_analytics_reset and _record_landing_reset are functionally identical except for dashboard_type. Minor DRY: could be unified into a single shared helper imported by both routers, but the duplication is intentional per the docstring comment ('kept local so this module stays self-contained and we don't risk an import cycle through the push router') — acceptable trade-off.",
+    "AlertDialogContent in AnalyticsResetButton.js — onConfirm uses e.preventDefault() then calls doReset, ensuring the dialog stays open during the async POST so the spinner is visible. Good UX pattern.",
+    "StoreLandingsSection render condition `landingsData.totals.views > 0` means the section disappears the moment the admin successfully resets it (since totals go to 0). The reset button is INSIDE the section, so the admin can no longer access the history toggle after resetting. Consider keeping the section mounted (even with views=0) for at least one minute post-reset OR moving the 'Storico reset' accordion to a persistent location. NOT a regression — pre-existing render guard — but worth flagging for UX consideration.",
+    "Pydantic ResetAnalyticsRequest uses max_length=10 — 'reset'/'RESET' fit, but a typo like 'CONFIRM' would 422 from pydantic before hitting the explicit 400. Acceptable since the result is still 'reject', but error message differs (validation_error vs Italian 'Conferma non valida'). Frontend doesn't surface either to user (button disabled before submit), so impact is null."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_analytics_reset.py (NEW — 14 tests covering auth, confirm guard, reset + audit persistence, tenant isolation, regression on /api/push/analytics + /api/analytics/store-landings + /api/push/broadcast)"
+  ],
+  "success_rate": {"backend": "100% (14/14 new + 26/26 push regression)", "frontend": "100% (push flow live-tested; landings section verified by code review since views=0 in current DB)"},
+  "test_credentials": "admin@example.com / admin123 (org admin) — verified working via /api/auth/login and dashboard load",
+  "seed_data_creation": "No persistent seed data. Backend tests trigger live resets against admin@example.com's org which appends entries to analytics_reset_log (these are intentional artifacts of the test — visible in the UI history panel as 'Org Admin -X eventi'). They do NOT leak across orgs (tenant isolation test passes).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Push card landings_analytics_section render is gated by `landingsData.totals.views > 0` at AnalyticsDetailed.js:395 — to e2e-test the Landing reset UI live, seed at least one event with event_type='store_landing_view' and store_id belonging to admin@example.com's org. Backend tests are robust without UI: TestLandingsResetFlow validates persistence & audit. The audit-log endpoint cap is limit=20 (max 100 via ?limit=); used .upper() so 'reset', 'Reset', 'RESET' all pass — covered by test_push_reset_accepts_case_insensitive. Pydantic max_length=10 on confirm field will 422 anything longer; covered by test_*_rejects_wrong_confirm (accepts both 400 and 422).",
+  "rca of the issue": "Not a bug fix — this iteration is a feature addition (reset + audit log dashboards). All requirements from the review request are met: (1) push-reset-trigger opens AlertDialog with input gating + cancel → tested live; (2) audit-log persists and renders in history panel with deleted_count badge → tested live (3 entries visible); (3) Landing Negozi section extracted to sibling <section> from Log Eventi outer div → verified at AnalyticsDetailed.js lines 335-400 (separate sibling tree, separate space-y gap); (4) backend tenant isolation: each delete_many() filters by organization_id (push) or store_ids derived from org (landings); audit-log queries scoped by {organization_id, dashboard_type}. Iter 23 push vendor-scoping regression still 26/26 green."
+}

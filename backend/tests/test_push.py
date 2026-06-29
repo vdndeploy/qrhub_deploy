@@ -444,3 +444,132 @@ class TestPushUrlPersonalization:
         import json
         d = json.loads(captured[0])
         assert d['url'] == '/promo-windtre', f"expected explicit url, got {d['url']}"
+
+
+# ── 8. Vendor scoping in broadcast_push query (BUG FIX) ──────────────────
+# Critical privacy fix: when the admin selects a specific vendor in the
+# Lancia Offerta dialog, the push must NOT leak to subscribers of OTHER
+# vendors of the same org — even if those subs opted into "tutte le
+# offerte del brand" (scope='organization'). The org-wide opt-in still
+# works for AUTO-push (post creation) so brand-wide subscribers keep
+# receiving announcements from any vendor; only the MANUAL targeted
+# broadcast is strict.
+
+class TestVendorScopingFix:
+    def _patch_db(self, subs):
+        """Build a FakeDB that returns whatever the caller's query
+        actually matched against `subs`. We re-implement the MongoDB
+        match logic for {'vendor_id': X}, the $or shape used for
+        include_org_scope=True, and {'organization_id': Y}."""
+        captured_query = {}
+        def _matches(doc, q):
+            if '$or' in q:
+                return any(_matches(doc, sub_q) for sub_q in q['$or'])
+            return all(doc.get(k) == v for k, v in q.items())
+
+        class FakeDB:
+            class _push_config:
+                @staticmethod
+                async def find_one(_q):
+                    return {'_id': 'vapid', 'private_key': 'fake', 'subject': 'mailto:t@t.it'}
+            class _push_subscriptions:
+                @staticmethod
+                def find(q):
+                    captured_query.update({'last': q})
+                    matched = [s for s in subs if _matches(s, q)]
+                    class _C:
+                        async def to_list(self, _n):
+                            return matched
+                    return _C()
+                @staticmethod
+                async def delete_many(_q): return None
+            class _push_broadcasts:
+                @staticmethod
+                async def insert_one(_d): return None
+                @staticmethod
+                async def update_one(*_a, **_k): return None
+            push_config = _push_config()
+            push_subscriptions = _push_subscriptions()
+            push_broadcasts = _push_broadcasts()
+
+        return FakeDB(), captured_query
+
+    def _run(self, db, vendor_id, organization_id, include_org_scope):
+        """Drive broadcast_push and capture the endpoints actually pushed."""
+        import asyncio, sys
+        sys.path.insert(0, '/app/backend')
+        from routers import push as push_mod
+
+        captured_endpoints = []
+        def fake_send(sub, _payload_json, *_):
+            captured_endpoints.append(sub.get('endpoint'))
+            return None
+        original_send = push_mod._send_one
+        push_mod._send_one = fake_send
+        try:
+            sent, removed, bid = asyncio.run(push_mod.broadcast_push(
+                db, vendor_id=vendor_id, organization_id=organization_id,
+                title='Flash', body='Sale', url='/',
+                origin='manual', include_org_scope=include_org_scope
+            ))
+        finally:
+            push_mod._send_one = original_send
+        return captured_endpoints, sent
+
+    def test_manual_vendor_broadcast_strict_no_cross_vendor_leak(self):
+        """Bug fix: admin selects Vendor A → only A's subs receive the push.
+        A subscriber who landed on Vendor B and chose 'tutte le offerte'
+        (scope='organization') MUST NOT receive this push."""
+        subs = [
+            # Vendor A subs — should all receive (vendor scope + org scope on A)
+            {'endpoint': 'A-vendor', 'vendor_id': 'A', 'organization_id': 'org1', 'scope': 'vendor'},
+            {'endpoint': 'A-org', 'vendor_id': 'A', 'organization_id': 'org1', 'scope': 'organization'},
+            # Vendor B subs — must NOT receive
+            {'endpoint': 'B-vendor', 'vendor_id': 'B', 'organization_id': 'org1', 'scope': 'vendor'},
+            {'endpoint': 'B-org', 'vendor_id': 'B', 'organization_id': 'org1', 'scope': 'organization'},
+            # Vendor C in another org — must NOT receive
+            {'endpoint': 'C-other-org', 'vendor_id': 'C', 'organization_id': 'org2', 'scope': 'organization'},
+        ]
+        db, _ = self._patch_db(subs)
+        endpoints, sent = self._run(db, vendor_id='A', organization_id='org1',
+                                     include_org_scope=False)
+        assert sent == 2, f"expected 2 sent (A's subs), got {sent}: {endpoints}"
+        assert set(endpoints) == {'A-vendor', 'A-org'}, \
+            f"cross-vendor leak detected: {endpoints}"
+        assert 'B-vendor' not in endpoints
+        assert 'B-org' not in endpoints
+        assert 'C-other-org' not in endpoints
+
+    def test_auto_vendor_broadcast_keeps_org_wide_subs(self):
+        """Regression: auto-push from post creation must still reach
+        org-wide subs (scope='organization') of OTHER vendors so the
+        'tutte le offerte del brand' subscription stays meaningful."""
+        subs = [
+            {'endpoint': 'A-vendor', 'vendor_id': 'A', 'organization_id': 'org1', 'scope': 'vendor'},
+            {'endpoint': 'B-vendor', 'vendor_id': 'B', 'organization_id': 'org1', 'scope': 'vendor'},
+            {'endpoint': 'B-org', 'vendor_id': 'B', 'organization_id': 'org1', 'scope': 'organization'},
+            {'endpoint': 'C-other-org', 'vendor_id': 'C', 'organization_id': 'org2', 'scope': 'organization'},
+        ]
+        db, _ = self._patch_db(subs)
+        endpoints, sent = self._run(db, vendor_id='A', organization_id='org1',
+                                     include_org_scope=True)
+        # A's own vendor sub + B's org-wide sub (cross-vendor opt-in)
+        # The other-org sub stays out (different organization_id).
+        assert set(endpoints) == {'A-vendor', 'B-org'}, f"unexpected: {endpoints}"
+        assert sent == 2
+
+    def test_org_wide_broadcast_reaches_all_org_subs(self):
+        """Admin picks 'Tutti gli iscritti dell'organizzazione' → vendor_id
+        is None → every sub of the org receives, regardless of scope."""
+        subs = [
+            {'endpoint': 'A-vendor', 'vendor_id': 'A', 'organization_id': 'org1', 'scope': 'vendor'},
+            {'endpoint': 'A-org', 'vendor_id': 'A', 'organization_id': 'org1', 'scope': 'organization'},
+            {'endpoint': 'B-vendor', 'vendor_id': 'B', 'organization_id': 'org1', 'scope': 'vendor'},
+            {'endpoint': 'C-other-org', 'vendor_id': 'C', 'organization_id': 'org2', 'scope': 'vendor'},
+        ]
+        db, _ = self._patch_db(subs)
+        endpoints, sent = self._run(db, vendor_id=None, organization_id='org1',
+                                     include_org_scope=False)  # ignored when vendor_id is None
+        assert set(endpoints) == {'A-vendor', 'A-org', 'B-vendor'}
+        assert sent == 3
+        assert 'C-other-org' not in endpoints  # tenant isolation

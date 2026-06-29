@@ -115,11 +115,22 @@ async def broadcast_push(db, *, vendor_id: Optional[str] = None,
                          organization_id: Optional[str] = None,
                          title: str, body: str, url: str,
                          icon: Optional[str] = None,
-                         origin: str = 'manual'):
+                         origin: str = 'manual',
+                         include_org_scope: bool = True):
     """Send a push to either a single vendor's subscribers OR every
     subscriber of an organization (when `vendor_id` is None and
     `organization_id` is given). Returns (sent_count, removed_count,
     broadcast_id).
+
+    `include_org_scope` controls cross-vendor reach when `vendor_id` is set:
+      • True (default, used by AUTO-push on post create) → also notifies
+        subscribers of *other* vendors of the same org who opted into
+        "tutte le offerte del brand" (scope='organization'). Keeps the
+        org-wide opt-in meaningful.
+      • False (used by MANUAL admin broadcast targeting a specific vendor)
+        → STRICT: only subscribers whose `vendor_id` matches. Prevents
+        cross-vendor leakage — when an admin selects Vendor A, subscribers
+        who landed on Vendor B/C never receive that flash sale.
 
     Side effect: persists a `push_broadcasts` doc that powers the Analytics
     dashboard (sent counter + click counter once the SW pings back).
@@ -132,11 +143,19 @@ async def broadcast_push(db, *, vendor_id: Optional[str] = None,
 
     query = {}
     if vendor_id:
-        # Per-vendor push: include both vendor-scoped subs AND org-wide
-        # subs of the same org so "all org offers" subscribers get them too.
-        query = {'$or': [{'vendor_id': vendor_id}, {
-            'organization_id': organization_id, 'scope': 'organization',
-        }]} if organization_id else {'vendor_id': vendor_id}
+        if include_org_scope and organization_id:
+            # Per-vendor push (auto): include both vendor-scoped subs AND
+            # org-wide subs of the same org so "all org offers" subscribers
+            # get them too.
+            query = {'$or': [{'vendor_id': vendor_id}, {
+                'organization_id': organization_id, 'scope': 'organization',
+            }]}
+        else:
+            # Strict per-vendor (manual admin broadcast). Reaches every sub
+            # that opted in from THIS vendor's landing — both 'vendor' and
+            # 'organization' scope rows because vendor_id was captured at
+            # subscribe time from the landing the user opted in on.
+            query = {'vendor_id': vendor_id}
     elif organization_id:
         query = {'organization_id': organization_id}
     else:
@@ -310,6 +329,11 @@ def attach_routes(db, get_current_user_dep):
             body=req.body,
             url=req.url or '',
             origin='manual',
+            # Admin explicitly picked a vendor → strict scoping. Without
+            # this flag, org-wide subs of OTHER vendors (who opted into
+            # "tutte le offerte del brand") would also receive the push,
+            # causing cross-vendor leakage of flash sales.
+            include_org_scope=req.vendor_id is None,
         )
         return {'sent': sent, 'cleaned_stale': removed, 'broadcast_id': broadcast_id}
 

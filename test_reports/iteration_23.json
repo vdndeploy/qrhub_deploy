@@ -1,0 +1,29 @@
+{
+  "summary": "Iter 23 — Cross-vendor push leak bug fix VALIDATED end-to-end. 29/29 tests passing: 26 existing push unit/integration (incl. 3 TestVendorScopingFix with FakeDB) + 3 NEW E2E tests against real MongoDB. Critical assertions: (1) POST /api/push/broadcast with vendor_id=A reaches EXACTLY 2 seeded subs (A-vendor + A-org) — B-vendor and B-org are NOT touched, no cross-vendor leakage; (2) org-wide broadcast (vendor_id=None) reaches ALL seeded subs of the org; (3) mirror with vendor_id=B reaches exactly 2 (B side only). All regressions green: tenant isolation 404 on other-org vendor, public-key endpoint, subscribe/unsubscribe, auto-push on POST /api/posts, analytics shape + click tracking + CTR.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_push.py",
+    "/app/backend/tests/test_push_vendor_scoping_e2e.py",
+    "/app/test_reports/pytest/iter23_full_push.xml",
+    "/app/test_reports/pytest/iter23_push_scoping.xml",
+    "/app/test_reports/pytest/iter23_push_scoping_e2e.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Fix is minimal, well-scoped, and the default `include_org_scope=True` preserves backward compatibility with auto-push (post creation). Manual broadcast endpoint correctly passes `include_org_scope=req.vendor_id is None`, which evaluates to False whenever the admin picked a specific vendor — strict scoping kicks in.",
+    "Recommend renaming `include_org_scope` param semantics in docstring: the flag is IGNORED when vendor_id is None (org-wide path), only meaningful when vendor_id is set. Current code already does this correctly, but a one-line comment at the call site in /broadcast would help future maintainers.",
+    "Minor: when `subs` is empty for a vendor, the code records a 0-recipient broadcast doc — good for audit, no fix needed.",
+    "broadcast_push line 158: 'query = {vendor_id: vendor_id}' for the strict path will also pick up subs that subscribed via Vendor A's landing with scope='organization'. That's INTENTIONAL (those users explicitly opted into Vendor A's flow and clicked 'all org offers' from THERE) — confirmed by passing E2E test: A-vendor (scope=vendor) AND A-org (scope=organization) both matched, total=2. The leak existed only across DIFFERENT vendors of the same org."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_push_vendor_scoping_e2e.py (NEW — 3 E2E tests with real MongoDB via motor + 4 seeded fake subs per test)"
+  ],
+  "success_rate": {"backend": "100% (29/29)", "frontend": "skipped per request"},
+  "test_credentials": "admin@example.com / admin123 (org admin); superadmin@qrhub.it / changeme123 — all working",
+  "seed_data_creation": "Per-test seeding via fixture `seeded_subs` (function scope). Each test inserts 4 fake push_subscriptions with prefix E2E_SCOPING_<uuid8>-{A-vendor|A-org|B-vendor|B-org}-<uuid>. Cleanup at fixture teardown removes both the fake subs (by endpoint prefix) and the test broadcast docs (by title prefix). Verified clean DB state after run via MongoDB query — no residual TEST_ or E2E_SCOPING_ docs.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Push broadcast vendor-scoping fix is fully covered: unit-level via TestVendorScopingFix (FakeDB in /app/backend/tests/test_push.py) and DB-backed via TestVendorScopingE2E (/app/backend/tests/test_push_vendor_scoping_e2e.py). The E2E tests use motor + load_dotenv on /app/backend/.env and /app/frontend/.env, so they self-bootstrap without shell env. Counter formula relied on: matched_subs = broadcast_doc.sent + broadcast_doc.stale_cleaned (fake FCM endpoints get cleaned as 410). If future changes alter the broadcast bookkeeping, update _get_broadcast assertion accordingly. The org_admin tenant in current QA env has >=2 vendors — fixture skips with clear message otherwise.",
+  "rca of the issue": "ROOT CAUSE: /app/backend/routers/push.py:broadcast_push, prior to fix, ALWAYS used `query = {'$or': [{'vendor_id': X}, {'organization_id': Y, 'scope': 'organization'}]}` when a specific vendor_id was given. This unconditionally pulled in EVERY org-wide subscriber (scope='organization') of the same org, regardless of which vendor's landing they subscribed from → cross-vendor leak (a subscriber who said 'I want all offers from brand X' while on Vendor B's landing would receive Vendor A's flash sale, breaking the admin's expectation of vendor-targeted reach). REPRODUCTION (pre-fix): seed sub {vendor_id=B, scope=organization, org=X} → broadcast with vendor_id=A,org=X → sub receives push. FIX: added `include_org_scope` flag (default True for backward-compat with auto-push). Manual /api/push/broadcast endpoint sets `include_org_scope = (req.vendor_id is None)`, so whenever admin picks a vendor, the query collapses to {'vendor_id': X} — strict scoping. POST-FIX VALIDATION: E2E test seeded 4 subs (A-vendor, A-org, B-vendor, B-org all in same org) and confirmed POST /api/push/broadcast {vendor_id: A} produced broadcast doc with sent+stale=2 (only A's subs matched). Mirror test with vendor_id=B → 2 (only B's). Org-wide (vendor_id=null) → all 4. Auto-push regression covered by TestVendorScopingFix.test_auto_vendor_broadcast_keeps_org_wide_subs which asserts the cross-vendor org-wide opt-in still works for auto-triggered pushes (include_org_scope=True default)."
+}

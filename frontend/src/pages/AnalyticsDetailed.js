@@ -109,6 +109,11 @@ export default function AnalyticsDetailed({ mode = 'admin', vendors = [], defaul
   // Lead-gen landing analytics — admin only. Vendor mode never sees this
   // because landings are per-STORE, not per-vendor.
   const [landingsData, setLandingsData] = useState(null);
+  // Sticky flag: once the landing funnel has shown any activity in this
+  // session, keep the section mounted even after a reset (which zeroes
+  // every counter). Without this, the admin loses access to the Storico
+  // reset accordion the moment they confirm the reset.
+  const [landingsEverShown, setLandingsEverShown] = useState(false);
 
   const endpoint = mode === 'vendor' ? '/vendor/analytics/detailed' : '/analytics/detailed';
   const pdfEndpoint = mode === 'vendor' ? '/vendor/analytics/export/pdf' : '/analytics/export/pdf';
@@ -132,6 +137,7 @@ export default function AnalyticsDetailed({ mode = 'admin', vendors = [], defaul
           params: { period }, withCredentials: true,
         });
         setLandingsData(ld);
+        if (ld?.totals?.views > 0) setLandingsEverShown(true);
       } catch { /* non-blocking — sezione opzionale */ }
     }
   }, [period, vendorId, mode, endpoint, targetVendorId]);
@@ -392,7 +398,7 @@ export default function AnalyticsDetailed({ mode = 'admin', vendors = [], defaul
           it's no longer visually "attached" to the Log Eventi panel above.
           Only renders for admin AND only when at least one store has
           activated the public landing page (totals.views > 0). */}
-      {mode === 'admin' && landingsData && landingsData.totals.views > 0 && (
+      {mode === 'admin' && landingsData && (landingsData.totals.views > 0 || landingsEverShown) && (
         <StoreLandingsSection data={landingsData} period={period} onReset={refetchLandings} />
       )}
     </div>

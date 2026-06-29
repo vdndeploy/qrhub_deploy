@@ -4,6 +4,23 @@
 
 ---
 
+## 2026-02-12 — Feature: Reset + Audit Log per Push Analytics & Landing Funnel + separazione visiva
+
+- **Backend**:
+  - `POST /api/push/analytics/reset` (richiede `{confirm:'RESET'}`, org-scoped wipe di `push_broadcasts`, ritorna `{deleted, audit_id}`)
+  - `GET /api/push/analytics/audit-log` (lista storica reset push, org-scoped, ordinata desc)
+  - `POST /api/analytics/store-landings/reset` (richiede `{confirm:'RESET'}`, wipe di `analytics` con `event_type` prefix `store_landing_` scoped agli store dell'org)
+  - `GET /api/analytics/store-landings/audit-log` (storico reset landing, org-scoped)
+  - Nuova collection `analytics_reset_log` per l'audit trail (id, organization_id, dashboard_type, reset_by_user_id/email/name, deleted_count, reset_at)
+- **Frontend**:
+  - Nuovo componente riusabile `AnalyticsResetButton.js` con AlertDialog shadcn, conferma tipizzata "RESET", toast Sonner, e accordion "Storico reset" che mostra le entry dell'audit log.
+  - Integrato in `PushAnalytics.js` (header del card) — refetch automatico dopo reset.
+  - Integrato in `AnalyticsDetailed.js → StoreLandingsSection` con refetch della sola sezione landing.
+- **UX**: `StoreLandingsSection` è stata **estratta** dal wrapper del Log Eventi Recenti e renderizzata come `<section>` sibling con margine `space-y-6` per separazione visiva netta. Flag `landingsEverShown` mantiene la sezione montata anche dopo il reset (altrimenti la condition `views > 0` la faceva sparire, perdendo accesso allo Storico).
+- **Testing**: testing_agent_v3_fork (iter_24) ha validato 14/14 backend pytest live + frontend end-to-end push flow (AlertDialog gating, audit history visibile con 3 entry). Push vendor-scoping (iter_23) regression 26/26 ancora verde.
+
+
+
 ## 2026-02-12 — Bug fix P0: cross-vendor push leak (Lancia messaggio offerta)
 
 - **Issue**: When admin used "Lancia messaggio offerta" dialog and selected a specific vendor (e.g. Vendor A), the push was also delivered to subscribers of other vendors of the same org who had opted into "tutte le offerte del brand" (scope='organization').

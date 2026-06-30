@@ -238,41 +238,83 @@ const PushAnalytics = () => {
             Nessuna notifica inviata ancora. Crea un annuncio o usa “Lancia offerta”.
           </p>
         ) : (
-          <div className="overflow-x-auto -mx-2 sm:mx-0">
-            <table className="w-full text-[12px]" data-testid="push-analytics-recent-table">
-              <thead>
-                <tr className="text-left text-gray-500 dark:text-[#6a6a72]">
-                  <th className="px-2 py-1.5 font-semibold">Titolo</th>
-                  <th className="px-2 py-1.5 font-semibold hidden sm:table-cell">Vendor</th>
-                  <th className="px-2 py-1.5 font-semibold">Tipo</th>
-                  <th className="px-2 py-1.5 font-semibold text-right">Inviate</th>
-                  <th className="px-2 py-1.5 font-semibold text-right">Click</th>
-                  <th className="px-2 py-1.5 font-semibold text-right">CTR</th>
-                  <th className="px-2 py-1.5 font-semibold hidden md:table-cell">Quando</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100 dark:divide-white/5">
-                {recent_broadcasts.map((b) => (
-                  <tr key={b.id} className="hover:bg-gray-50 dark:hover:bg-white/5">
-                    <td className="px-2 py-2 max-w-[200px]">
-                      <div className="font-semibold text-gray-900 dark:text-white truncate">{b.title}</div>
-                      <div className="text-[11px] text-gray-500 dark:text-[#8a8a92] truncate">{b.body}</div>
-                    </td>
-                    <td className="px-2 py-2 hidden sm:table-cell text-gray-700 dark:text-[#a8a8b0] truncate max-w-[140px]">
+          <>
+            {/* Mobile: vertical card list — avoids horizontal clipping of
+                the small 'Click' / CTR columns on 375px viewports. */}
+            <ul className="sm:hidden space-y-2" data-testid="push-analytics-recent-list">
+              {recent_broadcasts.map((b) => (
+                <li
+                  key={b.id}
+                  className="rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-white/[0.02] p-3"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="font-semibold text-gray-900 dark:text-white text-sm truncate">{b.title}</div>
+                      <div className="text-[11px] text-gray-500 dark:text-[#8a8a92] line-clamp-2 mt-0.5">{b.body}</div>
+                    </div>
+                    <OriginBadge origin={b.origin} />
+                  </div>
+                  <div className="mt-2 flex items-center justify-between text-[11px] text-gray-500 dark:text-[#6a6a72]">
+                    <span className="truncate max-w-[60%]">
                       {b.vendor_name || (b.vendor_id ? '—' : 'Org-wide')}
-                    </td>
-                    <td className="px-2 py-2"><OriginBadge origin={b.origin} /></td>
-                    <td className="px-2 py-2 text-right font-semibold text-gray-900 dark:text-white">{b.sent}</td>
-                    <td className="px-2 py-2 text-right font-semibold text-violet-700 dark:text-violet-300">{b.clicks}</td>
-                    <td className="px-2 py-2 text-right font-bold text-pink-700 dark:text-pink-300">{b.ctr_pct}%</td>
-                    <td className="px-2 py-2 hidden md:table-cell text-gray-500 dark:text-[#6a6a72] whitespace-nowrap">
-                      {fmtTime(b.created_at)}
-                    </td>
+                    </span>
+                    <span className="whitespace-nowrap">{fmtTime(b.created_at)}</span>
+                  </div>
+                  <div className="mt-2 grid grid-cols-3 gap-2">
+                    <div className="rounded-lg bg-gray-50 dark:bg-white/[0.03] px-2 py-1.5 text-center">
+                      <p className="text-[9px] uppercase tracking-widest font-semibold text-gray-500 dark:text-[#6a6a72]">Inviate</p>
+                      <p className="text-sm font-bold text-gray-900 dark:text-white tabular-nums">{b.sent}</p>
+                    </div>
+                    <div className="rounded-lg bg-gray-50 dark:bg-white/[0.03] px-2 py-1.5 text-center">
+                      <p className="text-[9px] uppercase tracking-widest font-semibold text-gray-500 dark:text-[#6a6a72]">Click</p>
+                      <p className="text-sm font-bold text-violet-700 dark:text-violet-300 tabular-nums">{b.clicks}</p>
+                    </div>
+                    <div className="rounded-lg bg-gray-50 dark:bg-white/[0.03] px-2 py-1.5 text-center">
+                      <p className="text-[9px] uppercase tracking-widest font-semibold text-gray-500 dark:text-[#6a6a72]">CTR</p>
+                      <p className="text-sm font-bold text-pink-700 dark:text-pink-300 tabular-nums">{b.ctr_pct}%</p>
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+
+            {/* Desktop table — only on sm+ */}
+            <div className="hidden sm:block overflow-x-auto">
+              <table className="w-full text-[12px]" data-testid="push-analytics-recent-table">
+                <thead>
+                  <tr className="text-left text-gray-500 dark:text-[#6a6a72]">
+                    <th className="px-2 py-1.5 font-semibold">Titolo</th>
+                    <th className="px-2 py-1.5 font-semibold">Vendor</th>
+                    <th className="px-2 py-1.5 font-semibold">Tipo</th>
+                    <th className="px-2 py-1.5 font-semibold text-right">Inviate</th>
+                    <th className="px-2 py-1.5 font-semibold text-right">Click</th>
+                    <th className="px-2 py-1.5 font-semibold text-right">CTR</th>
+                    <th className="px-2 py-1.5 font-semibold hidden md:table-cell">Quando</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-gray-100 dark:divide-white/5">
+                  {recent_broadcasts.map((b) => (
+                    <tr key={b.id} className="hover:bg-gray-50 dark:hover:bg-white/5">
+                      <td className="px-2 py-2 max-w-[200px]">
+                        <div className="font-semibold text-gray-900 dark:text-white truncate">{b.title}</div>
+                        <div className="text-[11px] text-gray-500 dark:text-[#8a8a92] truncate">{b.body}</div>
+                      </td>
+                      <td className="px-2 py-2 text-gray-700 dark:text-[#a8a8b0] truncate max-w-[140px]">
+                        {b.vendor_name || (b.vendor_id ? '—' : 'Org-wide')}
+                      </td>
+                      <td className="px-2 py-2"><OriginBadge origin={b.origin} /></td>
+                      <td className="px-2 py-2 text-right font-semibold text-gray-900 dark:text-white">{b.sent}</td>
+                      <td className="px-2 py-2 text-right font-semibold text-violet-700 dark:text-violet-300">{b.clicks}</td>
+                      <td className="px-2 py-2 text-right font-bold text-pink-700 dark:text-pink-300">{b.ctr_pct}%</td>
+                      <td className="px-2 py-2 hidden md:table-cell text-gray-500 dark:text-[#6a6a72] whitespace-nowrap">
+                        {fmtTime(b.created_at)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
     </section>

@@ -866,7 +866,10 @@ async def get_reviews_analytics(period: str = '30d',
         for row in by_store:
             row['share_pct'] = round(row['total_clicks'] / grand_total * 100, 1)
     # Sort by total desc, then name asc for a stable, "top performers first" feel.
-    by_store.sort(key=lambda r: (-r['total_clicks'], r['name'].lower()))
+    # Defensive `or ''` on name: stores without a name would otherwise crash
+    # the .lower() call (shouldn't happen — create_store enforces — but
+    # cheap insurance).
+    by_store.sort(key=lambda r: (-r['total_clicks'], (r['name'] or '').lower()))
 
     # ── Daily timeline (Europe/Rome buckets) ───────────────────────────
     # One pipeline over both event types so we get a unified per-day count.

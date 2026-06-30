@@ -4,6 +4,24 @@
 
 ---
 
+## 2026-02-12 — Feature: Reviews Analytics dashboard (Google review click-through per-store)
+
+- **Backend**: nuovo endpoint `GET /api/analytics/reviews?period=today|yesterday|7d|30d|month|all` (`routers/analytics.py` linee ~776-905).
+  - Aggrega DUE sorgenti in modo unificato: `store_landing_review_click` (scoped via `store_id`) + `review_click` legacy (scoped via `vendor_id` → join in-memory con `vendors.store_id`).
+  - Shape: `{period, totals:{review_clicks, store_landing, vendor_profile}, by_store:[{id,name,slug,store_landing_clicks,vendor_profile_clicks,total_clicks,share_pct}], timeline:[{date,count}]}`.
+  - Sorting "top performers first" (total_clicks desc, name asc); su `period=all` include anche store a 0 click (catalogo completo); su periodi corti li nasconde per ridurre rumore.
+  - Aggiunto label `all` ("Sempre") al helper `_period_to_dates` con epoch 1970-01-01 per finestra open-ended.
+  - Tenant isolation stretta (org_id sui store + filter vendor_ids sull'org).
+- **Frontend** (`pages/AnalyticsDetailed.js`):
+  - Nuovo state `reviewsData` + fetch parallelo al landing nel `fetchData`.
+  - Nuovo componente `<ReviewsAnalyticsSection>` come `<section>` sibling (data-testid="reviews-analytics-section") con: 3 KPI tiles (Click totali con data-testid="reviews-total-clicks", Landing, Vendor profile), sparkline timeline giornaliera (Recharts), tabella per-store con quota % progress bar.
+  - Sempre visibile in admin mode (anche con totals=0 → empty state "Nessun click recensione registrato in questo periodo").
+  - Il period selector del header pilota anche questa sezione.
+- **Testing**: testing_agent_v3_fork iter_25 → 18/18 backend test passati live + frontend end-to-end (section presence, KPI, period switch, empty state). Iter_24 regression 14/14 ancora verde.
+- **Deploy**: Fly.io re-deploy eseguito (exit 0, ~68s) — `https://qrhub.fly.dev/api/analytics/reviews` live e verificato.
+
+
+
 ## 2026-02-12 — Feature: Reset + Audit Log per Push Analytics & Landing Funnel + separazione visiva
 
 - **Backend**:

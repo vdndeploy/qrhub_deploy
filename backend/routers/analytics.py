@@ -192,6 +192,11 @@ def _period_to_dates(period: str):
     elif period == 'month':
         start_local = now_local.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
         return start_local.astimezone(timezone.utc).isoformat(), now_utc.isoformat()
+    elif period == 'all':
+        # "Sempre" — open-ended window. Returning a far-past epoch keeps the
+        # downstream $gte filter cheap and indexable while still covering
+        # every event ever logged.
+        return '1970-01-01T00:00:00+00:00', now_utc.isoformat()
     else:  # 30d default
         start = now_utc - timedelta(days=30)
     return start.isoformat(), now_utc.isoformat()
@@ -760,6 +765,146 @@ async def _record_landing_reset(db, *, organization_id: str, user: dict,
         'reset_at': datetime.now(timezone.utc).isoformat(),
     })
     return aid
+
+
+@router.get('/analytics/reviews')
+async def get_reviews_analytics(period: str = '30d',
+                                 user: dict = Depends(get_current_user)):
+    """Analitico click recensioni per ogni negozio della tenant, somma
+    totale + breakdown per store, su finestra temporale (today, yesterday,
+    7d, 30d, month, all). Sorgenti unificate:
+      • `review_click`              → vendor profile button (Vendori.js)
+      • `store_landing_review_click` → store landing page CTA
+
+    Per il primo tipo gli eventi sono attached a `vendor_id` invece che a
+    `store_id`: facciamo un join in-memory vendor → store così la somma
+    diventa per-store anche per i click "vecchio canale". Ritorna anche
+    una timeline giornaliera (Europe/Rome bucket) per il chart sparkline.
+    """
+    start_iso, end_iso = _period_to_dates(period)
+    ts_match = {'$gte': start_iso, '$lte': end_iso}
+
+    # Tenant scoping: org-admin sees own stores; super-admin sees all.
+    store_filter = {} if _is_super_admin(user) else {
+        'organization_id': user.get('organization_id'),
+    }
+    stores = await db.stores.find(
+        store_filter, {'_id': 0, 'id': 1, 'name': 1, 'landing_slug': 1}
+    ).to_list(2000)
+    if not stores:
+        return {
+            'period': period,
+            'totals': {'review_clicks': 0, 'store_landing': 0, 'vendor_profile': 0},
+            'by_store': [],
+            'timeline': [],
+        }
+    store_ids = [s['id'] for s in stores]
+    store_name = {s['id']: s.get('name', '') for s in stores}
+    store_slug = {s['id']: s.get('landing_slug', '') for s in stores}
+
+    # vendor → store lookup so we can re-attribute `review_click` events
+    # (which only carry vendor_id) to the right store.
+    vendors = await db.vendors.find(
+        {'store_id': {'$in': store_ids}}, {'_id': 0, 'id': 1, 'store_id': 1}
+    ).to_list(5000)
+    vendor_to_store = {v['id']: v['store_id'] for v in vendors}
+    vendor_ids = list(vendor_to_store.keys())
+
+    # ── Source 1: store_landing_review_click (already store-scoped) ──
+    landing_pipe = [
+        {'$match': {
+            'timestamp': ts_match,
+            'event_type': 'store_landing_review_click',
+            'store_id': {'$in': store_ids},
+        }},
+        {'$group': {'_id': '$store_id', 'count': {'$sum': 1}}},
+    ]
+    landing_per_store = {row['_id']: row['count']
+                          async for row in db.analytics.aggregate(landing_pipe)}
+
+    # ── Source 2: review_click on vendor profile (vendor-scoped) ──
+    vendor_per_store = {}
+    if vendor_ids:
+        vendor_pipe = [
+            {'$match': {
+                'timestamp': ts_match,
+                'event_type': 'review_click',
+                'vendor_id': {'$in': vendor_ids},
+            }},
+            {'$group': {'_id': '$vendor_id', 'count': {'$sum': 1}}},
+        ]
+        async for row in db.analytics.aggregate(vendor_pipe):
+            sid = vendor_to_store.get(row['_id'])
+            if sid:
+                vendor_per_store[sid] = vendor_per_store.get(sid, 0) + row['count']
+
+    # ── Compose per-store rows ─────────────────────────────────────────
+    by_store = []
+    grand_landing = 0
+    grand_vendor = 0
+    for sid in store_ids:
+        lc = landing_per_store.get(sid, 0)
+        vc = vendor_per_store.get(sid, 0)
+        tot = lc + vc
+        grand_landing += lc
+        grand_vendor += vc
+        if tot == 0 and period != 'all':
+            # Hide empty rows in short windows to keep the table focused.
+            # On "all" we keep them so the admin sees the full inventory.
+            continue
+        by_store.append({
+            'id': sid,
+            'name': store_name.get(sid, ''),
+            'slug': store_slug.get(sid, ''),
+            'store_landing_clicks': lc,
+            'vendor_profile_clicks': vc,
+            'total_clicks': tot,
+            'share_pct': 0.0,  # filled below once grand total is known
+        })
+    grand_total = grand_landing + grand_vendor
+    if grand_total > 0:
+        for row in by_store:
+            row['share_pct'] = round(row['total_clicks'] / grand_total * 100, 1)
+    # Sort by total desc, then name asc for a stable, "top performers first" feel.
+    by_store.sort(key=lambda r: (-r['total_clicks'], r['name'].lower()))
+
+    # ── Daily timeline (Europe/Rome buckets) ───────────────────────────
+    # One pipeline over both event types so we get a unified per-day count.
+    timeline_pipe = [
+        {'$match': {
+            'timestamp': ts_match,
+            '$or': [
+                {'event_type': 'store_landing_review_click',
+                 'store_id': {'$in': store_ids}},
+                {'event_type': 'review_click',
+                 'vendor_id': {'$in': vendor_ids}} if vendor_ids else
+                {'event_type': '__never__'},
+            ],
+        }},
+        {'$group': {'_id': '$timestamp', 'count': {'$sum': 1}}},
+    ]
+    LOCAL_TZ = ZoneInfo('Europe/Rome')
+    day_buckets = {}
+    async for row in db.analytics.aggregate(timeline_pipe):
+        ts = row['_id']
+        try:
+            d = datetime.fromisoformat(str(ts).replace('Z', '+00:00'))
+            day = d.astimezone(LOCAL_TZ).strftime('%Y-%m-%d')
+            day_buckets[day] = day_buckets.get(day, 0) + row['count']
+        except (ValueError, TypeError):
+            continue
+    timeline = [{'date': d, 'count': c} for d, c in sorted(day_buckets.items())]
+
+    return {
+        'period': period,
+        'totals': {
+            'review_clicks': grand_total,
+            'store_landing': grand_landing,
+            'vendor_profile': grand_vendor,
+        },
+        'by_store': by_store,
+        'timeline': timeline,
+    }
 
 
 @router.get('/analytics/overview')

@@ -5,7 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
-import { Eye, MousePointerClick, Smartphone, MapPin, Download, Filter, ChevronDown, ChevronUp } from 'lucide-react';
+import { Eye, MousePointerClick, Smartphone, MapPin, Download, Filter, ChevronDown, ChevronUp, Star } from 'lucide-react';
 import { toast } from 'sonner';
 import { AnalyticsResetButton } from '../components/AnalyticsResetButton';
 
@@ -51,6 +51,7 @@ const PERIOD_LABELS = {
   '7d': 'Ultimi 7 giorni',
   '30d': 'Ultimi 30 giorni',
   month: 'Mese corrente',
+  all: 'Sempre',
 };
 
 // Convert a UTC ISO timestamp from the backend into a human-readable local
@@ -114,6 +115,10 @@ export default function AnalyticsDetailed({ mode = 'admin', vendors = [], defaul
   // every counter). Without this, the admin loses access to the Storico
   // reset accordion the moment they confirm the reset.
   const [landingsEverShown, setLandingsEverShown] = useState(false);
+  // Reviews analytics — admin only. Same data sources as the landing
+  // funnel, but focused exclusively on Google review click-through across
+  // the whole org for accurate reputation tracking.
+  const [reviewsData, setReviewsData] = useState(null);
 
   const endpoint = mode === 'vendor' ? '/vendor/analytics/detailed' : '/analytics/detailed';
   const pdfEndpoint = mode === 'vendor' ? '/vendor/analytics/export/pdf' : '/analytics/export/pdf';
@@ -139,6 +144,12 @@ export default function AnalyticsDetailed({ mode = 'admin', vendors = [], defaul
         setLandingsData(ld);
         if (ld?.totals?.views > 0) setLandingsEverShown(true);
       } catch { /* non-blocking — sezione opzionale */ }
+      try {
+        const { data: rv } = await axios.get(`${API}/analytics/reviews`, {
+          params: { period }, withCredentials: true,
+        });
+        setReviewsData(rv);
+      } catch { /* non-blocking */ }
     }
   }, [period, vendorId, mode, endpoint, targetVendorId]);
 
@@ -394,6 +405,13 @@ export default function AnalyticsDetailed({ mode = 'admin', vendors = [], defaul
         </Collapsible>
       </div>
 
+      {/* Reviews Analytics — own dedicated card. Always rendered for admin
+          (even with totals.review_clicks === 0) so the dashboard contract
+          is predictable across periods. */}
+      {mode === 'admin' && reviewsData && (
+        <ReviewsAnalyticsSection data={reviewsData} period={period} />
+      )}
+
       {/* Lead-gen Landing Negozi — extracted into its OWN dedicated card so
           it's no longer visually "attached" to the Log Eventi panel above.
           Only renders for admin AND only when at least one store has
@@ -569,3 +587,143 @@ const Card = ({ title, children }) => (
 );
 
 const Empty = () => <div className="text-center py-8 text-sm text-gray-500 dark:text-[#6a6a72]">Nessun dato disponibile</div>;
+
+// ── Reviews Analytics — Google review click-through per-store + totals ─
+// Surfaces both sources (vendor profile button + store landing CTA) so the
+// total reflects every customer that left the org to leave a review on
+// Google Maps. The same period filter at the page header drives the data;
+// no extra dropdown to keep cognitive load low.
+const ReviewsAnalyticsSection = ({ data, period }) => {
+  const t = data.totals || { review_clicks: 0, store_landing: 0, vendor_profile: 0 };
+  const rows = data.by_store || [];
+  const timeline = data.timeline || [];
+
+  // Human label for the active window (matches the header period selector).
+  const periodLabel = {
+    today: 'Oggi', yesterday: 'Ieri', '7d': 'Ultimi 7 giorni',
+    '30d': 'Ultimi 30 giorni', month: 'Questo mese', all: 'Sempre',
+  }[period] || 'Periodo';
+
+  return (
+    <section
+      className="bg-white dark:bg-[#131316] rounded-3xl border border-gray-200 dark:border-white/10 shadow-sm p-5 sm:p-6 space-y-5"
+      data-testid="reviews-analytics-section"
+    >
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <span className="inline-block w-2 h-6 rounded-full bg-amber-400" />
+          <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+            <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
+            Recensioni Google — Analitico click
+          </h3>
+          <span className="text-[10px] uppercase tracking-widest font-semibold text-amber-500 ml-1">{periodLabel}</span>
+        </div>
+        <span className="text-[11px] text-gray-500 dark:text-[#6a6a72] bg-gray-100 dark:bg-white/5 px-2.5 py-1 rounded-full">
+          {rows.length} {rows.length === 1 ? 'negozio' : 'negozi'}
+        </span>
+      </div>
+
+      {/* 3 KPI tiles — Totale, Landing pubblica, Profili vendor */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="bg-amber-50 dark:bg-amber-500/5 border border-amber-200 dark:border-amber-500/20 rounded-2xl p-4">
+          <p className="text-[11px] text-amber-700 dark:text-amber-300 uppercase tracking-widest font-semibold">Click totali</p>
+          <p className="text-3xl font-black tracking-tight text-gray-900 dark:text-white mt-1" data-testid="reviews-total-clicks">
+            {t.review_clicks || 0}
+          </p>
+        </div>
+        <div className="bg-gray-50 dark:bg-white/[0.02] border border-gray-200 dark:border-white/10 rounded-2xl p-4">
+          <p className="text-[11px] text-gray-600 dark:text-[#a8a8b0] uppercase tracking-widest font-semibold">Da Landing Negozio</p>
+          <p className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white mt-1">
+            {t.store_landing || 0}
+          </p>
+        </div>
+        <div className="bg-gray-50 dark:bg-white/[0.02] border border-gray-200 dark:border-white/10 rounded-2xl p-4">
+          <p className="text-[11px] text-gray-600 dark:text-[#a8a8b0] uppercase tracking-widest font-semibold">Da Profilo Vendor</p>
+          <p className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white mt-1">
+            {t.vendor_profile || 0}
+          </p>
+        </div>
+      </div>
+
+      {/* Sparkline timeline — only if we have at least 2 data points */}
+      {timeline.length >= 2 && (
+        <div className="bg-gray-50/60 dark:bg-white/[0.02] border border-gray-200 dark:border-white/10 rounded-2xl p-3">
+          <p className="text-[11px] uppercase tracking-widest font-semibold text-gray-500 dark:text-[#8a8a92] mb-2 px-1">
+            Andamento giornaliero
+          </p>
+          <ResponsiveContainer width="100%" height={120}>
+            <LineChart data={timeline} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
+              <XAxis
+                dataKey="date"
+                tick={{ fontSize: 10, fill: '#94a3b8' }}
+                tickFormatter={(d) => d?.slice(5)}  // MM-DD only — keeps axis tight
+                axisLine={false}
+                tickLine={false}
+              />
+              <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} allowDecimals={false} width={28} />
+              <Tooltip
+                contentStyle={{ background: '#131316', border: '1px solid #2a2a30', borderRadius: 12, fontSize: 12 }}
+                labelStyle={{ color: '#a8a8b0' }}
+                formatter={(v) => [`${v} click`, 'Recensioni']}
+              />
+              <Line type="monotone" dataKey="count" stroke="#F59E0B" strokeWidth={2} dot={{ r: 3, fill: '#F59E0B' }} />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
+      {/* Per-store breakdown table */}
+      {rows.length === 0 ? (
+        <div className="text-center py-8 text-sm text-gray-500 dark:text-[#6a6a72]">
+          Nessun click recensione registrato in questo periodo.
+        </div>
+      ) : (
+        <div className="overflow-x-auto rounded-2xl border border-gray-200 dark:border-white/10">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Negozio</TableHead>
+                <TableHead className="text-right">Landing</TableHead>
+                <TableHead className="text-right">Vendor</TableHead>
+                <TableHead className="text-right">Totale</TableHead>
+                <TableHead className="text-right w-40">Quota</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {rows.map((r) => (
+                <TableRow key={r.id} data-testid="reviews-store-row">
+                  <TableCell className="font-medium text-gray-900 dark:text-white">
+                    <div className="flex items-center gap-2">
+                      <span className="truncate max-w-[200px]">{r.name || '—'}</span>
+                      {r.slug && (
+                        <span className="font-mono text-[10px] text-gray-400 dark:text-[#6a6a72]">/s/{r.slug}</span>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums text-sm">{r.store_landing_clicks}</TableCell>
+                  <TableCell className="text-right tabular-nums text-sm">{r.vendor_profile_clicks}</TableCell>
+                  <TableCell className="text-right tabular-nums font-bold text-amber-600 dark:text-amber-400">
+                    {r.total_clicks}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex items-center gap-2 justify-end">
+                      <div className="w-24 bg-gray-200 dark:bg-white/10 rounded-full h-1.5 overflow-hidden">
+                        <div
+                          className="bg-gradient-to-r from-amber-400 to-amber-600 h-full rounded-full"
+                          style={{ width: `${Math.min(100, r.share_pct)}%` }}
+                        />
+                      </div>
+                      <span className="text-[11px] font-semibold text-gray-600 dark:text-[#a8a8b0] w-10 tabular-nums">
+                        {r.share_pct}%
+                      </span>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+    </section>
+  );
+};

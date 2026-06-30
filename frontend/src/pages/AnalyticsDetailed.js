@@ -672,57 +672,119 @@ const ReviewsAnalyticsSection = ({ data, period }) => {
         </div>
       )}
 
-      {/* Per-store breakdown table */}
+      {/* Per-store breakdown: mobile-first card stack on small screens,
+          richer table on sm+ where the horizontal real estate exists. */}
       {rows.length === 0 ? (
         <div className="text-center py-8 text-sm text-gray-500 dark:text-[#6a6a72]">
           Nessun click recensione registrato in questo periodo.
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-2xl border border-gray-200 dark:border-white/10">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Negozio</TableHead>
-                <TableHead className="text-right">Landing</TableHead>
-                <TableHead className="text-right">Vendor</TableHead>
-                <TableHead className="text-right">Totale</TableHead>
-                <TableHead className="text-right w-40">Quota</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rows.map((r) => (
-                <TableRow key={r.id} data-testid="reviews-store-row">
-                  <TableCell className="font-medium text-gray-900 dark:text-white">
+        <>
+          {/* Mobile cards — one per store, optimised for thumb reach */}
+          <ul className="sm:hidden space-y-2.5">
+            {rows.map((r, idx) => (
+              <li
+                key={r.id}
+                className="rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-white/[0.02] p-3 active:scale-[0.99] transition-transform"
+                data-testid="reviews-store-row"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <span className="truncate max-w-[200px]">{r.name || '—'}</span>
-                      {r.slug && (
-                        <span className="font-mono text-[10px] text-gray-400 dark:text-[#6a6a72]">/s/{r.slug}</span>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-right tabular-nums text-sm">{r.store_landing_clicks}</TableCell>
-                  <TableCell className="text-right tabular-nums text-sm">{r.vendor_profile_clicks}</TableCell>
-                  <TableCell className="text-right tabular-nums font-bold text-amber-600 dark:text-amber-400">
-                    {r.total_clicks}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex items-center gap-2 justify-end">
-                      <div className="w-24 bg-gray-200 dark:bg-white/10 rounded-full h-1.5 overflow-hidden">
-                        <div
-                          className="bg-gradient-to-r from-amber-400 to-amber-600 h-full rounded-full"
-                          style={{ width: `${Math.min(100, r.share_pct)}%` }}
-                        />
-                      </div>
-                      <span className="text-[11px] font-semibold text-gray-600 dark:text-[#a8a8b0] w-10 tabular-nums">
-                        {r.share_pct}%
+                      <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-amber-100 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300 text-[10px] font-bold tabular-nums">
+                        {idx + 1}
+                      </span>
+                      <span className="font-semibold text-gray-900 dark:text-white truncate text-sm">
+                        {r.name || '—'}
                       </span>
                     </div>
-                  </TableCell>
+                    {r.slug && (
+                      <span className="font-mono text-[10px] text-gray-400 dark:text-[#6a6a72] block mt-0.5 truncate">
+                        /s/{r.slug}
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-right shrink-0">
+                    <div className="text-2xl font-black tracking-tight text-amber-600 dark:text-amber-400 leading-none tabular-nums">
+                      {r.total_clicks}
+                    </div>
+                    <div className="text-[10px] uppercase tracking-widest text-gray-500 dark:text-[#6a6a72] mt-0.5 font-semibold">
+                      click
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <div className="rounded-xl bg-gray-50 dark:bg-white/[0.03] px-3 py-2">
+                    <p className="text-[10px] uppercase tracking-widest font-semibold text-gray-500 dark:text-[#6a6a72]">Landing</p>
+                    <p className="text-base font-bold text-gray-900 dark:text-white tabular-nums">{r.store_landing_clicks}</p>
+                  </div>
+                  <div className="rounded-xl bg-gray-50 dark:bg-white/[0.03] px-3 py-2">
+                    <p className="text-[10px] uppercase tracking-widest font-semibold text-gray-500 dark:text-[#6a6a72]">Vendor</p>
+                    <p className="text-base font-bold text-gray-900 dark:text-white tabular-nums">{r.vendor_profile_clicks}</p>
+                  </div>
+                </div>
+                <div className="mt-3 flex items-center gap-2">
+                  <div className="flex-1 bg-gray-200 dark:bg-white/10 rounded-full h-2 overflow-hidden">
+                    <div
+                      className="bg-gradient-to-r from-amber-400 to-amber-600 h-full rounded-full transition-all"
+                      style={{ width: `${Math.min(100, r.share_pct)}%` }}
+                    />
+                  </div>
+                  <span className="text-[11px] font-bold text-gray-700 dark:text-[#d8d8e0] tabular-nums shrink-0 w-10 text-right">
+                    {r.share_pct}%
+                  </span>
+                </div>
+              </li>
+            ))}
+          </ul>
+
+          {/* Desktop table — only renders sm+ */}
+          <div className="hidden sm:block overflow-x-auto rounded-2xl border border-gray-200 dark:border-white/10">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Negozio</TableHead>
+                  <TableHead className="text-right">Landing</TableHead>
+                  <TableHead className="text-right">Vendor</TableHead>
+                  <TableHead className="text-right">Totale</TableHead>
+                  <TableHead className="text-right w-40">Quota</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+              </TableHeader>
+              <TableBody>
+                {rows.map((r) => (
+                  <TableRow key={r.id}>
+                    <TableCell className="font-medium text-gray-900 dark:text-white">
+                      <div className="flex items-center gap-2">
+                        <span className="truncate max-w-[200px]">{r.name || '—'}</span>
+                        {r.slug && (
+                          <span className="font-mono text-[10px] text-gray-400 dark:text-[#6a6a72]">/s/{r.slug}</span>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums text-sm">{r.store_landing_clicks}</TableCell>
+                    <TableCell className="text-right tabular-nums text-sm">{r.vendor_profile_clicks}</TableCell>
+                    <TableCell className="text-right tabular-nums font-bold text-amber-600 dark:text-amber-400">
+                      {r.total_clicks}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center gap-2 justify-end">
+                        <div className="w-24 bg-gray-200 dark:bg-white/10 rounded-full h-1.5 overflow-hidden">
+                          <div
+                            className="bg-gradient-to-r from-amber-400 to-amber-600 h-full rounded-full"
+                            style={{ width: `${Math.min(100, r.share_pct)}%` }}
+                          />
+                        </div>
+                        <span className="text-[11px] font-semibold text-gray-600 dark:text-[#a8a8b0] w-10 tabular-nums">
+                          {r.share_pct}%
+                        </span>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </>
       )}
     </section>
   );

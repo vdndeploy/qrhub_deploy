@@ -60,6 +60,10 @@ export const AnalyticsResetButton = ({
   auditEndpoint,
   onReset,
   testIdPrefix = 'analytics-reset',
+  // When true, the Reset + Storico chips stretch to fill the parent on
+  // mobile (used in tight headers like Push Analytics where the buttons
+  // were previously escaping the card margin).
+  mobileFullWidth = false,
 }) => {
   const [open, setOpen] = useState(false);
   const [typed, setTyped] = useState('');
@@ -136,17 +140,17 @@ export const AnalyticsResetButton = ({
   };
 
   return (
-    <div className="space-y-3">
-      <div className="flex flex-wrap items-center gap-2">
+    <div className={`space-y-3 ${mobileFullWidth ? 'w-full sm:w-auto' : ''}`}>
+      <div className={`flex flex-wrap items-center gap-2 ${mobileFullWidth ? 'w-full sm:w-auto' : ''}`}>
         <AlertDialog open={open} onOpenChange={setOpen}>
           <AlertDialogTrigger asChild>
             <button
               type="button"
-              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-red-50 hover:bg-red-100 dark:bg-red-500/10 dark:hover:bg-red-500/15 border border-red-200 dark:border-red-500/30 text-red-700 dark:text-red-300 text-xs font-semibold transition-colors"
+              className={`inline-flex items-center justify-center gap-2 px-3 py-1.5 rounded-full bg-red-50 hover:bg-red-100 dark:bg-red-500/10 dark:hover:bg-red-500/15 border border-red-200 dark:border-red-500/30 text-red-700 dark:text-red-300 text-xs font-semibold transition-colors ${mobileFullWidth ? 'flex-1 sm:flex-none min-w-0' : ''}`}
               data-testid={`${testIdPrefix}-trigger`}
             >
-              <Trash2 className="h-3.5 w-3.5" />
-              {label}
+              <Trash2 className="h-3.5 w-3.5 shrink-0" />
+              <span className="truncate">{label}</span>
             </button>
           </AlertDialogTrigger>
           <AlertDialogContent className="max-w-md" data-testid={`${testIdPrefix}-dialog`}>
@@ -205,12 +209,12 @@ export const AnalyticsResetButton = ({
         <button
           type="button"
           onClick={() => setLogOpen((o) => !o)}
-          className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-gray-100 hover:bg-gray-200 dark:bg-white/5 dark:hover:bg-white/10 text-gray-700 dark:text-[#a8a8b0] text-[11px] font-semibold transition-colors"
+          className={`inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-full bg-gray-100 hover:bg-gray-200 dark:bg-white/5 dark:hover:bg-white/10 text-gray-700 dark:text-[#a8a8b0] text-[11px] font-semibold transition-colors ${mobileFullWidth ? 'flex-1 sm:flex-none min-w-0' : ''}`}
           data-testid={`${testIdPrefix}-history-toggle`}
         >
-          <History className="h-3.5 w-3.5" />
-          Storico reset
-          {logOpen ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+          <History className="h-3.5 w-3.5 shrink-0" />
+          <span className="truncate">Storico reset</span>
+          {logOpen ? <ChevronUp className="h-3 w-3 shrink-0" /> : <ChevronDown className="h-3 w-3 shrink-0" />}
         </button>
       </div>
 

@@ -14,6 +14,7 @@ import { useEffect, useState, useCallback } from 'react';
 import axios from 'axios';
 import { Bell, MousePointerClick, Send, Megaphone, Sparkles, Loader2, Users } from 'lucide-react';
 import { AnalyticsResetButton } from './AnalyticsResetButton';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -59,27 +60,47 @@ const OriginBadge = ({ origin }) => {
   );
 };
 
+const PERIOD_OPTIONS = [
+  { value: 'today',     label: 'Oggi' },
+  { value: 'yesterday', label: 'Ieri' },
+  { value: '7d',        label: 'Ultimi 7 giorni' },
+  { value: '30d',       label: 'Ultimi 30 giorni' },
+  { value: 'month',     label: 'Mese corrente' },
+  { value: 'all',       label: 'Sempre' },
+];
+
 const PushAnalytics = () => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  // Default 'all' keeps the existing behaviour for first-time visitors:
+  // total counters since day 1. The selector lets the admin zoom into
+  // shorter windows when they need to evaluate a recent push campaign.
+  const [period, setPeriod] = useState('all');
 
-  const fetchData = useCallback(() => {
+  const fetchData = useCallback((p) => {
+    const effective = p ?? period;
     setLoading(true);
-    return axios.get(`${API}/push/analytics`, { withCredentials: true })
+    return axios.get(`${API}/push/analytics`, {
+      params: { period: effective },
+      withCredentials: true,
+    })
       .then(({ data }) => { setData(data); setError(false); })
       .catch(() => { setError(true); })
       .finally(() => { setLoading(false); });
-  }, []);
+  }, [period]);
 
   useEffect(() => {
     let cancelled = false;
-    axios.get(`${API}/push/analytics`, { withCredentials: true })
+    axios.get(`${API}/push/analytics`, {
+      params: { period },
+      withCredentials: true,
+    })
       .then(({ data }) => { if (!cancelled) setData(data); })
       .catch(() => { if (!cancelled) setError(true); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, []);
+  }, [period]);
 
   if (loading) {
     return (
@@ -101,27 +122,47 @@ const PushAnalytics = () => {
       className="rounded-3xl border border-gray-200 dark:border-white/10 bg-gradient-to-br from-white via-white to-amber-50/40 dark:from-[#131316] dark:via-[#131316] dark:to-[#1a1410] p-5 sm:p-6 space-y-5"
       data-testid="push-analytics-section"
     >
-      <div className="flex items-start justify-between gap-3">
-        <div>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
           <h3 className="text-lg sm:text-xl font-black tracking-tight text-gray-900 dark:text-white flex items-center gap-2">
-            <Bell className="h-5 w-5 text-amber-600" /> Push Analytics
+            <Bell className="h-5 w-5 text-amber-600 shrink-0" />
+            <span className="truncate">Push Analytics</span>
           </h3>
           <p className="text-xs sm:text-sm text-gray-500 dark:text-[#8a8a92] mt-0.5">
             Iscritti e performance delle notifiche push inviate ai tuoi vendor.
           </p>
         </div>
-        <div className="flex flex-col items-end gap-2 shrink-0">
+        {/* Controls block: on mobile becomes a full-width column under the title
+            so the long "Reset Push Analytics" pill no longer escapes the card
+            margin. On sm+ it floats top-right as before. */}
+        <div className="flex flex-wrap items-center gap-2 sm:flex-col sm:items-end sm:gap-2 w-full sm:w-auto">
+          <Select value={period} onValueChange={setPeriod}>
+            <SelectTrigger
+              className="h-8 w-full sm:w-[170px] text-xs font-semibold bg-white dark:bg-white/5 border-gray-200 dark:border-white/10"
+              data-testid="push-period-select"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {PERIOD_OPTIONS.map((o) => (
+                <SelectItem key={o.value} value={o.value} className="text-xs">
+                  {o.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           {!hasAnyActivity && (
             <span className="hidden sm:inline-block text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-[#6a6a72] bg-gray-100 dark:bg-white/5 px-2.5 py-1 rounded-full">
               In attesa di dati
             </span>
           )}
           <AnalyticsResetButton
-            label="Reset Push Analytics"
+            label="Reset"
+            mobileFullWidth
             description="Verranno cancellate tutte le notifiche storiche e i contatori (invii, click, CTR). Gli iscritti restano attivi."
             resetEndpoint={`${API}/push/analytics/reset`}
             auditEndpoint={`${API}/push/analytics/audit-log`}
-            onReset={fetchData}
+            onReset={() => fetchData()}
             testIdPrefix="push-reset"
           />
         </div>

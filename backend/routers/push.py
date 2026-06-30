@@ -26,7 +26,7 @@ import base64
 import json
 import logging
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Optional
 
 from ecdsa import SigningKey, NIST256p
@@ -380,17 +380,58 @@ def attach_routes(db, get_current_user_dep):
 
     @router.get('/analytics')
     async def get_analytics(user: dict = Depends(get_current_user_dep),
-                            limit: int = 20):
+                            limit: int = 20, period: str = 'all'):
         """Returns aggregated push analytics for the user's org:
         - totals: subscribers (by scope), broadcasts, total_sent, total_clicks
         - recent_broadcasts: most recent N with sent/clicks/CTR + vendor name
         - by_vendor: subscribers count grouped by vendor (top 10)
-        Org-scoped — never leaks cross-tenant data."""
+        Org-scoped — never leaks cross-tenant data.
+
+        `period` filters BROADCAST-level metrics by `created_at`: today,
+        yesterday, 7d, 30d, month, all (default). Subscriber counts and
+        the by-vendor breakdown are NOT time-bound (an iscritto is "now",
+        not "during a period") — they always reflect the live snapshot."""
         org_id = user.get('organization_id')
         if not org_id:
             raise HTTPException(403, 'Org context mancante')
 
-        # ── Subscriber breakdown ──
+        # ── Resolve period → created_at window (Europe/Rome day boundaries
+        # for today/yesterday/month to match the in-store team's mental
+        # model — same pattern as routers.analytics._period_to_dates). ──
+        from zoneinfo import ZoneInfo
+        LOCAL_TZ = ZoneInfo('Europe/Rome')
+        now_utc = datetime.now(timezone.utc)
+        now_local = now_utc.astimezone(LOCAL_TZ)
+        period = (period or 'all').lower()
+        if period == 'today':
+            start_local = now_local.replace(hour=0, minute=0, second=0, microsecond=0)
+            start_iso = start_local.astimezone(timezone.utc).isoformat()
+            end_iso = now_utc.isoformat()
+        elif period == 'yesterday':
+            end_local = now_local.replace(hour=0, minute=0, second=0, microsecond=0)
+            start_local = end_local - timedelta(days=1)
+            start_iso = start_local.astimezone(timezone.utc).isoformat()
+            end_iso = end_local.astimezone(timezone.utc).isoformat()
+        elif period == '7d':
+            start_iso = (now_utc - timedelta(days=7)).isoformat()
+            end_iso = now_utc.isoformat()
+        elif period == '30d':
+            start_iso = (now_utc - timedelta(days=30)).isoformat()
+            end_iso = now_utc.isoformat()
+        elif period == 'month':
+            start_local = now_local.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+            start_iso = start_local.astimezone(timezone.utc).isoformat()
+            end_iso = now_utc.isoformat()
+        else:  # 'all' or anything else → unbounded
+            start_iso = None
+            end_iso = None
+
+        # Broadcast-level query: apply period filter when not 'all'.
+        broadcast_q = {'organization_id': org_id}
+        if start_iso is not None:
+            broadcast_q['created_at'] = {'$gte': start_iso, '$lte': end_iso}
+
+        # ── Subscriber breakdown (NOT period-bound — live snapshot) ──
         sub_total = await db.push_subscriptions.count_documents(
             {'organization_id': org_id}
         )
@@ -401,7 +442,7 @@ def attach_routes(db, get_current_user_dep):
 
         # ── Recent broadcasts with vendor name resolved in a single pass ──
         cursor = db.push_broadcasts.find(
-            {'organization_id': org_id}, {'_id': 0}
+            broadcast_q, {'_id': 0}
         ).sort('created_at', -1).limit(max(1, min(limit, 100)))
         recent_raw = await cursor.to_list(100)
 
@@ -432,9 +473,9 @@ def attach_routes(db, get_current_user_dep):
                 'created_at': b.get('created_at', ''),
             })
 
-        # ── Org-wide totals (cheap aggregate) ──
+        # ── Org-wide totals (cheap aggregate) — also period-filtered ──
         totals_pipeline = [
-            {'$match': {'organization_id': org_id}},
+            {'$match': broadcast_q},
             {'$group': {
                 '_id': None,
                 'broadcasts': {'$sum': 1},
@@ -466,6 +507,7 @@ def attach_routes(db, get_current_user_dep):
             bv_map = {v['id']: v.get('name', '') for v in vds}
 
         return {
+            'period': period,
             'subscribers': {
                 'total': sub_total,
                 'vendor_scope': sub_vendor_only,

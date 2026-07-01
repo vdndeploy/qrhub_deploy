@@ -4,6 +4,25 @@
 
 ---
 
+## 2026-02-12 — UX PWA: shortcut native install + auto-prompt push in standalone
+
+- **`AddToHomeDialog.js`**: aggiunto helper esportato `tryNativeInstall({ deferredPrompt, vendorName })` che ritorna `'native-prompt' | 'share-sheet' | 'share-cancelled' | 'needs-modal'`. Logica:
+  - Android + deferredPrompt → `deferredPrompt.prompt()` diretto (native install banner).
+  - iOS Safari (12.2+) → `navigator.share({ url, title })` → Share Sheet nativo con "Aggiungi a Home" come opzione principale.
+  - AbortError = utente ha cancellato share sheet → non riproporre modale.
+  - Altri (Samsung/iOS Chrome/Firefox/Desktop) → fallback al modal informativo.
+- **`VendorLanding.js`**: il pulsante "+" (top-right `.map-btn--install`) ora invoca `tryNativeInstall` prima di aprire il modal. Riduce il flow da 3 tap (button→modal→close→share) a 1-2 tap.
+- **`PushSubscribe.js`**:
+  - Nuovo prop `autoPromptOnStandalone` (default false). Quando true + PWA in `display-mode: standalone` (Android o iOS su Home Screen) + permission='default' + non subscribed + vendorId caricato → fire `Notification.requestPermission()` automaticamente dopo 800ms. Guardia `autoPromptFiredRef` per evitare doppi invii.
+  - Pulsante iOS-locked "Notifiche offerte (aggiungi a Home per attivare)" ora chiama direttamente `tryNativeInstall` (Share Sheet iOS) invece di aprire HelpDialog. HelpDialog resta come fallback solo per iOS Chrome/Firefox.
+  - Aggiunta classe `qrhub-install-pulse` al pulsante ios-locked → pulsa come il "+" per invitare al tap.
+- **`VendorLanding.css`**: nuova classe `.qrhub-install-pulse` riusabile con stesso keyframe di `.map-btn--install` + rispetto `prefers-reduced-motion`.
+- **CTA VendorLanding**: `<PushSubscribe autoPromptOnStandalone />` → l'auto-prompt fire solo in Standalone (web scan resta neutro come da requisito utente).
+- **Testing**: testing_agent_v3_fork iter_27 → 100% frontend osservato + code review conferma tutti i guard corretti. Zero issue.
+- **No deploy Fly** — nessuna modifica backend. Solo frontend via Save-to-Git → Vercel.
+
+
+
 ## 2026-02-12 — Fix mobile UX Push Analytics + period filter + Reviews mobile-first
 
 - **Backend** (`routers/push.py`): `GET /api/push/analytics` ora accetta `?period=today|yesterday|7d|30d|month|all` (default `all`, backward compat). Il filtro si applica solo a broadcast-level (totals + recent_broadcasts), NON ai subscribers count (che è uno snapshot live). Response echoes `period` field.

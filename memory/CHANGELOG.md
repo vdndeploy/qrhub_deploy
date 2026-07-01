@@ -4,6 +4,25 @@
 
 ---
 
+## 2026-02-12 — Feature: PWA Install Analytics + Uninstall/Silenced detection via heartbeat
+
+- **Backend** (`routers/push.py`):
+  - Nuovo modello `PWAHeartbeatRequest` con validation su os + notification_permission (normalizza input invalidi).
+  - Nuovo endpoint pubblico `POST /api/push/heartbeat` — upsert su collection `pwa_devices` con `{device_id, vendor_id, organization_id, os, notification_permission, push_endpoint, first_installed_at, last_seen_at}`. Fail-silent su vendor invalido (200 ok, nessun retry loop).
+  - Estensione `GET /api/push/analytics` con nuovo campo `installs`: `{active_30d, active_7d, total_ever, silenced_30d, by_os:{ios,android,other}}`. Aggregation via `$facet` per efficienza. Tenant isolation stretta.
+- **Frontend**:
+  - Nuovo hook `hooks/usePWAHeartbeat.js`: genera/riusa `device_id` in localStorage (`qrhub_device_id`), invia POST /heartbeat solo se PWA è in standalone (matchMedia + navigator.standalone), su mount + `appinstalled` + `visibilitychange` + Permissions API onchange. Fire-and-forget senza toast/error UI.
+  - Agganciato `usePWAHeartbeat(vendorId)` in `VendorLanding.js` subito dopo useParams.
+  - `PushAnalytics.js` nuovo sub-cruscotto `<data-testid='push-analytics-installs'>` con 4 tile (Attive 30g/7g/iOS/Android) + callout amber "installaz. con notifiche disattivate" quando `silenced_30d > 0`.
+- **Logica uninstall/silenzia**:
+  - Uninstall = device smette di heartbeatare → dopo 30gg esce da `active_30d` automaticamente.
+  - Notifiche disattivate = heartbeat con `notification_permission != 'granted'` → contatore `silenced_30d`.
+  - Notifiche attive resta accurato via cleanup 410 Gone su webpush.
+- **Testing**: testing_agent_v3_fork iter_28 → 12/12 backend pytest + 3/3 playwright frontend (web-scan no-heartbeat / standalone heartbeat + device_id persistence / UI installs + silenced callout). Zero issue. Nota: 2 heartbeat back-to-back su mount+visibilitychange, idempotenti (upsert) — non blocking.
+- **Deploy**: Fly.io ✅ exit 0 in 53s. `qrhub.fly.dev/api/push/analytics` conferma nuovo campo `installs` live.
+
+
+
 ## 2026-02-12 — UX PWA: shortcut native install + auto-prompt push in standalone
 
 - **`AddToHomeDialog.js`**: aggiunto helper esportato `tryNativeInstall({ deferredPrompt, vendorName })` che ritorna `'native-prompt' | 'share-sheet' | 'share-cancelled' | 'needs-modal'`. Logica:

@@ -1,0 +1,41 @@
+{
+  "summary": "Full backend + frontend validation of new PWA heartbeat & installs analytics feature. 12/12 pytest cases GREEN + 3 playwright scenarios GREEN (web-scan no-heartbeat / standalone heartbeat + device_id persistence / PushAnalytics UI installs section with silenced callout).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_pwa_heartbeat.py",
+    "/app/test_reports/pytest/pwa_heartbeat.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "routers/push.py:394-436 /heartbeat — Correctly public, fail-silent on unknown vendor, upsert with $setOnInsert on first_installed_at, and normalizes bad os → 'other' / bad permission → 'default'. Verified all four paths in tests.",
+    "routers/push.py:566-606 /analytics installs $facet aggregation is org-scoped ({'organization_id': org_id} at the $match root) — tenant isolation confirmed via cross-org injection test (foreign row does NOT bump admin's total_ever).",
+    "routers/push.py:620-624 by_os merges 'desktop' into 'other' — matches installs.by_os schema {ios, android, other}. UI only surfaces iOS/Android tiles which is fine (desktop PWAs are a rounding error).",
+    "hooks/usePWAHeartbeat.js:56-60 isStandalone() correctly OR's navigator.standalone (iOS Safari) with matchMedia('(display-mode:standalone)') (Android). Guard in sendHeartbeat prevents web-scan calls — confirmed by playwright request-sniff.",
+    "hooks/usePWAHeartbeat.js:28-45 getOrCreateDeviceId — robust: crypto.randomUUID with graceful Math.random fallback; localStorage error swallowed for Safari private mode.",
+    "hooks/usePWAHeartbeat.js:74-130 useEffect deps=[vendorId], cleanup removes all three listeners incl. permStatus.onchange — no leak on unmount.",
+    "components/PushAnalytics.js:120-124 installs default fallback ({active_30d:0, ...}) protects against missing key from older backend responses — backward compatible.",
+    "components/PushAnalytics.js:269-277 silenced callout conditional (installs.silenced_30d > 0) — verified visible with 1 silenced device and text matches spec exactly.",
+    "Observation (non-blocking): On page reload/mount, TWO heartbeat POSTs fire in quick succession — one from the initial useEffect and one from visibilitychange when the tab becomes visible. Not a bug (upsert is idempotent, last_seen_at just refreshes) but doubles the traffic. Consider debouncing in a future pass if analytics QPS matters."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_pwa_heartbeat.py (new)"
+  ],
+  "success_rate": {
+    "backend": "100% (12/12)",
+    "frontend": "100% (3/3 playwright scenarios)"
+  },
+  "test_credentials": "admin@example.com / admin123 (org_admin, cookie session). Preview token for DPA-gated /v/{id} generated via POST /api/vendors/{id}/preview-token.",
+  "seed_data_creation": "None persisted — all test devices used TEST_ prefix and cleaned via autouse fixture. Mongo pwa_devices collection returned to prior state (0 TEST_ rows remaining).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "backend/tests/test_pwa_heartbeat.py is the regression file for /api/push/heartbeat + installs KPI. To emulate PWA standalone in playwright: add_init_script BEFORE goto with `Object.defineProperty(window.navigator,'standalone',{value:true,configurable:true});` + override window.matchMedia to return {matches:true} for '(display-mode: standalone)'. For UI test of PushAnalytics installs section, log in as admin@example.com/admin123 then hit /dashboard (Panoramica) — data-testids: push-analytics-installs / installs-active-30d / installs-silenced-callout.",
+  "rca of the issue": "N/A — feature works end-to-end. Backend heartbeat upsert + facet aggregation correct; frontend hook triggers only in standalone and persists device_id; PushAnalytics UI renders installs KPIs + silenced callout per spec."
+}

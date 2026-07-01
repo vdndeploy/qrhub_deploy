@@ -264,6 +264,19 @@ class TrackClickRequest(BaseModel):
     broadcast_id: str = Field(..., min_length=8, max_length=64)
 
 
+class PWAHeartbeatRequest(BaseModel):
+    """Payload sent by the client every time the PWA opens in
+    display-mode:standalone. Powers the "Installazioni attive" KPIs and
+    the notification-permission delta ("installed but push off")."""
+    device_id: str = Field(..., min_length=8, max_length=64)
+    vendor_id: str = Field(..., min_length=1, max_length=64)
+    os: str = Field(..., max_length=16)           # 'ios' | 'android' | 'desktop'
+    notification_permission: str = Field('default', max_length=16)
+    # Best-effort link to the push_subscriptions row so we can build the
+    # "silenced install" delta (installed but permission revoked at OS level).
+    push_endpoint: Optional[str] = Field(None, max_length=600)
+
+
 class ResetAnalyticsRequest(BaseModel):
     # Mandatory typed confirmation — must equal "RESET" (case-insensitive).
     # Keeps a single misclick from wiping the entire analytics history.
@@ -375,6 +388,50 @@ def attach_routes(db, get_current_user_dep):
             {'id': req.broadcast_id},
             {'$inc': {'clicks': 1},
              '$set': {'last_click_at': datetime.now(timezone.utc).isoformat()}}
+        )
+        return {'status': 'ok'}
+
+    @router.post('/heartbeat')
+    async def pwa_heartbeat(req: PWAHeartbeatRequest):
+        """Public endpoint called by VendorLanding every time the PWA is
+        opened in display-mode:standalone (Android + iOS). Upserts a row
+        in `pwa_devices` keyed by device_id — so we can:
+          • Count "installazioni attive" = devices seen in the last 30gg
+          • Detect uninstalls implicitly = device stops heartbeating
+          • Track the "silenced installs" delta = permission != granted
+        Never returns 4xx for bad input so a broken client doesn't spam
+        the console — we just no-op and return 200."""
+        now_iso = datetime.now(timezone.utc).isoformat()
+        vendor = await db.vendors.find_one(
+            {'id': req.vendor_id}, {'_id': 0, 'organization_id': 1}
+        )
+        if not vendor:
+            # Silently ignore — the client will retry on the next open. Keeps
+            # the collection clean of orphaned device rows.
+            return {'status': 'ok'}
+        os_val = (req.os or '').lower()
+        if os_val not in ('ios', 'android', 'desktop'):
+            os_val = 'other'
+        perm = req.notification_permission if req.notification_permission in (
+            'default', 'granted', 'denied'
+        ) else 'default'
+        await db.pwa_devices.update_one(
+            {'device_id': req.device_id},
+            {
+                '$set': {
+                    'vendor_id': req.vendor_id,
+                    'organization_id': vendor['organization_id'],
+                    'os': os_val,
+                    'notification_permission': perm,
+                    'push_endpoint': req.push_endpoint or None,
+                    'last_seen_at': now_iso,
+                },
+                '$setOnInsert': {
+                    'device_id': req.device_id,
+                    'first_installed_at': now_iso,
+                },
+            },
+            upsert=True,
         )
         return {'status': 'ok'}
 
@@ -506,12 +563,65 @@ def attach_routes(db, get_current_user_dep):
             ).to_list(len(bv_vendor_ids))
             bv_map = {v['id']: v.get('name', '') for v in vds}
 
+        # ── Installazioni PWA attive (pwa_devices heartbeats) ──
+        # "Attiva" = ha inviato un heartbeat negli ultimi N giorni. Un utente
+        # che disinstalla l'app SMETTE di heartbeatare → dopo 30gg cade dal
+        # counter "attive 30d". Il campo notification_permission ci permette
+        # anche di calcolare la delta "installato ma push disattivate".
+        active_30d_iso = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
+        active_7d_iso = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
+        dev_pipeline = [
+            {'$match': {'organization_id': org_id}},
+            {'$facet': {
+                'total': [{'$count': 'n'}],
+                'active_30d': [
+                    {'$match': {'last_seen_at': {'$gte': active_30d_iso}}},
+                    {'$count': 'n'},
+                ],
+                'active_7d': [
+                    {'$match': {'last_seen_at': {'$gte': active_7d_iso}}},
+                    {'$count': 'n'},
+                ],
+                'by_os_30d': [
+                    {'$match': {'last_seen_at': {'$gte': active_30d_iso}}},
+                    {'$group': {'_id': '$os', 'n': {'$sum': 1}}},
+                ],
+                # "Installato ma notifiche off" = permission != 'granted' fra
+                # gli attivi 30d. Ci aiuta a capire il collo di bottiglia
+                # (installazioni ok, ma il canale push è chiuso).
+                'silenced_30d': [
+                    {'$match': {
+                        'last_seen_at': {'$gte': active_30d_iso},
+                        'notification_permission': {'$ne': 'granted'},
+                    }},
+                    {'$count': 'n'},
+                ],
+            }},
+        ]
+        dev_agg = await db.pwa_devices.aggregate(dev_pipeline).to_list(1)
+        d = dev_agg[0] if dev_agg else {}
+        def _pick(k):
+            arr = d.get(k, [])
+            return arr[0]['n'] if arr and 'n' in arr[0] else 0
+        by_os = {r['_id'] or 'other': r['n'] for r in d.get('by_os_30d', [])}
+
         return {
             'period': period,
             'subscribers': {
                 'total': sub_total,
                 'vendor_scope': sub_vendor_only,
                 'org_scope': sub_org_wide,
+            },
+            'installs': {
+                'active_30d': _pick('active_30d'),
+                'active_7d': _pick('active_7d'),
+                'total_ever': _pick('total'),
+                'silenced_30d': _pick('silenced_30d'),
+                'by_os': {
+                    'ios':     by_os.get('ios', 0),
+                    'android': by_os.get('android', 0),
+                    'other':   by_os.get('other', 0) + by_os.get('desktop', 0),
+                },
             },
             'totals': {
                 'broadcasts': totals_doc.get('broadcasts', 0),

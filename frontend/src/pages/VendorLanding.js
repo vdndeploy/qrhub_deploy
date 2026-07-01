@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import axios from 'axios';
 import { MapPin, Share2, Store as StoreIcon, Clock, X, Plus, CalendarClock } from 'lucide-react';
 import AddToHomeDialog, { tryNativeInstall } from '@/components/AddToHomeDialog';
+import { usePWAHeartbeat } from '@/hooks/usePWAHeartbeat';
 import PostsCarousel from '../components/PostsCarousel';
 import { computeOpenStatus } from '../components/HoursEditor';
 import BrandSocialIcon from '../components/BrandSocialIcon';
@@ -64,6 +65,9 @@ const CookieBanner = ({ vendorId, orgId, banner, primaryColor }) => {
 
 const VendorLanding = () => {
   const { vendorId } = useParams();
+  // Install/uninstall heartbeat — only fires when the PWA is in standalone.
+  // Powers the "Installazioni attive" KPI + implicit uninstall detection.
+  usePWAHeartbeat(vendorId);
   const [vendor, setVendor] = useState(null);
   const [loading, setLoading] = useState(true);
   const [deferredPrompt, setDeferredPrompt] = useState(null);

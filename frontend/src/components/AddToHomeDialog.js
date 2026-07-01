@@ -44,6 +44,68 @@ const detectDevice = () => {
   return { os, browser };
 };
 
+/**
+ * tryNativeInstall — the "one tap, no friction" install entry point.
+ *
+ * We used to always open the AddToHomeDialog (informational modal) but the
+ * intermediate screen was killing conversion — users tapped once, saw the
+ * screenshots, felt overwhelmed, closed. This function skips the modal
+ * whenever a native OS API can deliver the outcome directly:
+ *
+ *   • Android Chrome/Edge with a cached `beforeinstallprompt` → fire the
+ *     native install banner immediately.
+ *   • iOS Safari (Standalone missing) → open the native Share Sheet.
+ *     "Aggiungi a Home" is the first-class option there, so the tap-count
+ *     drops from 3 (button → modal → close → share) to 2 (button → share).
+ *
+ * Returns one of:
+ *   'native-prompt' | 'share-sheet' | 'share-cancelled' | 'needs-modal'
+ * so the caller can gracefully fall back to the informational modal for
+ * combinations we can't shortcut (Samsung Internet, iOS Chrome/Firefox,
+ * desktop, older iOS without navigator.share).
+ */
+export const tryNativeInstall = async ({ deferredPrompt, vendorName } = {}) => {
+  if (typeof window === 'undefined') return 'needs-modal';
+  const { os, browser } = detectDevice();
+
+  // ── Android with beforeinstallprompt cached → native prompt ──
+  if (os === 'android' && deferredPrompt) {
+    try {
+      deferredPrompt.prompt();
+      await deferredPrompt.userChoice;
+      return 'native-prompt';
+    } catch {
+      return 'needs-modal';
+    }
+  }
+
+  // ── iOS Safari → native Share Sheet (contains "Aggiungi alla schermata Home") ──
+  // navigator.share is available in iOS Safari 12.2+, so effectively every
+  // modern iPhone the shopkeeper's customers will bring in.
+  if (os === 'ios' && browser === 'safari'
+      && typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
+    try {
+      await navigator.share({
+        url: window.location.href,
+        title: vendorName || document.title || 'App',
+      });
+      return 'share-sheet';
+    } catch (e) {
+      // AbortError = user tapped Cancel on the share sheet. Not an error
+      // from our POV; we simply stop here and DO NOT open the modal since
+      // the user made an explicit choice.
+      if (e && (e.name === 'AbortError' || String(e).includes('Abort'))) {
+        return 'share-cancelled';
+      }
+      return 'needs-modal';
+    }
+  }
+
+  // ── Everything else → let the caller open the informational modal ──
+  // (Samsung Internet, iOS Chrome/Firefox, Desktop, iOS < 12.2)
+  return 'needs-modal';
+};
+
 const StepRow = ({ n, icon, children }) => (
   <div className="flex items-start gap-3 py-2">
     <div className="w-7 h-7 rounded-full bg-[#D2FA46] text-[#0a0a0b] font-bold text-xs flex items-center justify-center flex-shrink-0">

@@ -91,6 +91,22 @@ body.qrhub-pwa-standalone #install-banner{padding-top:calc(16px + env(safe-area-
 @media (prefers-reduced-motion: reduce){
   .map-btn--install,.map-btn--install::after{animation:none}
 }
+
+/* Standalone pulse class reused by the "Notifiche offerte (aggiungi a
+ * Home per attivare)" pill inside PushSubscribe. Same rhythm as the "+"
+ * install button so the two CTAs speak the same visual language and
+ * customers understand "these two do the same thing". */
+.qrhub-install-pulse{position:relative;animation:qrhub-install-pulse 1.8s ease-in-out infinite}
+.qrhub-install-pulse::after{
+  content:"";position:absolute;inset:-2px;border-radius:9999px;pointer-events:none;
+  box-shadow:0 0 0 0 rgba(210,250,70,.55);
+  animation:qrhub-install-ring 1.8s ease-out infinite;
+}
+.qrhub-install-pulse:hover,.qrhub-install-pulse:focus-visible{animation-play-state:paused}
+.qrhub-install-pulse:hover::after,.qrhub-install-pulse:focus-visible::after{animation-play-state:paused}
+@media (prefers-reduced-motion: reduce){
+  .qrhub-install-pulse,.qrhub-install-pulse::after{animation:none}
+}
 .hero{max-width:480px;margin:0 auto;padding:40px 20px;text-align:center;background:linear-gradient(135deg,var(--brand-color) 0%,var(--brand-color-soft) 100%);position:relative}
 .hero::before{content:'';position:absolute;top:0;left:0;right:0;height:100%;background:radial-gradient(circle at 50% 0%,rgba(255,255,255,.1) 0%,transparent 70%);pointer-events:none}
 .hero>*{position:relative;z-index:1}

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import axios from 'axios';
 import { MapPin, Share2, Store as StoreIcon, Clock, X, Plus, CalendarClock } from 'lucide-react';
-import AddToHomeDialog from '@/components/AddToHomeDialog';
+import AddToHomeDialog, { tryNativeInstall } from '@/components/AddToHomeDialog';
 import PostsCarousel from '../components/PostsCarousel';
 import { computeOpenStatus } from '../components/HoursEditor';
 import BrandSocialIcon from '../components/BrandSocialIcon';
@@ -713,12 +713,27 @@ const VendorLanding = () => {
               );
             })()}
             {/* "+" install button — hidden when the PWA is already
-                installed (standalone mode). Pointless to prompt for an
-                action the user has already completed. */}
+                installed (standalone mode). On tap we ALWAYS try the OS-
+                native path first (Android install prompt or iOS Share
+                Sheet) via tryNativeInstall(). Only when that path can't
+                deliver a one-tap install (Samsung Internet, iOS Chrome,
+                desktop) we fall back to the informational modal. This cut
+                the 3-tap install flow down to 1 or 2 taps and stopped the
+                modal from scaring users off. */}
             {!isStandalone && (
               <button
                 type="button"
-                onClick={() => setAddToHomeOpen(true)}
+                onClick={async () => {
+                  const outcome = await tryNativeInstall({
+                    deferredPrompt,
+                    vendorName: vendor?.name,
+                  });
+                  // Only open the informational modal for combos we
+                  // can't shortcut natively. 'share-cancelled' means the
+                  // user tapped Cancel on the iOS Share Sheet — respect
+                  // that choice and DON'T follow up with a modal.
+                  if (outcome === 'needs-modal') setAddToHomeOpen(true);
+                }}
                 className="map-btn map-btn--install"
                 aria-label="Aggiungi alla schermata Home"
                 title="Salva sul telefono"
@@ -835,6 +850,7 @@ const VendorLanding = () => {
             vendorId={vendor.id}
             vendorName={vendor.name}
             brandColor={vendor.organization?.primary_color || '#F96815'}
+            autoPromptOnStandalone
           />
         </div>
       </div>

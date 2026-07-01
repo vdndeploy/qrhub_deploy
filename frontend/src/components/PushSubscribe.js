@@ -14,10 +14,11 @@
  * Scope picker (vendor-only vs whole organization) opens after permission
  * is granted so we don't waste the prompt on undecided users.
  */
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Bell, BellRing, Loader2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import axios from 'axios';
+import { tryNativeInstall } from './AddToHomeDialog';
 
 const API = process.env.REACT_APP_BACKEND_URL + '/api';
 const SW_URL = '/qrhub-sw.js';
@@ -58,7 +59,7 @@ function isIOS() {
   return /iPad|iPhone|iPod/.test(ua) && !window.MSStream;
 }
 
-export const PushSubscribe = ({ vendorId, brandColor = '#F96815', vendorName, variant = 'cta' }) => {
+export const PushSubscribe = ({ vendorId, brandColor = '#F96815', vendorName, variant = 'cta', autoPromptOnStandalone = false }) => {
   const [loading, setLoading] = useState(false);
   const [subscribed, setSubscribed] = useState(false);
   const [scopePromptOpen, setScopePromptOpen] = useState(false);
@@ -77,6 +78,10 @@ export const PushSubscribe = ({ vendorId, brandColor = '#F96815', vendorName, va
   const capable = isPushCapable();
   const iosLocked = isIOSNonStandalone();
   const ios = isIOS();
+  // Guard so the standalone auto-prompt only fires ONCE per session. Without
+  // this, a slow subscription refresh could re-trigger it after the user
+  // consciously dismissed the OS permission dialog.
+  const autoPromptFiredRef = useRef(false);
 
   // On mount, check if this browser is already subscribed so we skip the
   // CTA and show a discreet "Sei iscritto" state instead. Also listen to a
@@ -195,6 +200,45 @@ export const PushSubscribe = ({ vendorId, brandColor = '#F96815', vendorName, va
     }
   };
 
+  // ── Auto-prompt push permission on standalone PWA open ──────────────
+  // When the user launches the installed app from the Home icon (both iOS
+  // and Android render `display-mode: standalone`), we surface the OS
+  // permission dialog automatically after a short debounce. Requirements:
+  //   • autoPromptOnStandalone must be explicitly opted-in by the parent
+  //     (we set it on the CTA variant only, NOT on header-bell — nothing
+  //     to auto-prompt if the user is already subscribed)
+  //   • Permission must be 'default' (never asked). If it's 'denied' we
+  //     don't harass; if it's 'granted' we're already good.
+  //   • User must not be subscribed yet — sibling components share state
+  //     via the 'qrhub:push-state-changed' event.
+  //   • Vendor id must be loaded so the subscription can be persisted.
+  //   • On iOS Safari pre-standalone the browser doesn't grant push at all
+  //     — but Web scan mode already renders `iosLocked=true` so we skip
+  //     the auto-prompt there implicitly.
+  //   • fires ONCE per session (autoPromptFiredRef guard).
+  useEffect(() => {
+    if (!autoPromptOnStandalone) return;
+    if (!capable) return;
+    if (autoPromptFiredRef.current) return;
+    if (subscribed) return;
+    if (!vendorId) return;
+    if (permission !== 'default') return;
+    // Explicit standalone check — must NOT auto-prompt during web scan.
+    const isStandalone = window.navigator.standalone === true
+      || window.matchMedia('(display-mode: standalone)').matches;
+    if (!isStandalone) return;
+    autoPromptFiredRef.current = true;
+    // Short delay lets the app paint the first frame — users see the
+    // brand identity BEFORE the OS dialog steals focus.
+    const timer = setTimeout(() => { handleSubscribe(); }, 800);
+    return () => clearTimeout(timer);
+    // `handleSubscribe` is intentionally not in the dep list: it's
+    // re-created every render, and the `autoPromptFiredRef` guard already
+    // ensures we only invoke it once. Adding it would cause the effect
+    // to churn on every render (harmless due to the guard, but noisy).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoPromptOnStandalone, capable, subscribed, vendorId, permission]);
+
   if (!capable && !iosLocked) return null;
 
   // header-bell variant: discreet circle button with a ringing bell that
@@ -273,15 +317,30 @@ export const PushSubscribe = ({ vendorId, brandColor = '#F96815', vendorName, va
   // notifications off.
   if (subscribed) return null;
 
-  // iOS Safari without Home Screen install → friendly hint, not a dead btn.
+  // iOS Safari without Home Screen install → tap ora apre DIRETTAMENTE la
+  // native Share Sheet iOS (dove "Aggiungi a Home" è la prima opzione),
+  // saltando il vecchio HelpDialog che l'utente ignorava. Se navigator.share
+  // non è disponibile (iOS < 12.2 o Chrome/Firefox iOS), fallback al modal
+  // informativo. Il pulsante ora pulsa come il "+" per invitare al tap.
   if (iosLocked) {
+    const openNativeShare = async () => {
+      const outcome = await tryNativeInstall({ vendorName });
+      if (outcome === 'needs-modal') {
+        // iOS Chrome/Firefox arrivano qui — non hanno "Add to Home" nel share
+        // sheet, quindi ha senso mostrare le istruzioni step-by-step.
+        setHelpOpen(true);
+      }
+      // 'share-sheet' / 'share-cancelled' → utente ha visto la scheda,
+      // non serve alcun modal extra. Se aggiunge alla home la app si
+      // aprirà standalone e il useEffect auto-prompt farà il resto.
+    };
     return (
       <>
         <button
           type="button"
-          className="inline-flex items-center justify-center gap-2 w-full rounded-full px-5 py-3 bg-white border-[1.5px] border-gray-200 text-gray-700 text-[13px] font-semibold shadow-sm hover:bg-gray-50 transition-colors"
+          className="qrhub-install-pulse inline-flex items-center justify-center gap-2 w-full rounded-full px-5 py-3 bg-white border-[1.5px] border-gray-200 text-gray-700 text-[13px] font-semibold shadow-sm hover:bg-gray-50 transition-colors"
           data-testid="push-ios-hint"
-          onClick={() => setHelpOpen(true)}
+          onClick={openNativeShare}
         >
           <Bell className="h-4 w-4" />
           Notifiche offerte (aggiungi a Home per attivare)

@@ -79,30 +79,18 @@ export const tryNativeInstall = async ({ deferredPrompt, vendorName } = {}) => {
     }
   }
 
-  // ── iOS Safari → native Share Sheet (contains "Aggiungi alla schermata Home") ──
-  // navigator.share is available in iOS Safari 12.2+, so effectively every
-  // modern iPhone the shopkeeper's customers will bring in.
-  if (os === 'ios' && browser === 'safari'
-      && typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
-    try {
-      await navigator.share({
-        url: window.location.href,
-        title: vendorName || document.title || 'App',
-      });
-      return 'share-sheet';
-    } catch (e) {
-      // AbortError = user tapped Cancel on the share sheet. Not an error
-      // from our POV; we simply stop here and DO NOT open the modal since
-      // the user made an explicit choice.
-      if (e && (e.name === 'AbortError' || String(e).includes('Abort'))) {
-        return 'share-cancelled';
-      }
-      return 'needs-modal';
-    }
-  }
-
+  // ── iOS Safari → fallback ALWAYS to the modal ──
+  // We used to call navigator.share() here to open the native Share Sheet
+  // which contains "Aggiungi alla schermata Home". Turned out to be
+  // confusing for real users: the Share Sheet defaults to a list of
+  // contacts/apps at the top, with "Aggiungi a Home" buried below the
+  // fold. Users tapped Share, saw the wrong screen, and gave up. Apple
+  // provides NO API to open the "Aggiungi a Home" panel directly (they
+  // block this on purpose for security). The best we can do is a
+  // beautiful step-by-step overlay that visually mimics the target
+  // screen and gives users the confidence to tap the small ↗︎ share icon
+  // at the bottom of Safari.
   // ── Everything else → let the caller open the informational modal ──
-  // (Samsung Internet, iOS Chrome/Firefox, Desktop, iOS < 12.2)
   return 'needs-modal';
 };
 
@@ -260,16 +248,72 @@ const AddToHomeDialog = ({ open, onClose, deferredPrompt, vendorName }) => {
             </>
           )}
 
-          {/* iOS — Safari shows Share menu, other browsers must redirect */}
+          {/* iOS Safari — visual guide with animated arrow pointing down to
+              the Safari toolbar Share button. Apple blocks any API to open
+              the "Aggiungi a Home" panel directly, so this is the best
+              possible UX: give the user step-by-step visual guidance so
+              they know EXACTLY where to tap next. */}
           {os === 'ios' && browser === 'safari' && (
-            <div className="rounded-2xl bg-gray-50 dark:bg-[#0a0a0b] border border-gray-100 dark:border-white/5 p-3">
-              <StepRow n="1" icon={<Share className="h-4 w-4 text-[#0a84ff]" />}>
-                Tocca il tasto <strong>Condividi</strong> in basso
-              </StepRow>
-              <StepRow n="2">
-                Scorri verso il basso e scegli <strong>"Aggiungi alla schermata Home"</strong>
-              </StepRow>
-              <StepRow n="3">Tocca <strong>Aggiungi</strong> in alto a destra</StepRow>
+            <div className="space-y-3">
+              {/* Preview card mimicking the target iOS "Aggiungi a Home" screen */}
+              <div className="rounded-2xl bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 p-3 relative overflow-hidden">
+                <div className="flex items-center justify-between mb-2 text-[10px] text-gray-500 dark:text-[#8a8a92]">
+                  <span className="font-semibold">Anteprima</span>
+                  <span>iOS &laquo; Aggiungi a Home &raquo;</span>
+                </div>
+                <div className="flex items-center gap-3 bg-white dark:bg-[#0a0a0b] rounded-xl p-3 border border-gray-200 dark:border-white/10">
+                  <div className="w-11 h-11 rounded-xl bg-gray-900 dark:bg-white/10 flex items-center justify-center shadow-md overflow-hidden ring-1 ring-black/5">
+                    <img src="/api/icon/current/192.png" onError={(e) => { e.currentTarget.style.display = 'none'; }} alt="" className="w-full h-full object-cover" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-bold text-sm text-gray-900 dark:text-white truncate">
+                      {vendorName || 'App'}
+                    </div>
+                    <div className="text-[11px] text-gray-500 dark:text-[#8a8a92] truncate">
+                      {typeof window !== 'undefined' ? window.location.hostname : ''}
+                    </div>
+                  </div>
+                  <div className="px-2.5 py-1 rounded-full bg-[#0a84ff] text-white text-[11px] font-semibold">
+                    Aggiungi
+                  </div>
+                </div>
+              </div>
+
+              {/* Step-by-step with more prominence + iOS Share icon glyph */}
+              <div className="rounded-2xl bg-gradient-to-b from-blue-50 to-white dark:from-blue-500/10 dark:to-transparent border border-blue-100 dark:border-blue-500/30 p-4 space-y-3">
+                <div className="flex items-start gap-3">
+                  <div className="shrink-0 w-8 h-8 rounded-full bg-[#0a84ff] text-white font-bold text-sm flex items-center justify-center">1</div>
+                  <div className="flex-1 text-[13px] text-gray-900 dark:text-white leading-tight pt-1">
+                    Tocca l&apos;icona <strong>Condividi</strong>
+                    <span className="inline-flex items-center justify-center w-6 h-6 mx-1 -my-0.5 align-middle rounded-md bg-[#0a84ff]/10 text-[#0a84ff]">
+                      <Share className="h-3.5 w-3.5" />
+                    </span>
+                    in basso.
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="shrink-0 w-8 h-8 rounded-full bg-[#0a84ff] text-white font-bold text-sm flex items-center justify-center">2</div>
+                  <div className="flex-1 text-[13px] text-gray-900 dark:text-white leading-tight pt-1">
+                    Scorri e tocca <strong>&laquo; Aggiungi alla schermata Home &raquo;</strong>.
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="shrink-0 w-8 h-8 rounded-full bg-[#0a84ff] text-white font-bold text-sm flex items-center justify-center">3</div>
+                  <div className="flex-1 text-[13px] text-gray-900 dark:text-white leading-tight pt-1">
+                    Tocca <strong>Aggiungi</strong> in alto a destra. Fatto!
+                  </div>
+                </div>
+              </div>
+
+              {/* Animated arrow pointing to Safari toolbar bottom */}
+              <div className="flex flex-col items-center py-2">
+                <p className="text-[11px] text-gray-500 dark:text-[#8a8a92] mb-1">
+                  Il tasto <strong>Condividi</strong> è qui sotto ↓
+                </p>
+                <div className="qrhub-arrow-bounce text-[#0a84ff] text-3xl leading-none">
+                  ↓
+                </div>
+              </div>
             </div>
           )}
 

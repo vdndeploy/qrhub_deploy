@@ -4,6 +4,36 @@
 
 ---
 
+## 2026-02-12 — HOT FIX P0 v2: Manifest icons vuoto + Add-to-Home visual guide iOS
+
+### Root cause del bug "app non appare in iPhone > Impostazioni > Notifiche"
+`GET /api/manifest/v/{vendor_id}` ritornava `icons: []` quando l'organizzazione non aveva `pwa_icon_url`/`logo_url` caricati (caso comune per org appena create). **iOS 16.4+ NON registra la PWA come app installata sotto Impostazioni > Notifiche se il manifest ha icons vuoto** — la tratta come bookmark Safari senza permessi push nativi. Da qui il bug "prima le vedevo, ora no".
+
+### Fix backend (`server.py` linee 3717-3757)
+- Manifest ora ha SEMPRE 4 icone valide: 192px + 512px × 2 purposes (any + maskable). Fallback su `/api/icon/v/{id}/{size}.png` (endpoint backend che genera un PNG di ripiego con brand-color se manca logo).
+- Path `/api/icon/v/{id}/{size}.png` restituisce sempre un PNG valido (Pillow fallback su solid brand-color square).
+
+### Fix frontend UX iOS "+" button (target screen impossibile via API)
+`web_search` ha confermato: **Apple blocca esplicitamente qualunque API per aprire la schermata "Aggiungi a Home"** — nemmeno WhatsApp/Instagram possono farlo. La strategia con `navigator.share()` era fuorviante (Share Sheet iOS mostra contatti/AirDrop prima di "Aggiungi a Home" nella actions list).
+- **`AddToHomeDialog.js`**: rimossa scorciatoia `navigator.share()`. Ora "+" apre SEMPRE il modal con:
+  - Preview card che mimica lo screen target iOS (icona 44px, nome vendor, dominio, badge blu "Aggiungi")
+  - 3 step numerati con icona Share iOS a corredo
+  - Freccia animata `qrhub-arrow-bounce` (2Hz) che punta al basso indicando la Safari toolbar
+- **`VendorLanding.css`**: nuovo keyframe `.qrhub-arrow-bounce` con `prefers-reduced-motion` rispettato.
+
+### Deploy
+- Fly.io: ✅ exit 0 in 44s. `https://qrhub.fly.dev/api/manifest/v/{id}` conferma 4 icone live.
+- Frontend: attende **Save-to-Git → Vercel** per andare live.
+
+### Cosa provare domani nei negozi (test 1 iPhone + 1 Android)
+1. Scansiona QR → landing carica + bottone "+" pulsa
+2. Tap "+" → modal si apre con anteprima "Aggiungi a Home", 3 step chiari + freccia animata verso il basso
+3. Cliente segue: Condividi → Aggiungi a Home → Aggiungi → app in Home Screen ✅
+4. Apri app dalla Home → overlay "Attiva le notifiche" a 400ms → tap "Sì, attiva ora" → iOS chiede permesso → conceci
+5. App ora appare in **iPhone > Impostazioni > Notifiche > [Nome App]** ✅
+
+
+
 ## 2026-02-12 — HOT FIX P0: iOS PWA auto-prompt notifications rotto → sostituito con overlay gesture-based
 
 - **Root cause del bug utente "iOS non chiede più permesso + app non appare in Impostazioni > Notifiche"**:

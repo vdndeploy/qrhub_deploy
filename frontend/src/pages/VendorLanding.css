@@ -107,6 +107,15 @@ body.qrhub-pwa-standalone #install-banner{padding-top:calc(16px + env(safe-area-
 @media (prefers-reduced-motion: reduce){
   .qrhub-install-pulse,.qrhub-install-pulse::after{animation:none}
 }
+
+/* Bouncing arrow used in AddToHomeDialog iOS Safari section to visually
+ * point to the Safari Share button in the browser toolbar below. */
+@keyframes qrhub-arrow-bounce{
+  0%,100%{transform:translateY(0);opacity:.7}
+  50%{transform:translateY(10px);opacity:1}
+}
+.qrhub-arrow-bounce{animation:qrhub-arrow-bounce 1.2s ease-in-out infinite;font-weight:900}
+@media (prefers-reduced-motion: reduce){.qrhub-arrow-bounce{animation:none}}
 .hero{max-width:480px;margin:0 auto;padding:40px 20px;text-align:center;background:linear-gradient(135deg,var(--brand-color) 0%,var(--brand-color-soft) 100%);position:relative}
 .hero::before{content:'';position:absolute;top:0;left:0;right:0;height:100%;background:radial-gradient(circle at 50% 0%,rgba(255,255,255,.1) 0%,transparent 70%);pointer-events:none}
 .hero>*{position:relative;z-index:1}

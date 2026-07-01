@@ -3734,17 +3734,30 @@ async def vendor_manifest(vendor_id: str, request: Request):
         'categories': ['business', 'productivity'],
         'background_color': '#ffffff',
         'theme_color': org.get('primary_color') or '#F96815',
-        'icons': [],
+        # ALWAYS provide icons even when the org hasn't uploaded a logo:
+        # /api/icon/v/{id}/{size}.png falls back to a solid brand-color
+        # square. iOS/Android will NOT register the PWA properly (no
+        # entry under Impostazioni > Notifiche, generic globe icon on
+        # Home) if the manifest icons array is empty — this was the
+        # regression reported by real users going live in-store.
+        'icons': [
+            {'src': f"{base}/api/icon/v/{vendor['id']}/192.png",
+             'sizes': '192x192', 'type': 'image/png', 'purpose': 'any'},
+            {'src': f"{base}/api/icon/v/{vendor['id']}/512.png",
+             'sizes': '512x512', 'type': 'image/png', 'purpose': 'any'},
+            {'src': f"{base}/api/icon/v/{vendor['id']}/192.png",
+             'sizes': '192x192', 'type': 'image/png', 'purpose': 'maskable'},
+            {'src': f"{base}/api/icon/v/{vendor['id']}/512.png",
+             'sizes': '512x512', 'type': 'image/png', 'purpose': 'maskable'},
+        ],
         # `prefer_related_applications: false` is an explicit signal to
         # Chrome that there is NO native app for this site and the WebAPK
         # is the canonical install target.
         'prefer_related_applications': False,
     }
     if icon_url:
-        # Modern Chrome WebAPK requires BOTH 192 + 512 at purpose=any AND
-        # at least one maskable (Android 14+ adaptive icon shape). Without
-        # the 192 maskable some Samsung skins fall back to the rounded
-        # generic globe icon.
+        # Use direct Cloudinary URLs when the org has uploaded a real logo
+        # — smaller payload than proxying through the backend icon endpoint.
         manifest['icons'] = [
             {'src': _cloudinary_resize(icon_url, 192), 'sizes': '192x192',
              'type': 'image/png', 'purpose': 'any'},

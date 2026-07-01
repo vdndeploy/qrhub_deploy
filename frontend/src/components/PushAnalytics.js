@@ -119,7 +119,8 @@ const PushAnalytics = () => {
   // collection has any heartbeat rows. Missing/absent when the tenant
   // has not deployed the heartbeat yet, so we default gracefully.
   const installs = data.installs || {
-    active_30d: 0, active_7d: 0, total_ever: 0, silenced_30d: 0,
+    active_30d: 0, active_7d: 0, total_ever: 0,
+    silenced_30d: 0, silenced_7d: 0,
     by_os: { ios: 0, android: 0, other: 0 },
   };
   const hasAnyActivity = (subscribers.total + totals.broadcasts + totals.sent) > 0;
@@ -215,11 +216,12 @@ const PushAnalytics = () => {
         </div>
       )}
 
-      {/* Installazioni PWA — sub-cruscotto affiancato ai KPI push. Rende
-          esplicito l'imbuto:
-             installazioni attive (30gg) → di cui push attive → CTR
-          Un utente che disinstalla o disattiva le notifiche esce dai
-          contatori "attive" grazie all'heartbeat + auto-cleanup 410 Gone. */}
+      {/* Installazioni PWA — sub-cruscotto affiancato ai KPI push. La
+          finestra primaria è 7gg (matches business rhythm settimanale):
+          un utente che disinstalla o disattiva le notifiche esce dai
+          contatori nell'arco di 1 settimana, non 30gg. La finestra 30gg
+          resta come metrica secondaria per il conteggio "iscritti attivi
+          nel mese" utile per report periodici. */}
       <div className="rounded-2xl border border-gray-200 dark:border-white/10 bg-gray-50/60 dark:bg-white/[0.02] p-3 sm:p-4" data-testid="push-analytics-installs">
         <div className="flex items-center justify-between gap-3 mb-2.5">
           <h4 className="text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-[#6a6a72] flex items-center gap-1.5">
@@ -227,19 +229,19 @@ const PushAnalytics = () => {
             Installazioni PWA attive
           </h4>
           <span className="text-[10px] text-gray-400 dark:text-[#6a6a72] font-semibold">
-            {installs.total_ever} totali all-time
+            {installs.total_ever} totali · {installs.active_30d} nel mese
           </span>
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-          <div className="rounded-xl bg-white dark:bg-white/[0.02] border border-gray-200 dark:border-white/10 px-3 py-2.5">
-            <p className="text-[10px] uppercase tracking-widest font-semibold text-gray-500 dark:text-[#6a6a72]">Attive 30g</p>
-            <p className="text-2xl font-black tracking-tight text-gray-900 dark:text-white tabular-nums" data-testid="installs-active-30d">
-              {installs.active_30d}
+          {/* Attive 7g — KPI PRIMARIO. Riflette la realtà osservata dal
+              negoziante nella sua giornata tipo: chi ha aperto l'app
+              questa settimana è "vivo". */}
+          <div className="rounded-xl bg-white dark:bg-white/[0.02] border-2 border-emerald-300 dark:border-emerald-500/40 px-3 py-2.5 shadow-sm">
+            <p className="text-[10px] uppercase tracking-widest font-semibold text-emerald-700 dark:text-emerald-300 flex items-center gap-1">
+              <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              Attive settimana
             </p>
-          </div>
-          <div className="rounded-xl bg-white dark:bg-white/[0.02] border border-gray-200 dark:border-white/10 px-3 py-2.5">
-            <p className="text-[10px] uppercase tracking-widest font-semibold text-gray-500 dark:text-[#6a6a72]">Attive 7g</p>
-            <p className="text-2xl font-black tracking-tight text-gray-900 dark:text-white tabular-nums">
+            <p className="text-2xl font-black tracking-tight text-gray-900 dark:text-white tabular-nums" data-testid="installs-active-7d">
               {installs.active_7d}
             </p>
           </div>
@@ -261,17 +263,22 @@ const PushAnalytics = () => {
               {installs.by_os?.android || 0}
             </p>
           </div>
+          <div className="rounded-xl bg-white dark:bg-white/[0.02] border border-gray-200 dark:border-white/10 px-3 py-2.5">
+            <p className="text-[10px] uppercase tracking-widest font-semibold text-gray-500 dark:text-[#6a6a72]">Attive 30g</p>
+            <p className="text-2xl font-black tracking-tight text-gray-900 dark:text-white tabular-nums" data-testid="installs-active-30d">
+              {installs.active_30d}
+            </p>
+          </div>
         </div>
-        {/* "Silenziate" callout: solo se >0. È il canary del churn — se il
-            numero cresce nel tempo significa che i clienti stanno mutando
-            le notifiche invece di disinstallare. Segnale per rallentare
-            la frequenza dei broadcast. */}
-        {installs.silenced_30d > 0 && (
+        {/* Silenced allineato alla finestra primaria 7g. Se >0 significa
+            che nell'ultima settimana N utenti hanno l'app installata MA
+            hanno chiuso le notifiche — segnale precoce di push-fatigue. */}
+        {installs.silenced_7d > 0 && (
           <div className="mt-2.5 flex items-center gap-2 text-[11px] text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/25 rounded-lg px-2.5 py-1.5" data-testid="installs-silenced-callout">
             <BellOff className="h-3.5 w-3.5 shrink-0" />
             <span>
-              <strong className="font-bold">{installs.silenced_30d}</strong>
-              &nbsp;installaz. con notifiche disattivate — rallenta la frequenza push per non perderle.
+              <strong className="font-bold">{installs.silenced_7d}</strong>
+              &nbsp;installaz. con notifiche disattivate questa settimana — rallenta la frequenza push per non perderle.
             </span>
           </div>
         )}

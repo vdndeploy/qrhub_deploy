@@ -582,13 +582,26 @@ def attach_routes(db, get_current_user_dep):
                     {'$match': {'last_seen_at': {'$gte': active_7d_iso}}},
                     {'$count': 'n'},
                 ],
+                'by_os_7d': [
+                    {'$match': {'last_seen_at': {'$gte': active_7d_iso}}},
+                    {'$group': {'_id': '$os', 'n': {'$sum': 1}}},
+                ],
                 'by_os_30d': [
                     {'$match': {'last_seen_at': {'$gte': active_30d_iso}}},
                     {'$group': {'_id': '$os', 'n': {'$sum': 1}}},
                 ],
-                # "Installato ma notifiche off" = permission != 'granted' fra
-                # gli attivi 30d. Ci aiuta a capire il collo di bottiglia
-                # (installazioni ok, ma il canale push è chiuso).
+                # "Installato ma notifiche off" allineato alla stessa
+                # finestra dell'active primario (7gg). Un utente che
+                # disinstalla o disattiva le notifiche esce automaticamente
+                # entro la settimana → dashboard sempre allineato con la
+                # realtà osservata dal negoziante.
+                'silenced_7d': [
+                    {'$match': {
+                        'last_seen_at': {'$gte': active_7d_iso},
+                        'notification_permission': {'$ne': 'granted'},
+                    }},
+                    {'$count': 'n'},
+                ],
                 'silenced_30d': [
                     {'$match': {
                         'last_seen_at': {'$gte': active_30d_iso},
@@ -603,7 +616,11 @@ def attach_routes(db, get_current_user_dep):
         def _pick(k):
             arr = d.get(k, [])
             return arr[0]['n'] if arr and 'n' in arr[0] else 0
-        by_os = {r['_id'] or 'other': r['n'] for r in d.get('by_os_30d', [])}
+        # by_os è pilotato dalla finestra primaria (7gg) → i tile "iOS" /
+        # "Android" mostrano SOLO i device visti negli ultimi 7 giorni,
+        # in linea con l'obiettivo del negoziante di vedere in tempo
+        # quasi-reale chi è realmente installato.
+        by_os = {r['_id'] or 'other': r['n'] for r in d.get('by_os_7d', [])}
 
         return {
             'period': period,
@@ -617,6 +634,7 @@ def attach_routes(db, get_current_user_dep):
                 'active_7d': _pick('active_7d'),
                 'total_ever': _pick('total'),
                 'silenced_30d': _pick('silenced_30d'),
+                'silenced_7d': _pick('silenced_7d'),
                 'by_os': {
                     'ios':     by_os.get('ios', 0),
                     'android': by_os.get('android', 0),

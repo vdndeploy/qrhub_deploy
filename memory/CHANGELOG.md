@@ -4,6 +4,32 @@
 
 ---
 
+## 2026-02-12 — Reduce install window 30gg → 7gg + cleanup dati stale
+
+### Analisi dati reali VDN
+- **7 device installati** oggi, tutti iOS, tutti `notification_permission=granted` — sotto org VENTO DEL NORD SRL. Corrispondono a Danu + Tommaso + Alessandro + Nicola (con eventuali multi-install cross-vendor: ogni landing vendor ha localStorage separato = nuovo device_id).
+- 1 device **desktop=denied** identificato come **residuo test** (nessun cliente reale installa PWA da desktop per negozio fisico) → cancellato.
+
+### Backend `routers/push.py`
+- Aggiunte metriche `active_7d`, `silenced_7d`, `by_os_7d` all'aggregate `$facet`.
+- Response include ora `installs: {active_7d, active_30d, total_ever, silenced_7d, silenced_30d, by_os}`.
+- `by_os` (usato dai tile iOS/Android UI) ora deriva dalla finestra **7gg** invece che 30gg — riflette la realtà "chi ha aperto l'app questa settimana".
+
+### Frontend `PushAnalytics.js`
+- Riorganizzati i 4 KPI tile: **"Attive settimana"** ora è il primo (bordo verde animato + puntino pulsante) → identità visiva PRIMARIA. iOS/Android breakdown al centro. "Attive 30g" spostato come secondario (mensile).
+- Header meta line: "N totali · M nel mese" (era "N totali all-time").
+- Callout "silenziate" ora usa `silenced_7d` (allineato alla finestra primaria) — se >0 significa che nell'ultima settimana N utenti hanno l'app installata ma push OFF → early warning di push-fatigue.
+
+### Deploy
+- Fly.io: ✅ exit 0. Prod live su `qrhub.fly.dev` con schema nuovo.
+- Frontend: **Save-to-Git → Vercel** per ricevere il nuovo layout tile.
+
+### Detection uninstall ora ~7gg (era 30gg)
+- Tommaso disinstallato oggi → per 7gg conterà ancora come "Attive settimana", poi cadrà automaticamente.
+- Per zero-latency uninstall detection servirebbe push-nativo iOS (non disponibile). 7gg è il best-effort accettabile per un business di prossimità.
+
+
+
 ## 2026-02-12 — HOT FIX P0 v3: PWA heartbeat refresh su subscribe + coerenza modal iOS
 
 ### Bug 1: "Notifiche disattivate" anche quando attive

@@ -4,6 +4,27 @@
 
 ---
 
+## 2026-02-12 — HOT FIX P0: iOS PWA auto-prompt notifications rotto → sostituito con overlay gesture-based
+
+- **Root cause del bug utente "iOS non chiede più permesso + app non appare in Impostazioni > Notifiche"**:
+  - Il precedente `setTimeout(() => Notification.requestPermission(), 800)` viene **silenziosamente ignorato da iOS Safari** — Apple richiede che `requestPermission()` sia invocato dentro un vero user-gesture (click/tap). Chiamata da setTimeout = call non-gesture = OS dialog non appare = utente resta in `permission==='default'` e vede pulsanti confusi.
+  - iOS NON registra la PWA sotto Impostazioni > Notifiche fintanto che il permesso non è stato concesso almeno una volta → l'app "scompare" dalle impostazioni finché non si reinstalla.
+- **Fix `PushSubscribe.js`**:
+  - Rimosso setTimeout auto-prompt.
+  - Aggiunto **overlay full-screen** `data-testid="push-auto-overlay"` che compare a 400ms dall'apertura in standalone (mantiene il feel "automatico"). Contiene icona brand-colored, titolo "Attiva le notifiche", copy vendor-name, 2 pulsanti: "Sì, attiva ora" (large brand) e "Non ora" (secondary).
+  - Tap su "Sì, attiva ora" → dentro user-gesture → `requestPermission()` mostra realmente la OS dialog su iOS + Android.
+  - Dedup localStorage `qrhub_push_overlay_dismissed_{vendorId}` → overlay compare 1 sola volta per installazione, evita harassment.
+  - Copiata classe `qrhub-install-pulse` sul CTA principale "Ricevi le offerte" per coerenza visiva.
+- **Fix `HelpDialog` copy iOS denied**: le istruzioni precedenti dicevano "vai in Impostazioni > Notifiche > scegli l'app" — SBAGLIATO su iOS quando permesso è denied (l'app non appare). Riscritto con la VERA procedura recovery iOS:
+  1. Tieni premuto icona in Home → Rimuovi app → Elimina app
+  2. Riscansiona QR
+  3. Reinstalla (+ o Aggiungi a Home)
+  4. Alla prima apertura tocca "Sì, attiva ora"
+  + callout esplicativo del perché iOS nasconde l'app dalle impostazioni.
+- **Backend**: nessuna modifica → **nessun deploy Fly**. Solo frontend via user Save-to-Git → Vercel.
+
+
+
 ## 2026-02-12 — Feature: PWA Install Analytics + Uninstall/Silenced detection via heartbeat
 
 - **Backend** (`routers/push.py`):

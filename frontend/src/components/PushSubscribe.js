@@ -200,22 +200,22 @@ export const PushSubscribe = ({ vendorId, brandColor = '#F96815', vendorName, va
     }
   };
 
-  // ── Auto-prompt push permission on standalone PWA open ──────────────
-  // When the user launches the installed app from the Home icon (both iOS
-  // and Android render `display-mode: standalone`), we surface the OS
-  // permission dialog automatically after a short debounce. Requirements:
-  //   • autoPromptOnStandalone must be explicitly opted-in by the parent
-  //     (we set it on the CTA variant only, NOT on header-bell — nothing
-  //     to auto-prompt if the user is already subscribed)
-  //   • Permission must be 'default' (never asked). If it's 'denied' we
-  //     don't harass; if it's 'granted' we're already good.
-  //   • User must not be subscribed yet — sibling components share state
-  //     via the 'qrhub:push-state-changed' event.
-  //   • Vendor id must be loaded so the subscription can be persisted.
-  //   • On iOS Safari pre-standalone the browser doesn't grant push at all
-  //     — but Web scan mode already renders `iosLocked=true` so we skip
-  //     the auto-prompt there implicitly.
-  //   • fires ONCE per session (autoPromptFiredRef guard).
+  // Overlay auto-shown on PWA standalone open. iOS Safari REQUIRES that
+  // Notification.requestPermission() originates from a genuine user
+  // gesture — a setTimeout-based call is silently ignored by Safari,
+  // which is exactly why the previous auto-prompt implementation stopped
+  // working ("iOS non chiede più il permesso e l'app non appare in
+  // Impostazioni > Notifiche"). By showing a full-screen "Attiva
+  // notifiche" prompt that requires 1 tap, we satisfy iOS's gesture
+  // requirement AND keep the flow feeling automatic (< 1s after launch).
+  const [autoOverlayOpen, setAutoOverlayOpen] = useState(false);
+
+  // ── Auto-open the overlay on PWA standalone open ────────────────────
+  // Fires ONCE per install by persisting a flag in localStorage so a
+  // returning customer doesn't see the overlay every single time they
+  // open the app. If they dismiss without granting, we still keep the
+  // flag so we don't harass them — the pulsing "Ricevi le offerte"
+  // button remains available in the body as a secondary CTA.
   useEffect(() => {
     if (!autoPromptOnStandalone) return;
     if (!capable) return;
@@ -223,21 +223,46 @@ export const PushSubscribe = ({ vendorId, brandColor = '#F96815', vendorName, va
     if (subscribed) return;
     if (!vendorId) return;
     if (permission !== 'default') return;
-    // Explicit standalone check — must NOT auto-prompt during web scan.
     const isStandalone = window.navigator.standalone === true
       || window.matchMedia('(display-mode: standalone)').matches;
     if (!isStandalone) return;
+    // Per-install dedup: never show the overlay twice for the same
+    // installation. Value is scoped by vendor so a customer who installs
+    // multiple vendor PWAs sees the overlay once per vendor.
+    let dismissedKey = null;
+    try {
+      dismissedKey = `qrhub_push_overlay_dismissed_${vendorId}`;
+      if (localStorage.getItem(dismissedKey)) return;
+    } catch { /* private mode → show anyway */ }
     autoPromptFiredRef.current = true;
-    // Short delay lets the app paint the first frame — users see the
-    // brand identity BEFORE the OS dialog steals focus.
-    const timer = setTimeout(() => { handleSubscribe(); }, 800);
+    // 400ms so the app can paint its first frame — customer sees the
+    // vendor brand BEFORE the overlay slides in.
+    const timer = setTimeout(() => { setAutoOverlayOpen(true); }, 400);
     return () => clearTimeout(timer);
-    // `handleSubscribe` is intentionally not in the dep list: it's
-    // re-created every render, and the `autoPromptFiredRef` guard already
-    // ensures we only invoke it once. Adding it would cause the effect
-    // to churn on every render (harmless due to the guard, but noisy).
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoPromptOnStandalone, capable, subscribed, vendorId, permission]);
+
+  // Persist the "dismissed" flag so we don't re-open the overlay every
+  // single time the user relaunches the PWA. Fires from both the "Attiva"
+  // (after grant/deny) and the small "Non ora" button.
+  const persistOverlayDismissed = () => {
+    if (!vendorId) return;
+    try { localStorage.setItem(`qrhub_push_overlay_dismissed_${vendorId}`, '1'); } catch { /* private mode */ }
+  };
+
+  const handleAutoOverlayAccept = async () => {
+    // Called from within the button click — genuine user gesture, so
+    // Notification.requestPermission() actually shows the OS dialog on
+    // iOS. Piggy-backs on the shared handleSubscribe path so the scope
+    // prompt + persistence logic stays DRY.
+    setAutoOverlayOpen(false);
+    persistOverlayDismissed();
+    await handleSubscribe();
+  };
+
+  const handleAutoOverlayDismiss = () => {
+    setAutoOverlayOpen(false);
+    persistOverlayDismissed();
+  };
 
   if (!capable && !iosLocked) return null;
 
@@ -386,13 +411,68 @@ export const PushSubscribe = ({ vendorId, brandColor = '#F96815', vendorName, va
         type="button"
         onClick={handleSubscribe}
         disabled={loading}
-        className="inline-flex items-center justify-center gap-2 w-full rounded-full px-5 py-3 text-white text-[13px] font-bold uppercase tracking-wide shadow-[0_12px_28px_-10px_rgba(0,0,0,0.4)] ring-1 ring-black/5 hover:brightness-110 active:scale-[0.97] transition-all"
+        className="qrhub-install-pulse inline-flex items-center justify-center gap-2 w-full rounded-full px-5 py-3 text-white text-[13px] font-bold uppercase tracking-wide shadow-[0_12px_28px_-10px_rgba(0,0,0,0.4)] ring-1 ring-black/5 hover:brightness-110 active:scale-[0.97] transition-all"
         style={{ backgroundColor: brandColor }}
         data-testid="push-subscribe-btn"
       >
         {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Bell className="h-4 w-4" />}
         Ricevi le offerte
       </button>
+
+      {/* Auto-shown overlay when the customer opens the PWA in standalone.
+          iOS Safari requires Notification.requestPermission() to be
+          invoked from a user gesture — the OS dialog is SILENTLY IGNORED
+          when the call comes from setTimeout. So we surface a full-screen
+          "Attiva notifiche" sheet that turns the OS prompt into a 1-tap
+          affair while still feeling automatic (<500ms after launch). */}
+      {autoOverlayOpen && (
+        <div
+          className="fixed inset-0 z-[65] bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-4"
+          onClick={handleAutoOverlayDismiss}
+          data-testid="push-auto-overlay"
+        >
+          <div
+            className="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl animate-in slide-in-from-bottom-8 duration-300"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-center mb-4">
+              <div
+                className="w-16 h-16 rounded-full flex items-center justify-center shadow-lg"
+                style={{ backgroundColor: brandColor }}
+              >
+                <BellRing className="h-8 w-8 text-white" />
+              </div>
+            </div>
+            <h3 className="text-center font-black text-gray-900 text-xl mb-2">
+              Attiva le notifiche
+            </h3>
+            <p className="text-center text-[14px] text-gray-600 leading-relaxed mb-5">
+              Ricevi in tempo reale le offerte e le novità
+              {vendorName ? ` di ${vendorName}` : ''}. Puoi disattivarle in qualsiasi momento.
+            </p>
+            <div className="space-y-2">
+              <button
+                type="button"
+                onClick={handleAutoOverlayAccept}
+                disabled={loading}
+                className="w-full rounded-full py-3.5 text-white text-[14px] font-bold uppercase tracking-wide shadow-lg active:scale-[0.98] transition-all disabled:opacity-60"
+                style={{ backgroundColor: brandColor }}
+                data-testid="push-auto-overlay-accept"
+              >
+                {loading ? <Loader2 className="h-4 w-4 animate-spin mx-auto" /> : 'Sì, attiva ora'}
+              </button>
+              <button
+                type="button"
+                onClick={handleAutoOverlayDismiss}
+                className="w-full rounded-full py-2.5 text-gray-500 text-[13px] font-semibold hover:bg-gray-50 transition-colors"
+                data-testid="push-auto-overlay-dismiss"
+              >
+                Non ora
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {scopePromptOpen && (
         <div
@@ -506,30 +586,74 @@ const HelpDialog = ({ open, onClose, ios, permission }) => {
         </div>
 
         {ios ? (
-          <div className="space-y-3 text-[13px] text-gray-700 leading-relaxed">
-            <p>
-              Per ricevere le offerte sul tuo <strong>iPhone</strong>, segui questi passaggi:
-            </p>
-            <ol className="space-y-2 list-decimal pl-5">
-              <li>
-                Apri <strong>Impostazioni</strong> di iPhone
-              </li>
-              <li>
-                Scorri fino a trovare <strong>Notifiche</strong> &gt; scegli l&apos;app salvata sulla
-                Home (es. il nome del tuo brand)
-              </li>
-              <li>
-                Attiva <strong>Consenti notifiche</strong>
-              </li>
-              <li>
-                Torna qui e premi di nuovo <strong>Ricevi le offerte</strong>
-              </li>
-            </ol>
-            <div className="rounded-xl bg-amber-50 border border-amber-200 p-3 text-[12px] text-amber-900">
-              <strong>Importante:</strong> le notifiche su iPhone funzionano solo se hai aggiunto
-              l&apos;app alla schermata <strong>Home</strong> (Condividi → Aggiungi a Home).
+          permission === 'denied' ? (
+            // iOS + permesso già negato = UNICO fix reale è disinstallare
+            // e reinstallare la PWA. Apple non espone alcun modo di
+            // resettare da JS né da Impostazioni fino a quando il permesso
+            // non è stato concesso almeno una volta — motivo per cui
+            // l'app NON appare in Impostazioni > Notifiche.
+            <div className="space-y-3 text-[13px] text-gray-700 leading-relaxed">
+              <p>
+                Hai bloccato le notifiche in precedenza. Su iPhone <strong>l&apos;unica
+                via</strong> per riattivarle è <strong>rimuovere l&apos;app dalla Home e
+                reinstallarla</strong>:
+              </p>
+              <ol className="space-y-2 list-decimal pl-5">
+                <li>
+                  Torna alla <strong>schermata Home</strong> del tuo iPhone.
+                </li>
+                <li>
+                  Tieni premuto sull&apos;icona di questa app finché non
+                  compare il menu → tocca <strong>Rimuovi app</strong> →
+                  <strong> Elimina app</strong>.
+                </li>
+                <li>
+                  Riapri la fotocamera e <strong>scansiona di nuovo il QR</strong>.
+                </li>
+                <li>
+                  Tocca il pulsante <strong>+</strong> in alto o
+                  &laquo;Aggiungi a Home&raquo; per reinstallare.
+                </li>
+                <li>
+                  Alla prima apertura tocca <strong>Sì, attiva ora</strong>.
+                </li>
+              </ol>
+              <div className="rounded-xl bg-amber-50 border border-amber-200 p-3 text-[12px] text-amber-900">
+                <strong>Perché non trovi l&apos;app in Impostazioni &gt; Notifiche?</strong> iOS
+                registra l&apos;app tra le notifiche solo dopo che hai concesso
+                il permesso almeno una volta. Prima di questo passaggio,
+                l&apos;app non compare — è un comportamento di Apple.
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="space-y-3 text-[13px] text-gray-700 leading-relaxed">
+              <p>
+                Per ricevere le offerte sul tuo <strong>iPhone</strong>:
+              </p>
+              <ol className="space-y-2 list-decimal pl-5">
+                <li>
+                  Aggiungi prima l&apos;app alla schermata <strong>Home</strong>
+                  (tocca il pulsante <strong>+</strong> in alto o
+                  &laquo;Condividi &rarr; Aggiungi a Home&raquo;).
+                </li>
+                <li>
+                  Apri l&apos;app dalla Home (non da Safari).
+                </li>
+                <li>
+                  Quando compare la scheda &laquo;Attiva le notifiche&raquo;,
+                  tocca <strong>Sì, attiva ora</strong>.
+                </li>
+                <li>
+                  Concedi il permesso quando iPhone chiede &laquo;Consenti
+                  notifiche?&raquo;.
+                </li>
+              </ol>
+              <div className="rounded-xl bg-amber-50 border border-amber-200 p-3 text-[12px] text-amber-900">
+                <strong>Importante:</strong> le notifiche su iPhone funzionano solo se
+                apri l&apos;app dalla schermata <strong>Home</strong>, non dal browser Safari.
+              </div>
+            </div>
+          )
         ) : (
           <div className="space-y-3 text-[13px] text-gray-700 leading-relaxed">
             <p>

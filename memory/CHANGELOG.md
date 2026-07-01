@@ -4,6 +4,20 @@
 
 ---
 
+## 2026-02-12 — Fix mobile UX Push Analytics + period filter + Reviews mobile-first
+
+- **Backend** (`routers/push.py`): `GET /api/push/analytics` ora accetta `?period=today|yesterday|7d|30d|month|all` (default `all`, backward compat). Il filtro si applica solo a broadcast-level (totals + recent_broadcasts), NON ai subscribers count (che è uno snapshot live). Response echoes `period` field.
+- **Frontend `PushAnalytics.js`**:
+  - Header refattorizzato mobile-first: su mobile titolo sopra + controlli (period select + Reset + Storico) sotto in larghezza piena → risolto overflow oltre il margine card.
+  - Aggiunto `<Select>` shadcn con 6 opzioni (Oggi / Ieri / 7g / 30g / Mese / Sempre), `data-testid='push-period-select'`.
+  - Tabella "Ultime notifiche inviate" trasformata in card stack su mobile (fix clip colonna 'Cli'), tabella su sm+.
+- **Frontend `AnalyticsResetButton.js`**: nuovo prop `mobileFullWidth` che espande i chip Reset/Storico a `flex-1 sm:flex-none` su mobile con `truncate` sul label — fix definitivo del bug overflow segnalato dall'utente.
+- **Frontend `AnalyticsDetailed.js`**: `ReviewsAnalyticsSection` è ora dual-view — `<ul>` card stack su mobile (nome+slug, click count 2xl ambra, tiles Landing/Vendor, progress bar quota) e `<table>` classica su sm+ (`hidden sm:block` / `sm:hidden`).
+- **Testing**: testing_agent_v3_fork iter_26 → 17/17 backend pytest live (auth gate, echo period per 6 valori, default=all, subscribers invariant, window-bound totals) + frontend 100% (mobile 375x812 no overflow scrollW=clientW=349, period selector re-fetch verificato via network, reviews card stack renderizza correttamente, desktop 1440 torna a colonna+table).
+- **Deploy**: Fly.io deploy — primo tentativo fallito per errore transitorio Fly (`internal: process not found` su release_command VM), secondo tentativo OK. `qrhub.fly.dev` conferma nuovo schema con `period` echoed.
+
+
+
 ## 2026-02-12 — Feature: Reviews Analytics dashboard (Google review click-through per-store)
 
 - **Backend**: nuovo endpoint `GET /api/analytics/reviews?period=today|yesterday|7d|30d|month|all` (`routers/analytics.py` linee ~776-905).

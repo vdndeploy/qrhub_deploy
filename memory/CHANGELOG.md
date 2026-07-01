@@ -4,6 +4,29 @@
 
 ---
 
+## 2026-02-12 — HOT FIX P0 v3: PWA heartbeat refresh su subscribe + coerenza modal iOS
+
+### Bug 1: "Notifiche disattivate" anche quando attive
+- **Root cause**: `usePWAHeartbeat.js` NON ascoltava l'evento `qrhub:push-state-changed` dispatched da PushSubscribe dopo subscribe/unsubscribe. Su iOS Safari il `permissions.query onchange` non fira → il DB `pwa_devices` restava con la vecchia permission → callout amber "installazioni con notifiche disattivate" restava lit.
+- **Fix**: aggiunto listener `window.addEventListener('qrhub:push-state-changed', sendHeartbeat)` con relativo cleanup su unmount. Il heartbeat ora rifire con la nuova `Notification.permission` immediatamente dopo grant/deny. Test E2E confermato: install (default) → attiva (granted) → DB refreshato → callout scompare.
+
+### Bug 2: Pulsante centrale "aggiungi a home per attivarle" apre UI diversa dal "+"
+- **Root cause**: iosLocked branch di PushSubscribe apriva `HelpDialog` (istruzioni testuali) mentre "+" apriva `AddToHomeDialog` (preview iOS + freccia animata). Mancava coerenza visiva.
+- **Fix**: 
+  - Rimosso il vecchio `tryNativeInstall`+`navigator.share` (fuorviante).
+  - Aggiunto prop `onRequestInstall` a `PushSubscribe`.
+  - VendorLanding passa `onRequestInstall={() => setAddToHomeOpen(true)}` → il pulsante centrale ora apre lo STESSO modal di "+".
+  - `HelpDialog` resta come guard di sicurezza per il caso in cui parent non passa la callback.
+
+### Flusso ora consistente
+1. Tap "+" in alto → AddToHomeDialog con preview + freccia
+2. Tap "Notifiche offerte (aggiungi a Home)" sotto annunci → **stesso** AddToHomeDialog
+3. Post-install: apri app → overlay "Attiva notifiche" → tap "Sì attiva ora" → grant → `qrhub:push-state-changed` fires → heartbeat rifire con `notification_permission=granted` → contatore silenced_30d si aggiorna real-time.
+
+### Solo frontend → **nessun deploy Fly necessario**. Save-to-Git → Vercel.
+
+
+
 ## 2026-02-12 — HOT FIX P0 v2: Manifest icons vuoto + Add-to-Home visual guide iOS
 
 ### Root cause del bug "app non appare in iPhone > Impostazioni > Notifiche"

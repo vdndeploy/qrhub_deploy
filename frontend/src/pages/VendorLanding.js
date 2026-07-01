@@ -855,6 +855,7 @@ const VendorLanding = () => {
             vendorName={vendor.name}
             brandColor={vendor.organization?.primary_color || '#F96815'}
             autoPromptOnStandalone
+            onRequestInstall={() => setAddToHomeOpen(true)}
           />
         </div>
       </div>

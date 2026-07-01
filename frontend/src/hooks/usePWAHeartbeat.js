@@ -115,6 +115,18 @@ export const usePWAHeartbeat = (vendorId) => {
         .catch(() => { /* older browsers — silently skip */ });
     }
 
+    // ── Explicit sync trigger from PushSubscribe.js ────────────────────
+    // Safari does NOT fire `permissions.query` onchange when the user
+    // grants/denies via Notification.requestPermission() — so we ALSO
+    // listen to our internal 'qrhub:push-state-changed' event which
+    // PushSubscribe dispatches after every subscribe / unsubscribe.
+    // Without this, the pwa_devices row keeps the stale permission and
+    // the "installazioni con notifiche disattivate" callout stays lit
+    // even after the user activates. Root cause of the "notifiche
+    // dice disattivate anche se attive" bug.
+    const onPushStateChanged = () => { sendHeartbeat(); };
+    window.addEventListener('qrhub:push-state-changed', onPushStateChanged);
+
     // Also refresh on visibilitychange (user returns to the app) — cheap
     // and helps mark long-idle devices as still active on their next open.
     const onVis = () => {
@@ -125,6 +137,7 @@ export const usePWAHeartbeat = (vendorId) => {
     return () => {
       window.removeEventListener('appinstalled', onInstalled);
       document.removeEventListener('visibilitychange', onVis);
+      window.removeEventListener('qrhub:push-state-changed', onPushStateChanged);
       if (permStatus) permStatus.onchange = null;
     };
   }, [vendorId]);

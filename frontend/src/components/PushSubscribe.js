@@ -18,7 +18,6 @@ import { useEffect, useRef, useState } from 'react';
 import { Bell, BellRing, Loader2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import axios from 'axios';
-import { tryNativeInstall } from './AddToHomeDialog';
 
 const API = process.env.REACT_APP_BACKEND_URL + '/api';
 const SW_URL = '/qrhub-sw.js';
@@ -59,7 +58,7 @@ function isIOS() {
   return /iPad|iPhone|iPod/.test(ua) && !window.MSStream;
 }
 
-export const PushSubscribe = ({ vendorId, brandColor = '#F96815', vendorName, variant = 'cta', autoPromptOnStandalone = false }) => {
+export const PushSubscribe = ({ vendorId, brandColor = '#F96815', vendorName, variant = 'cta', autoPromptOnStandalone = false, onRequestInstall }) => {
   const [loading, setLoading] = useState(false);
   const [subscribed, setSubscribed] = useState(false);
   const [scopePromptOpen, setScopePromptOpen] = useState(false);
@@ -342,22 +341,19 @@ export const PushSubscribe = ({ vendorId, brandColor = '#F96815', vendorName, va
   // notifications off.
   if (subscribed) return null;
 
-  // iOS Safari without Home Screen install → tap ora apre DIRETTAMENTE la
-  // native Share Sheet iOS (dove "Aggiungi a Home" è la prima opzione),
-  // saltando il vecchio HelpDialog che l'utente ignorava. Se navigator.share
-  // non è disponibile (iOS < 12.2 o Chrome/Firefox iOS), fallback al modal
-  // informativo. Il pulsante ora pulsa come il "+" per invitare al tap.
+  // iOS Safari without Home Screen install → tap ora apre lo STESSO
+  // AddToHomeDialog del pulsante "+" per coerenza UX. Il vecchio
+  // navigator.share era fuorviante (Share Sheet iOS mostra contatti/
+  // AirDrop prima di "Aggiungi a Home"). Il modal centrale con freccia
+  // animata è il pattern più chiaro. Fallback HelpDialog solo se il
+  // parent NON ha fornito un onRequestInstall (guard di sicurezza).
   if (iosLocked) {
-    const openNativeShare = async () => {
-      const outcome = await tryNativeInstall({ vendorName });
-      if (outcome === 'needs-modal') {
-        // iOS Chrome/Firefox arrivano qui — non hanno "Add to Home" nel share
-        // sheet, quindi ha senso mostrare le istruzioni step-by-step.
+    const openAddToHome = () => {
+      if (typeof onRequestInstall === 'function') {
+        onRequestInstall();
+      } else {
         setHelpOpen(true);
       }
-      // 'share-sheet' / 'share-cancelled' → utente ha visto la scheda,
-      // non serve alcun modal extra. Se aggiunge alla home la app si
-      // aprirà standalone e il useEffect auto-prompt farà il resto.
     };
     return (
       <>
@@ -365,7 +361,7 @@ export const PushSubscribe = ({ vendorId, brandColor = '#F96815', vendorName, va
           type="button"
           className="qrhub-install-pulse inline-flex items-center justify-center gap-2 w-full rounded-full px-5 py-3 bg-white border-[1.5px] border-gray-200 text-gray-700 text-[13px] font-semibold shadow-sm hover:bg-gray-50 transition-colors"
           data-testid="push-ios-hint"
-          onClick={openNativeShare}
+          onClick={openAddToHome}
         >
           <Bell className="h-4 w-4" />
           Notifiche offerte (aggiungi a Home per attivare)
